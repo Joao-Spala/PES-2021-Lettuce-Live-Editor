@@ -1,0 +1,1886 @@
+{
+  "dropdowns": {
+    "Nationality": "0: 'None'\n1: 'Afghanistan'\n2: 'Bahrain'\n3: 'Bangladesh'\n4: 'Bhutan'\n5: 'Brunei'\n6: 'Cambodia'\n7: 'China'\n8: 'Hong Kong'\n9: 'India'\n10: 'Indonesia'\n11: 'Iran'\n12: 'Iraq'\n13: 'Japan'\n14: 'Jordan'\n15: 'North Korea'\n16: 'South Korea'\n17: 'Kuwait'\n18: 'Laos'\n19: 'Lebanon'\n20: 'Macao'\n21: 'Malaysia'\n22: 'Maldives'\n23: 'Mongolia'\n24: 'Myanmar'\n25: 'Nepal'\n26: 'Oman'\n27: 'Pakistan'\n28: 'Palestine'\n29: 'Philippines'\n30: 'Qatar'\n31: 'Saudi Arabia'\n32: 'Singapore'\n33: 'Sri Lanka'\n34: 'Syria'\n36: 'Thailand'\n37: 'Uae'\n38: 'Vietnam'\n39: 'Yemen'\n40: 'Kyrgyz Republic'\n41: 'Tajikistan'\n42: 'Turkmenistan'\n43: 'East Timor'\n44: 'Algeria'\n45: 'Angola'\n46: 'Benin'\n47: 'Botswana'\n48: 'Burkina Faso'\n49: 'Burundi'\n50: 'Cameroon'\n51: 'Cape Verde'\n52: 'Central African Rep.'\n53: 'Chad'\n54: 'The Comoros'\n55: 'Congo Dr'\n56: 'Côte d'Ivoire'\n57: 'Djibouti'\n58: 'Egypt'\n59: 'Equatorial Guinea'\n60: 'Eritrea'\n61: 'Ethiopia'\n62: 'Gabon'\n63: 'Republic of the Gambia'\n64: 'Ghana'\n65: 'Guinea'\n66: 'Guinea-Bissau'\n67: 'Kenya'\n68: 'Lesotho'\n69: 'Liberia'\n70: 'Libya'\n71: 'Madagascar'\n72: 'Malawi'\n73: 'Mali'\n74: 'Mauritania'\n75: 'Mauritius'\n76: 'Morocco'\n77: 'Mozambique'\n78: 'Namibia'\n79: 'Niger'\n80: 'Nigeria'\n81: 'Rwanda'\n82: 'Sao Tomé and Principe'\n83: 'Senegal'\n84: 'Seychelles'\n85: 'Sierra Leone'\n86: 'Somalia'\n87: 'South Africa'\n88: 'Sudan'\n89: 'Swaziland'\n90: 'Tanzania'\n91: 'Togo'\n92: 'Tunisia'\n93: 'Uganda'\n94: 'Zambia'\n95: 'Zimbabwe'\n98: 'Congo'\n100: 'Réunion'\n103: 'Anguilla'\n104: 'Antiqua and Barbuda'\n105: 'Aruba'\n106: 'The Bahamas'\n107: 'Barbados'\n108: 'Belize'\n109: 'Bermuda'\n110: 'Canada'\n111: 'Cayman Islands'\n112: 'Costa Rica'\n113: 'Cuba'\n114: 'Dominica'\n115: 'Dominican Republic'\n116: 'El Salvador'\n117: 'Grenada'\n118: 'Guadeloupe'\n119: 'Guatemala'\n120: 'Haiti'\n121: 'Honduras'\n122: 'Jamaica'\n123: 'Martinique'\n124: 'Mexico'\n125: 'Montserrat'\n126: 'Netherlands Antilles'\n127: 'Nicaragua'\n128: 'Panama'\n129: 'Puerto Rico'\n130: 'Saint Kitts and Nevis'\n131: 'Saint Lucia'\n132: 'St Vincent and Grenadines'\n133: 'Trinidad and Tobago'\n134: 'Turks and Caicos Is.'\n135: 'United States'\n136: 'British Virgin Islands'\n137: 'U.S. Virgin Islands'\n138: 'French Guiana'\n139: 'Suriname'\n140: 'Curaçao'\n144: 'Argentina'\n145: 'Bolivia'\n146: 'Brazil'\n147: 'Chile'\n148: 'Colombia'\n149: 'Ecuador'\n150: 'Paraguay'\n151: 'Peru'\n152: 'Uruguay'\n153: 'Venezuela'\n159: 'Gyuana'\n161: 'American Samoa'\n162: 'Australia'\n163: 'Cook Islands'\n164: 'Fiji'\n165: 'New Caledonia'\n166: 'New Zealand'\n167: 'Papua New Guinea'\n168: 'Samoa'\n169: 'Solomon Islands'\n170: 'Tahiti'\n171: 'Tonga'\n172: 'Vanuatu'\n176: 'Guam'\n184: 'Palau'\n189: 'Israel'\n190: 'Turkey'\n191: 'Albania'\n192: 'Andorra'\n193: 'Armenia'\n194: 'Austria'\n195: 'Azerbaijan'\n196: 'Belarus'\n197: 'Belgium'\n198: 'Bosnia and Herzegovina'\n199: 'Bulgaria'\n200: 'Croatia'\n201: 'Cyprus'\n202: 'Czech Republic'\n203: 'Denmark'\n204: 'England'\n205: 'Estonia'\n206: 'Faroe Islands'\n207: 'Finland'\n208: 'France'\n209: 'Georgia'\n210: 'Germany'\n211: 'Greece'\n212: 'Hungary'\n213: 'Iceland'\n214: 'Ireland'\n215: 'Italy'\n216: 'Kazakhstan'\n217: 'Latvia'\n218: 'Liechtenstein'\n219: 'Lithuania'\n220: 'Luxembourg'\n221: 'Macedonia'\n222: 'Malta'\n223: 'Moldova'\n224: 'Netherlands'\n225: 'Northern Ireland'\n226: 'Norway'\n227: 'Poland'\n228: 'Portugal'\n229: 'Romania'\n230: 'Russia'\n231: 'San Marino'\n232: 'Scotland'\n234: 'Slovakia'\n235: 'Slovenia'\n236: 'Spain'\n237: 'Sweden'\n238: 'Switzerland'\n239: 'Ukraine'\n240: 'Uzbekistan'\n241: 'Wales'\n245: 'Gibraltar'\n250: 'Monaco'\n260: 'Others'\n298: 'Taiwan'\n303: 'Serbia'\n304: 'Montenegro'\n310: 'Sint Maarten'\n311: 'Kosovo'\n312: 'South Sudan'",
+    "Stronger Foot": "0:Right\n1:Left",
+    "Registred Position": "0:GK\n1:CB\n2:LB\n3:RB\n4:DMF\n5:CMF\n6:LMF\n7:RMF\n8:AMF\n9:LWF\n10:RWF\n11:SS\n12:CF",
+    "CF - Center Forward": "0:C\n1:B\n2:A",
+    "SS - Second Striker": "0:C\n1:B\n2:A",
+    "LWF - Left Wing Forward": "0:C\n1:B\n2:A",
+    "RWF - Right Wing Forward": "0:C\n1:B\n2:A",
+    "AMF - Attacking Midfielder": "0:C\n1:B\n2:A",
+    "LMF - Left Midfielder": "0:C\n1:B\n2:A",
+    "RMF - Right Midfielder": "0:C\n1:B\n2:A",
+    "CMF - Center Midfielder": "0:C\n1:B\n2:A",
+    "DMF - Defensive Midfielder": "0:C\n1:B\n2:A",
+    "LB - Left Back": "0:C\n1:B\n2:A",
+    "RB - Right Back": "0:C\n1:B\n2:A",
+    "CB - Center Back": "0:C\n1:B\n2:A",
+    "GK - Goalkeeper": "0:C\n1:B\n2:A",
+    "Weak Foot Usage": "0: 1\n1: 2\n2: 3\n3: 4",
+    "Weak Foot Accuracy": "0: 1\n1: 2\n2: 3\n3: 4",
+    "Form": "0: 1\n1: 2\n2: 3\n3: 4\n4: 5\n5: 6\n6: 7\n7: 8",
+    "Injury Resistance": "0: 1\n1: 2\n2: 3",
+    "Scissors Feint": "0:No\n1:Yes",
+    "Double Touch": "0:No\n1:Yes",
+    "Flip Flap": "0:No\n1:Yes",
+    "Marseille Turn": "0:No\n1:Yes",
+    "Sombrero": "0:No\n1:Yes",
+    "Cross Over Turn": "0:No\n1:Yes",
+    "Cut Behind & Turn": "0:No\n1:Yes",
+    "Scotch Move": "0:No\n1:Yes",
+    "Step On Skill control": "0:No\n1:Yes",
+    "Heading": "0:No\n1:Yes",
+    "Long Range Drive": "0:No\n1:Yes",
+    "Chip shot control": "0:No\n1:Yes",
+    "Long Range Shooting": "0:No\n1:Yes",
+    "Knuckle Shot": "0:No\n1:Yes",
+    "Dipping Shot": "0:No\n1:Yes",
+    "Rising Shots": "0:No\n1:Yes",
+    "Acrobatic Finishing": "0:No\n1:Yes",
+    "Heel Trick": "0:No\n1:Yes",
+    "First-time Shot": "0:No\n1:Yes",
+    "One-touch Pass": "0:No\n1:Yes",
+    "Through Passing": "0:No\n1:Yes",
+    "Weighted Pass": "0:No\n1:Yes",
+    "Pinpoint Crossing": "0:No\n1:Yes",
+    "Outside Curler": "0:No\n1:Yes",
+    "Rabona": "0:No\n1:Yes",
+    "No Look Pass": "0:No\n1:Yes",
+    "Low Lofted Pass": "0:No\n1:Yes",
+    "GK Low Punt": "0:No\n1:Yes",
+    "GK High Punt": "0:No\n1:Yes",
+    "Long Throw": "0:No\n1:Yes",
+    "GK Long Throw": "0:No\n1:Yes",
+    "Penalty Specialist": "0:No\n1:Yes",
+    "GK Penalty Saver": "0:No\n1:Yes",
+    "Gamesmanship": "0:No\n1:Yes",
+    "Man Marking": "0:No\n1:Yes",
+    "Track Back": "0:No\n1:Yes",
+    "Interception": "0:No\n1:Yes",
+    "Acrobatic Clear": "0:No\n1:Yes",
+    "Captaincy": "0:No\n1:Yes",
+    "Super-Sub": "0:No\n1:Yes",
+    "Fighting Spirit": "0:No\n1:Yes",
+    "Playing Style": "0:-\n1:Goal Poacher\n2:Dummy Runner\n3:Fox in the Box\n4:Profilic Winger\n5:Classic No. 10\n6:Hole Player\n7:Box-to-Box\n8:Anchor Man\n9:The Destroyer\n10:Extra Frontman\n11:Offensive Full-back\n12:Defensive Full-back\n13:Target Man\n14:Creative Playmaker\n15:Build Up\n16:Offensive Goalkeeper\n17:Defensive Goalkeeper\n18:Roaming Flank\n19:Cross Specialist\n20:Orchestrator\n21:Full-back Finisher",
+    "Trickster": "0:No\n1:Yes",
+    "Mazing Run": "0:No\n1:Yes",
+    "Speeding Bullet": "0:No\n1:Yes",
+    "Incisive Run": "0:No\n1:Yes",
+    "Long Ball Expert": "0:No\n1:Yes",
+    "Early Cross": "0:No\n1:Yes",
+    "Long Ranger": "0:No\n1:Yes",
+    "Team Role": "0:-\n1:Youth Prospect\n2:Protégé\n3:Team Player\n4:Playmaker\n5:Star Player\n6:Leader\n7:General\n8:Creator\n9:Maestro\n10:Workhorse\n11:Smart Player\n12:Fighter\n13:Key Player\n14:Superstar\n15:Hero\n16:Virtuoso\n17:Conductor\n18:Bandiera\n19:Legend\n20:Rising Star\n21:Bad Boy\n22:Risk-Taker",
+    "Blinking Form Arrow": "0:No\n1:Yes",
+    "Form Arrow": "0:Terrible Form\n1:Poor Form\n2:Normal Form\n3:Good Form\n4:Top Form",
+    "Max Affection (?)": "0:No\n1:Yes",
+    "Is Transfer Listed": "0:No\n1:Yes",
+    "Is Loan Listed": "0:No\n1:Yes",
+    "Is Listed Player": "0:No\n1:Yes"
+  },
+  "player_entries": [
+    {
+      "desc": "start",
+      "type": "8 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "end (start+17C)",
+      "type": "8 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [
+        "17C"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Player ID",
+      "type": "4 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [
+        "30"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Team (?)",
+      "type": "2 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [
+        "12C"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "League (?)",
+      "type": "2 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [
+        "12E"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Commentary ID",
+      "type": "4 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [
+        "34"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Player Name",
+      "type": "String",
+      "addr": "ptrPlayer",
+      "offs": [
+        "38"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": "15",
+      "unicode": "0",
+      "codepage": "0",
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Name on Strip (National Team)",
+      "type": "String",
+      "addr": "ptrPlayer",
+      "offs": [
+        "B2"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": "15",
+      "unicode": "0",
+      "codepage": "0",
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Name on Strip (Club)",
+      "type": "String",
+      "addr": "ptrPlayer",
+      "offs": [
+        "75"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": "15",
+      "unicode": "0",
+      "codepage": "0",
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Nationality",
+      "type": "2 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [
+        "144"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 221
+    },
+    {
+      "desc": "Weight (kg)",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "1"
+      ],
+      "bitstart": "0",
+      "bitlen": "8",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Height (cm)",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "0"
+      ],
+      "bitstart": "0",
+      "bitlen": "8",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Age",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "1C"
+      ],
+      "bitstart": "0",
+      "bitlen": "6",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Stronger Foot",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "3"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Registred Position",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "7"
+      ],
+      "bitstart": "4",
+      "bitlen": "4",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 13
+    },
+    {
+      "desc": "CF - Center Forward",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "1F"
+      ],
+      "bitstart": "1",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "SS - Second Striker",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "1F"
+      ],
+      "bitstart": "3",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "LWF - Left Wing Forward",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "1f"
+      ],
+      "bitstart": "5",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "RWF - Right Wing Forward",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "20"
+      ],
+      "bitstart": "0",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "AMF - Attacking Midfielder",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "20"
+      ],
+      "bitstart": "2",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "LMF - Left Midfielder",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "21"
+      ],
+      "bitstart": "0",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "RMF - Right Midfielder",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "21"
+      ],
+      "bitstart": "2",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "CMF - Center Midfielder",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "20"
+      ],
+      "bitstart": "6",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "DMF - Defensive Midfielder",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "20"
+      ],
+      "bitstart": "4",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "LB - Left Back",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "21"
+      ],
+      "bitstart": "6",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "RB - Right Back",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "22"
+      ],
+      "bitstart": "0",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "CB - Center Back",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "21"
+      ],
+      "bitstart": "4",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "GK - Goalkeeper",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "22"
+      ],
+      "bitstart": "2",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "Weak Foot Usage",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "23"
+      ],
+      "bitstart": "0",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 4
+    },
+    {
+      "desc": "Weak Foot Accuracy",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "22"
+      ],
+      "bitstart": "4",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 4
+    },
+    {
+      "desc": "Form",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "17"
+      ],
+      "bitstart": "4",
+      "bitlen": "3",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 8
+    },
+    {
+      "desc": "Injury Resistance",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "22"
+      ],
+      "bitstart": "6",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 3
+    },
+    {
+      "desc": "Offensive Awareness",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "3"
+      ],
+      "bitstart": "0",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Ball Control",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "6"
+      ],
+      "bitstart": "5",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Dribbling",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "5"
+      ],
+      "bitstart": "6",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Tight Possession",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "8"
+      ],
+      "bitstart": "0",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Low Pass",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "9"
+      ],
+      "bitstart": "6",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Lofted Pass",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "A"
+      ],
+      "bitstart": "5",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Finishing",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "8"
+      ],
+      "bitstart": "7",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Heading",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "C"
+      ],
+      "bitstart": "0",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Place Kicking",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "e"
+      ],
+      "bitstart": "5",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Curl",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "10"
+      ],
+      "bitstart": "0",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Speed",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "14"
+      ],
+      "bitstart": "7",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Acceleration",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "18"
+      ],
+      "bitstart": "7",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Kicking Power",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "18"
+      ],
+      "bitstart": "0",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Jump",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "19"
+      ],
+      "bitstart": "6",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Physical Contact",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "15"
+      ],
+      "bitstart": "6",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Balance",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "16"
+      ],
+      "bitstart": "5",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Stamina",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "1A"
+      ],
+      "bitstart": "5",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Defensive Awareness",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "4"
+      ],
+      "bitstart": "0",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Ball Winning",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "c"
+      ],
+      "bitstart": "7",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Aggression",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "D"
+      ],
+      "bitstart": "6",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "GK Awareness",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "4"
+      ],
+      "bitstart": "7",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "GK Catching",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "10"
+      ],
+      "bitstart": "7",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "GK Clearing",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "11"
+      ],
+      "bitstart": "6",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "GK Reflexes",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "12"
+      ],
+      "bitstart": "5",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "GK Reach",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "14"
+      ],
+      "bitstart": "0",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Scissors Feint",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "24"
+      ],
+      "bitstart": "3",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Double Touch",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "29"
+      ],
+      "bitstart": "0",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Flip Flap",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "24"
+      ],
+      "bitstart": "4",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Marseille Turn",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "24"
+      ],
+      "bitstart": "5",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Sombrero",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "24"
+      ],
+      "bitstart": "6",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Cross Over Turn",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "29"
+      ],
+      "bitstart": "1",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Cut Behind & Turn",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "24"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Scotch Move",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "25"
+      ],
+      "bitstart": "0",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Step On Skill control",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "28"
+      ],
+      "bitstart": "3",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Heading",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "25"
+      ],
+      "bitstart": "1",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Long Range Drive",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "25"
+      ],
+      "bitstart": "2",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Chip shot control",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "28"
+      ],
+      "bitstart": "2",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Long Range Shooting",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "29"
+      ],
+      "bitstart": "2",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Knuckle Shot",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "25"
+      ],
+      "bitstart": "3",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Dipping Shot",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "28"
+      ],
+      "bitstart": "4",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Rising Shots",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "28"
+      ],
+      "bitstart": "5",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Acrobatic Finishing",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "25"
+      ],
+      "bitstart": "4",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Heel Trick",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "25"
+      ],
+      "bitstart": "5",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "First-time Shot",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "25"
+      ],
+      "bitstart": "6",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "One-touch Pass",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "25"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Through Passing",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "29"
+      ],
+      "bitstart": "3",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Weighted Pass",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "26"
+      ],
+      "bitstart": "0",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Pinpoint Crossing",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "26"
+      ],
+      "bitstart": "1",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Outside Curler",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "26"
+      ],
+      "bitstart": "2",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Rabona",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "26"
+      ],
+      "bitstart": "3",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "No Look Pass",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "27"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Low Lofted Pass",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "26"
+      ],
+      "bitstart": "4",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "GK Low Punt",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "26"
+      ],
+      "bitstart": "5",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "GK High Punt",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "28"
+      ],
+      "bitstart": "6",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Long Throw",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "26"
+      ],
+      "bitstart": "6",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "GK Long Throw",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "26"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Penalty Specialist",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "28"
+      ],
+      "bitstart": "0",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "GK Penalty Saver",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "28"
+      ],
+      "bitstart": "1",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Gamesmanship",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "27"
+      ],
+      "bitstart": "0",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Man Marking",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "27"
+      ],
+      "bitstart": "1",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Track Back",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "27"
+      ],
+      "bitstart": "2",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Interception",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "28"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Acrobatic Clear",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "27"
+      ],
+      "bitstart": "3",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Captaincy",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "27"
+      ],
+      "bitstart": "4",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Super-Sub",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "27"
+      ],
+      "bitstart": "5",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Fighting Spirit",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "27"
+      ],
+      "bitstart": "6",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Playing Style",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "1D"
+      ],
+      "bitstart": "3",
+      "bitlen": "5",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 22
+    },
+    {
+      "desc": "Trickster",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "1B"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Mazing Run",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "1F"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Speeding Bullet",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "23"
+      ],
+      "bitstart": "6",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Incisive Run",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "23"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Long Ball Expert",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "24"
+      ],
+      "bitstart": "0",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Early Cross",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "24"
+      ],
+      "bitstart": "1",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Long Ranger",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "24"
+      ],
+      "bitstart": "2",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Team Role",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "150"
+      ],
+      "bitstart": "0",
+      "bitlen": "5",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 23
+    },
+    {
+      "desc": "Level",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "143"
+      ],
+      "bitstart": "6",
+      "bitlen": "2",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Team Player - Lone Wolf",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "151"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Passion - Composure",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "152"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Technique - Strength",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "153"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Insight - Instinct",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "154"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Impact",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "155"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Salary (Euro)",
+      "type": "4 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [
+        "15C"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Year",
+      "type": "2 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [
+        "138"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Month",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "13A"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Day",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "13B"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Stamina Bar",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "146"
+      ],
+      "bitstart": "0",
+      "bitlen": "7",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Blinking Form Arrow",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "146"
+      ],
+      "bitstart": "7",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Form Arrow",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "147"
+      ],
+      "bitstart": "0",
+      "bitlen": "3",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 5
+    },
+    {
+      "desc": "Period Unavailable (days)",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "148"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Affection",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "13E"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "Max Affection (?)",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "13F"
+      ],
+      "bitstart": "0",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Is Transfer Listed",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "14A"
+      ],
+      "bitstart": "1",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Is Loan Listed",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "14A"
+      ],
+      "bitstart": "2",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Is Listed Player",
+      "type": "Binary",
+      "addr": "ptrPlayer",
+      "offs": [
+        "13F"
+      ],
+      "bitstart": "1",
+      "bitlen": "1",
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 2
+    },
+    {
+      "desc": "Market Value (Euro)",
+      "type": "4 Bytes",
+      "addr": "ptrPlayer",
+      "offs": [
+        "174"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "?",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "179"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    },
+    {
+      "desc": "?",
+      "type": "Byte",
+      "addr": "ptrPlayer",
+      "offs": [
+        "178"
+      ],
+      "bitstart": null,
+      "bitlen": null,
+      "len": null,
+      "unicode": null,
+      "codepage": null,
+      "dropdown_lines": 0
+    }
+  ]
+}

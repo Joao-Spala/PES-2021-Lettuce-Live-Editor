@@ -1,0 +1,16 @@
+# Ambiente Python local e caches
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Ferramentas locais de engenharia reversa / MCP (não fazem parte da release pública)
+tools/
+.env.local
+
+# Arquivos temporários do sistema / IDE
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+*.log

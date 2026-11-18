@@ -1,0 +1,6 @@
+# Garantir que arquivos de texto e a Cheat Table (.CT XML) sejam versionados como texto UTF-8 limpo (sem LFS)
+*.lua text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.CT text eol=lf -lfs
