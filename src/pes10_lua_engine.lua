@@ -1,35 +1,81 @@
 -- ============================================================================
--- PES 2021 - v10.0 PRO OVERHAUL (BMPES 16.0 READY) — CORE LUA & STUDIO GUI
--- Validado ao vivo em PES2021.exe v1.7.2.0 + BMPES 16.0 Sider 7.3.3
+-- PES 2021 — v10.1 PRO STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
+-- Bilingual Core Engine (PT-BR & EN) + Konami Exact OVR DNA Solver + Canvas GUI
+-- Validated live on PES2021.exe v1.7.2.0 + Sider 7.3.3
 -- ============================================================================
 
 PES10 = PES10 or {}
-PES10.VERSION = "10.0 Pro Studio (BMPES 16.0 Ready)"
+PES10.VERSION = "10.1 Pro Studio"
 PES10.PROCESS_NAME = "PES2021.exe"
+PES10.lang = "__DEFAULT_LANG__"
+if PES10.lang ~= "en" and PES10.lang ~= "pt" then
+  PES10.lang = "pt"
+end
+
 PES10.attachedPid = 0
+PES10.autoArmedPid = 0
+PES10.autoArmHooks = true
 PES10.stateBase = 0
 PES10.addrCareerOwner = 0
 PES10.addrMatchMgr = 0
 PES10.dashboardForm = nil
-PES10.lastToastMsg = "Pronto — Selecione qualquer ação rápida ou edite direto na tabela."
+PES10.dashboardState = nil
 
--- Moedas suportadas (Inicia em 0 = Euro € por padrão!)
+function PES10.T(ptStr, enStr)
+  if PES10.lang == "en" then return enStr end
+  return ptStr
+end
+
+PES10.lastToastMsg = PES10.T(
+  "✓ Pronto — Passe o mouse e clique em qualquer ação rápida.",
+  "✓ Ready — Hover and click any quick action card."
+)
+
+-- Supported currencies (Defaults to 0 = Euro €!)
 PES10.CURRENCIES = {
   [0] = { symbol = "€",  code = "EUR", sep = ".", dec = "," },
   [1] = { symbol = "R$", code = "BRL", sep = ".", dec = "," },
   [2] = { symbol = "$",  code = "USD", sep = ",", dec = "." },
   [3] = { symbol = "£",  code = "GBP", sep = ",", dec = "." },
 }
-PES10.currencyIndex = 0 -- Padrão inicial: Euro (€)
+PES10.currencyIndex = 0 -- Default: Euro (€)
 
--- Dicionários estáticos de fallback BMPES 16.0 (além do leitor direto da RAM em +0xADF4BC!)
+-- Position short codes (PT-BR & EN)
+PES10.POS_SHORT_PT = {
+  [0]="GL", [1]="ZAG", [2]="LE", [3]="LD", [4]="VOL", [5]="MLG",
+  [6]="MLE", [7]="MLD", [8]="MAT", [9]="PTE", [10]="PTD", [11]="SA", [12]="CA",
+}
+PES10.POS_SHORT_EN = {
+  [0]="GK", [1]="CB", [2]="LB", [3]="RB", [4]="DMF", [5]="CMF",
+  [6]="LMF", [7]="RMF", [8]="AMF", [9]="LWF", [10]="RWF", [11]="SS", [12]="CF",
+}
+function PES10.posShort(posIdx)
+  local tbl = (PES10.lang == "en") and PES10.POS_SHORT_EN or PES10.POS_SHORT_PT
+  return tbl[posIdx] or "OVR"
+end
+
+function PES10.setLang(langCode)
+  if langCode ~= "pt" and langCode ~= "en" then return end
+  PES10.lang = langCode
+  PES10.toast(PES10.T("Idioma alterado para Português (PT-BR).", "Language switched to English (EN)."))
+  if PES10.dashboardState and PES10.dashboardState.render then
+    PES10.dashboardState.render(true)
+  end
+end
+
+function PES10.toggleLang()
+  PES10.setLang((PES10.lang == "en") and "pt" or "en")
+end
+
+-- Static fallback dictionaries + Native Konami OVR tables
 PES10.BMPES_TEAMS = __BMPES_TEAMS_LUA__
 PES10.BMPES_COMPS = __BMPES_COMPS_LUA__
+PES10.OVR_DATA    = __KONAMI_OVR_LUA__
 
--- Layout do bloco compartilhado pes10State ($1000 bytes próximo ao PES2021.exe)
+-- Shared state block layout ($1000 bytes allocated near PES2021.exe)
 PES10.SYM_OFFSETS = {
   ptrCareer               = 0x000,
-  ptrBudget               = 0x000, -- Alias de compatibilidade
+  ptrBudget               = 0x000,
   ptrPlayer               = 0x008,
   ptrMatchMgr             = 0x010,
   ptrMatchState           = 0x018,
@@ -49,11 +95,12 @@ PES10.SYM_OFFSETS = {
   valComputedReleaseFee   = 0x088,
   valCustomReleaseFee     = 0x08C,
   cfgLockBALFocusPoints   = 0x090,
+  valComputedOVR          = 0x094,
   rfeeOverrideTable       = 0x100, -- 64 slots * 16 bytes (0x100..0x4FF)
 }
 
 -- ============================================================================
--- LEITURA / ESCRITA SEGURA & PROTEÇÃO OFFLINE (ZERO EXCEÇÕES PASCAL/SEH)
+-- SAFE MEMORY R/W & OFFLINE GUARD (ZERO PASCAL/SEH EXCEPTIONS)
 -- ============================================================================
 function PES10.isAttached()
   local pid = getOpenedProcessID()
@@ -123,7 +170,6 @@ function PES10.getBitsInDword(addr, bitStart, bitLen)
   return (cur >> bitStart) & ((1 << bitLen) - 1)
 end
 
--- Normalização sem acentos PT-BR/ES para busca inteligente
 function PES10.normalizeText(s)
   if not s then return "" end
   local map = {
@@ -144,6 +190,10 @@ function PES10.normalizeText(s)
   return out:lower()
 end
 
+function PES10.toast(msg)
+  PES10.lastToastMsg = "✓ " .. tostring(msg)
+end
+
 PES10.HOOK_IDS_BY_NUM = {}
 function PES10.ensureHookActive(hookNum)
   if not PES10.isAttached() then return end
@@ -157,9 +207,11 @@ function PES10.ensureHookActive(hookNum)
   end
 end
 
-function PES10.activateAllHooks()
+function PES10.activateAllHooks(silent)
   if not PES10.isAttached() then
-    PES10.toast("Abra o PES2021.exe primeiro para ativar os hooks!")
+    if not silent then
+      PES10.toast(PES10.T("Abra o PES2021.exe primeiro para ativar os hooks!", "Open PES2021.exe first to activate hooks!"))
+    end
     return 0
   end
   PES10.initProcessState()
@@ -173,16 +225,32 @@ function PES10.activateAllHooks()
       if mr.Active then okCount = okCount + 1 end
     end
   end
-  PES10.toast(string.format("Hooks Mestres ativos: %d / 6 ligados com sucesso!", okCount))
+  if not silent or okCount > 0 then
+    PES10.toast(string.format(
+      PES10.T("Hooks Mestres ativos: %d / 6 ligados automaticamente!", "Master Hooks active: %d / 6 armed ready!"),
+      okCount
+    ))
+  end
   return okCount
 end
 
-function PES10.toast(msg)
-  PES10.lastToastMsg = "✓ " .. tostring(msg)
+function PES10.scheduleAutoArmHooks()
+  if not PES10.autoArmHooks or not PES10.isAttached() then return end
+  local pid = getOpenedProcessID()
+  if not pid or pid == 0 or PES10.autoArmedPid == pid then return end
+  PES10.autoArmedPid = pid
+  local t = createTimer(MainForm, true)
+  t.Interval = 900
+  t.OnTimer = function(tmr)
+    tmr.destroy()
+    if PES10.isAttached() and getOpenedProcessID() == pid then
+      PES10.activateAllHooks(true)
+    end
+  end
 end
 
 -- ============================================================================
--- FORMATAÇÃO MONETÁRIA HUMANA (€ 125.500.000) & PARSER (50M, 500k, 1.5B)
+-- HUMAN MONEY FORMATTER (€ 125.500.000) & PARSER (50M, 500k, 1.5B)
 -- ============================================================================
 function PES10.getCurrentCurrency()
   local cAddr = PES10.symAddr("cfgCurrency")
@@ -202,7 +270,10 @@ function PES10.setCurrency(idx)
   if cAddr ~= 0 then
     writeInteger(cAddr, idx)
   end
-  PES10.toast("Moeda alterada para " .. PES10.CURRENCIES[idx].symbol .. " (" .. PES10.CURRENCIES[idx].code .. ")")
+  PES10.toast(string.format(
+    PES10.T("Moeda alterada para %s (%s)", "Currency changed to %s (%s)"),
+    PES10.CURRENCIES[idx].symbol, PES10.CURRENCIES[idx].code
+  ))
 end
 
 function PES10.formatThousands(n, sep)
@@ -254,19 +325,18 @@ function PES10.parseHumanMoneyToRaw(inputStr)
 end
 
 -- ============================================================================
--- DECODIFICADOR AO VIVO DE CLUBES/SELEÇÕES DIRETO DA RAM (+0xADF4BC, STRIDE 0x690)
+-- LIVE CLUB / NATIONAL TEAM RAM DECODER (+0xADF4BC, STRIDE 0x690)
 -- ============================================================================
 function PES10.decodeClubHandle(rawU32)
   local v = tonumber(rawU32)
-  if not v then return 0, 0, "Desconhecido" end
+  if not v then return 0, 0, PES10.T("Desconhecido", "Unknown") end
   if v < 0 then v = v + 0x100000000 end
   if v == 0xFFFFFFFF or v == 0 then
-    return 0, 0, "Sem Clube / Livre"
+    return 0, 0, PES10.T("Sem Clube / Livre", "Free Agent")
   end
   local slot = v % 16384
   local teamId = math.floor(v / 16384)
 
-  -- Lê o nome UTF-8 real e a sigla de 3 letras direto da tabela de clubes da carreira!
   local career = PES10.readU64(PES10.symAddr("ptrCareer"))
   if career ~= 0 and slot < 1200 then
     local clubEntry = career + 0xADF4BC + (slot * 0x690)
@@ -287,26 +357,23 @@ function PES10.decodeClubHandle(rawU32)
   if fallback then
     return teamId, slot, string.format("%s (ID %d)", fallback, teamId)
   end
-  return teamId, slot, string.format("Time ID #%d (Slot %d)", teamId, slot)
+  return teamId, slot, string.format(PES10.T("Time ID #%d (Slot %d)", "Team ID #%d (Slot %d)"), teamId, slot)
 end
 
--- Detecta se a carreira aberta é BAL ou Master League + Nome do Clube do Usuário!
 function PES10.getCareerModeAndClubInfo()
   local career = PES10.readU64(PES10.symAddr("ptrCareer"))
   if career == 0 then
-    return "Menu / Exibição", "", 0
+    return PES10.T("Menu / Exibição", "Menu / Exhibition"), "", 0
   end
   local balHandle = PES10.readU64(career + 0x01819540)
   local isBAL = (math.floor(balHandle / 0x100000000) ~= 0)
   if isBAL then
-    return "Rumo ao Estrelato (BAL)", "", career
+    return PES10.T("Rumo ao Estrelato (BAL)", "Become a Legend (BAL)"), "", career
   end
-  -- Na Master League, obtém o clube do usuário a partir do 1º atleta da folha (+0x16EE854)
   local clubName = ""
   local h0 = PES10.readU64(career + 0x016EE854)
   if math.floor(h0 / 0x100000000) ~= 0 then
     local lowSlot = h0 % 0x100000000
-    -- Verifica índice rápido ou busca na lista
     local count = PES10.readU32(career + 0x00D0BCE8)
     if count > 30001 then count = 30000 end
     if lowSlot < count then
@@ -331,7 +398,7 @@ function PES10.getCareerModeAndClubInfo()
 end
 
 -- ============================================================================
--- INICIALIZAÇÃO DO BLOCO pes10State & SINGLETONS RIP-RELATIVE
+-- pes10State INITIALIZATION & RIP-RELATIVE SINGLETON DISCOVERY
 -- ============================================================================
 function PES10.scanUniqueModuleAOB(aobStr)
   local base = getAddressSafe(PES10.PROCESS_NAME)
@@ -412,11 +479,12 @@ function PES10.initProcessState()
 
   PES10.attachedPid = pid
   PES10.syncAllDynamicPointers()
+  PES10.scheduleAutoArmHooks()
   return true
 end
 
 -- ============================================================================
--- SINCRONIZAÇÃO DINÂMICA EM TEMPO REAL (PONTEIROS & FÓRMULA DE MULTA KONAMI)
+-- REAL-TIME DYNAMIC POINTER SYNC & KONAMI RELEASE FEE FORMULA
 -- ============================================================================
 function PES10.findRecordByHandle64(tableBase, count, stride, targetHandle)
   if tableBase == 0 or targetHandle == 0 then return 0 end
@@ -450,7 +518,7 @@ function PES10.estimateReleaseFeeRaw(career, playerAddr, pHandle)
   local mkt = PES10.readI32(playerAddr + 0x174)
   if mkt <= 0 then return 0 end
 
-  -- Fórmula fiel decompilada de fcn.14156BE00 + fcn.14156BF80!
+  -- Decompiled from Konami fcn.14156BE00 + fcn.14156BF80
   local age = PES10.readU8(playerAddr + 0x1C) & 0x3F
   local affection = PES10.getBitsInDword(playerAddr + 0x13C, 18, 7)
   local f12 = (affection * 0.7) - 50.0
@@ -523,20 +591,506 @@ function PES10.syncAllDynamicPointers()
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerReleaseSlot, rfeeSlot)
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerGrowthDesc, growthAddr)
     writeInteger(sb + PES10.SYM_OFFSETS.valComputedReleaseFee, PES10.estimateReleaseFeeRaw(career, pAddr, pHandle))
+    writeInteger(sb + PES10.SYM_OFFSETS.valComputedOVR, PES10.calcPlayerOVR(pAddr))
   else
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerTraining, 0)
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerSquadBonus, 0)
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerReleaseSlot, 0)
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerGrowthDesc, 0)
+    writeInteger(sb + PES10.SYM_OFFSETS.valComputedOVR, 0)
   end
 end
 
 -- ============================================================================
--- CONTROLE REAL DO RELÓGIO DA PARTIDA (SEM CRASH FNV-1a!)
+-- KONAMI EXACT OVERALL ENGINE (fcn.1414e7a50 + fcn.141e640a0) & DNA SOLVER
 -- ============================================================================
-PES10.PERIOD_NAMES = {
+PES10.FID_LOC = {
+  [14]={0x03,0},  [15]={0x04,0},  [16]={0x04,7},  [17]={0x04,14}, [18]={0x04,21},
+  [19]={0x08,0},  [20]={0x08,7},  [21]={0x08,14}, [22]={0x08,21},
+  [23]={0x0C,0},  [24]={0x0C,7},  [25]={0x0C,14}, [26]={0x0C,21},
+  [27]={0x10,0},  [28]={0x10,7},  [29]={0x10,14}, [30]={0x10,21},
+  [31]={0x14,0},  [33]={0x14,7},  [34]={0x14,14}, [35]={0x14,21},
+  [36]={0x18,0},  [37]={0x18,7},  [38]={0x18,14}, [39]={0x18,21},
+}
+PES10.OUTFIELD_FIDS = {14,15,17,18,19,20,21,22,23,24,25,26,27,33,34,35,36,37,38,39}
+PES10.GK_FIDS       = {16,28,29,30,31}
+PES10.POS_REMAP     = {[0]=12,[1]=9,[2]=10,[3]=11,[4]=5,[5]=6,[6]=7,[7]=8,[8]=4,[9]=2,[10]=3,[11]=1,[12]=0}
+PES10.POS_APT_LOC   = {
+  [0]={0x22,2}, [1]={0x21,4}, [2]={0x21,6}, [3]={0x22,0}, [4]={0x20,4}, [5]={0x20,6},
+  [6]={0x21,0}, [7]={0x21,2}, [8]={0x20,2}, [9]={0x1F,5}, [10]={0x20,0}, [11]={0x1F,3}, [12]={0x1F,1},
+}
+
+PES10.STAT_LABELS = {
+  [14] = {"Talento Ofensivo",    "Offensive Awareness"},
+  [15] = {"Talento Defensivo",   "Defensive Awareness"},
+  [16] = {"Talento de Goleiro",  "GK Awareness"},
+  [17] = {"Drible",              "Dribbling"},
+  [18] = {"Bola Parada",         "Place Kicking"},
+  [19] = {"Finalização",         "Finishing"},
+  [20] = {"Passe Rasteiro",      "Low Pass"},
+  [21] = {"Passe Alto",          "Lofted Pass"},
+  [22] = {"Cabeceio",            "Heading"},
+  [23] = {"Curva",               "Curl"},
+  [24] = {"Resistência",         "Stamina"},
+  [25] = {"Velocidade",          "Speed"},
+  [26] = {"Força do Chute",      "Kicking Power"},
+  [27] = {"Impulsão",            "Jump"},
+  [28] = {"Alcance GK",          "GK Reach"},
+  [29] = {"Afastar GK",          "GK Clearing"},
+  [30] = {"Reflexos GK",         "GK Reflexes"},
+  [31] = {"Firmeza GK",          "GK Catching"},
+  [33] = {"Controle de Bola",    "Ball Control"},
+  [34] = {"Contato Físico",      "Physical Contact"},
+  [35] = {"Equilíbrio",          "Balance"},
+  [36] = {"Aceleração",          "Acceleration"},
+  [37] = {"Desarme",             "Ball Winning"},
+  [38] = {"Condução Firme",      "Tight Possession"},
+  [39] = {"Agressividade",       "Aggression"},
+}
+
+local function bufU32(b, off)
+  return (b[off + 1] or 0)
+       | ((b[off + 2] or 0) << 8)
+       | ((b[off + 3] or 0) << 16)
+       | ((b[off + 4] or 0) << 24)
+end
+
+local function bufSetU32(b, off, v)
+  b[off + 1] = v & 0xFF
+  b[off + 2] = (v >> 8) & 0xFF
+  b[off + 3] = (v >> 16) & 0xFF
+  b[off + 4] = (v >> 24) & 0xFF
+end
+
+local function bufGetStat(b, fid)
+  local loc = PES10.FID_LOC[fid]
+  if not loc then return 40 end
+  if loc[1] == 0x03 then return (b[4] or 0) & 0x7F end
+  return (bufU32(b, loc[1]) >> loc[2]) & 0x7F
+end
+
+local function bufSetStat(b, fid, val)
+  local loc = PES10.FID_LOC[fid]
+  if not loc then return end
+  local v = math.max(40, math.min(99, math.floor(val + 0.5)))
+  if loc[1] == 0x03 then
+    b[4] = ((b[4] or 0) & 0x80) | (v & 0x7F)
+  else
+    local cur = bufU32(b, loc[1])
+    local mask = 0x7F << loc[2]
+    bufSetU32(b, loc[1], (cur & (~mask)) | ((v & 0x7F) << loc[2]))
+  end
+end
+
+local function copyByteBuf(src)
+  local out = {}
+  for i = 1, #src do out[i] = src[i] end
+  return out
+end
+
+local function bufGetPosAptitude(b, posIdx)
+  local loc = PES10.POS_APT_LOC[posIdx]
+  if not loc then return 0 end
+  return ((b[loc[1] + 1] or 0) >> loc[2]) & 3
+end
+
+-- Exact decompiled Konami OVR (fcn.141e640a0):
+-- When evalPos == nil or evalPos == realRegPos: Registered-Position OVR (base_reg + curve_100 blend).
+-- When evalPos ~= realRegPos and assumeAptA == false: Exact Game Plan Pitch OVR using player's C/B/A aptitude!
+-- When evalPos ~= realRegPos and assumeAptA == true: Potential Game Plan OVR if trained to Grade 'A'.
+function PES10.calcPlayerOVRFromBuf(b, evalPos, assumeAptA)
+  local T = PES10.OVR_DATA
+  if not b or not T then return 40, 0 end
+  local realRegPos = (bufU32(b, 0x04) >> 28) & 0x0F
+  local targetPos  = (evalPos ~= nil) and evalPos or realRegPos
+  local regCode    = PES10.POS_REMAP[realRegPos] or 0
+  local targetCode = PES10.POS_REMAP[targetPos] or 0
+
+  local arr = {}
+  for i = 0, 43 do arr[i] = -1 end
+  arr[0] = regCode
+
+  for _, pair in ipairs(T.field_to_slot) do
+    local fid, slot = pair[1], pair[2]
+    if slot < 41 then
+      if PES10.FID_LOC[fid] then
+        arr[slot] = bufGetStat(b, fid)
+      elseif fid == 32 then
+        arr[slot] = (bufU32(b, 0x20) >> 20) & 3
+      end
+    end
+  end
+
+  local col = 1
+  for ci, pc in ipairs(T.pos_order) do
+    if pc == targetCode then col = ci; break end
+  end
+
+  local acc = 0
+  for r, sidx in ipairs(T.stat_indices_23) do
+    local v
+    if sidx == 0x21 then
+      local avgGK1 = (arr[33] + arr[37]) >> 1
+      v = (avgGK1 < 25) and 1 or (avgGK1 - 25)
+    elseif sidx == 0x22 then
+      local avgGK2 = math.floor((arr[38] + arr[40] + arr[39]) / 3)
+      v = (avgGK2 < 25) and 1 or (avgGK2 - 25)
+    else
+      v = arr[sidx]
+      if sidx ~= 0x24 then
+        v = (v < 25) and 1 or (v - 25)
+      end
+    end
+    acc = acc + (T.weights_23x13[r][col] * v)
+  end
+
+  local u1 = math.floor((acc + 50) / 100)
+  if targetCode == regCode then
+    u1 = u1 + T.base_reg[col]
+    if targetCode ~= 12 then
+      local s6 = 0
+      for _, sidx in ipairs(T.avg_indices_22) do
+        if sidx == 0x21 then
+          s6 = s6 + ((arr[37] + arr[33]) >> 1)
+        elseif sidx == 0x22 then
+          s6 = s6 + math.floor((arr[38] + arr[40] + arr[39]) / 3)
+        else
+          s6 = s6 + arr[sidx]
+        end
+      end
+      local u3 = math.floor((s6 * 100) / 22) + 50
+      local cval = (u3 < 10000) and (T.curve_100[math.floor(u3 / 100) + 1] or 70) or 70
+      u1 = math.floor((cval * 40 + 50 + u1 * 60) / 100)
+    end
+  else
+    local apt = assumeAptA and 2 or bufGetPosAptitude(b, targetPos)
+    if apt >= 2 then
+      u1 = u1 + T.base_apt_a[col]
+    elseif apt == 1 then
+      u1 = u1 + T.base_apt_b[col]
+    end
+  end
+
+  return math.max(40, math.min(109, u1)), realRegPos
+end
+
+function PES10.calcPlayerOVR(playerAddr)
+  if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return 0, 0 end
+  local b = readBytes(playerAddr, 0x28, true)
+  if not b or #b < 0x28 then return 0, 0 end
+  return PES10.calcPlayerOVRFromBuf(b)
+end
+
+function PES10.getPlayerBestPositions(playerAddr)
+  if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then
+    return 0, 0, {}, {}
+  end
+  local b = readBytes(playerAddr, 0x28, true)
+  if not b or #b < 0x28 then return 0, 0, {}, {} end
+
+  local curOVR, regPos = PES10.calcPlayerOVRFromBuf(b)
+  local posRanking = {}
+  local aptNames = { [0]="C", [1]="B", [2]="A", [3]="A" }
+  for pIdx = 0, 12 do
+    local liveOvr = PES10.calcPlayerOVRFromBuf(b, pIdx, false)
+    local potAOvr = PES10.calcPlayerOVRFromBuf(b, pIdx, true)
+    local apt = (pIdx == regPos) and 2 or bufGetPosAptitude(b, pIdx)
+    posRanking[#posRanking + 1] = {
+      pos = pIdx,
+      ovr = liveOvr,
+      potA = potAOvr,
+      apt = aptNames[apt] or "C",
+      isReg = (pIdx == regPos),
+    }
+  end
+  table.sort(posRanking, function(a, bItem)
+    if a.ovr ~= bItem.ovr then return a.ovr > bItem.ovr end
+    if a.isReg ~= bItem.isReg then return a.isReg end
+    if a.potA ~= bItem.potA then return a.potA > bItem.potA end
+    return a.pos > bItem.pos
+  end)
+
+  local topStats = {}
+  local langIdx = (PES10.lang == "en") and 2 or 1
+  for fid, lbls in pairs(PES10.STAT_LABELS) do
+    topStats[#topStats + 1] = { fid = fid, val = bufGetStat(b, fid), name = lbls[langIdx] }
+  end
+  table.sort(topStats, function(a, bItem)
+    if a.val ~= bItem.val then return a.val > bItem.val end
+    return a.fid < bItem.fid
+  end)
+
+  return curOVR, regPos, posRanking, topStats
+end
+
+function PES10.showPlayerDNAReport()
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return false end
+  local pName = readString(p + 0x38, 46, false) or PES10.T("Atleta", "Player")
+  local age = PES10.readU8(p + 0x1C) & 0x3F
+  local curOVR, regPos, posRanking, topStats = PES10.getPlayerBestPositions(p)
+  if #posRanking == 0 then return false end
+
+  local lines = {}
+  lines[#lines + 1] = string.format(
+    PES10.T("★ RAIO-X DE POSIÇÕES & DNA — %s (%d anos)", "★ 13-POSITION & DNA X-RAY — %s (Age %d)"),
+    pName, age
+  )
+  lines[#lines + 1] = string.format(
+    PES10.T("Posição de Origem: %s  |  Overall Atual: %d", "Registered Position: %s  |  Current Overall: %d"),
+    PES10.posShort(regPos), curOVR
+  )
+  if posRanking[1].ovr > curOVR then
+    lines[#lines + 1] = string.format(
+      PES10.T("💡 DICA TÁTICA: Este atleta rende %d OVR (+%d) como %s!", "💡 TACTICAL INSIGHT: This player rates %d OVR (+%d) as %s!"),
+      posRanking[1].ovr, posRanking[1].ovr - curOVR, PES10.posShort(posRanking[1].pos)
+    )
+  end
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = PES10.T("── TOP 5 ATRIBUTOS ASSINATURA (DNA) ──", "── TOP 5 SIGNATURE ATTRIBUTES (DNA) ──")
+  for i = 1, math.min(5, #topStats) do
+    lines[#lines + 1] = string.format("  %d. %s: %d", i, topStats[i].name, topStats[i].val)
+  end
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = PES10.T("── PLANO DE JOGO (13 POSIÇÕES c/ APTIDÃO REAL) ──", "── GAME PLAN RATING (ALL 13 POSITIONS w/ REAL APTITUDE) ──")
+  local rowParts = {}
+  for idx, item in ipairs(posRanking) do
+    local mark = item.isReg and "*" or ("[" .. item.apt .. "]")
+    local extra = (item.potA > item.ovr) and string.format(" (A:%d)", item.potA) or ""
+    rowParts[#rowParts + 1] = string.format("%s%s: %d%s", PES10.posShort(item.pos), mark, item.ovr, extra)
+    if #rowParts == 3 or idx == #posRanking then
+      lines[#lines + 1] = "  " .. table.concat(rowParts, "   |   ")
+      rowParts = {}
+    end
+  end
+
+  PES10.toast(string.format(
+    PES10.T("Raio-X aberto: %s (Melhor Pos: %s %d OVR)", "X-Ray opened: %s (Best Pos: %s %d OVR)"),
+    pName, PES10.posShort(posRanking[1].pos), posRanking[1].ovr
+  ))
+  showMessage(table.concat(lines, "\n"))
+  return true
+end
+
+-- Proportional DNA-Preserving Overall Solver (Hamilton Largest-Remainder + Core DNA Refinement)
+function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR)
+  if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return false, 0, 0 end
+  local origBuf = readBytes(playerAddr, 0x28, true)
+  if not origBuf or #origBuf < 0x28 then return false, 0, 0 end
+
+  targetOVR = math.max(40, math.min(99, math.floor(targetOVR + 0.5)))
+  local curOVR, regPos = PES10.calcPlayerOVRFromBuf(origBuf)
+  if curOVR == targetOVR then return true, curOVR, curOVR end
+
+  local activeFids = {}
+  if regPos == 0 then
+    for _, f in ipairs(PES10.GK_FIDS) do activeFids[#activeFids + 1] = f end
+    for _, f in ipairs(PES10.OUTFIELD_FIDS) do
+      if bufGetStat(origBuf, f) > 43 then activeFids[#activeFids + 1] = f end
+    end
+  else
+    for _, f in ipairs(PES10.OUTFIELD_FIDS) do activeFids[#activeFids + 1] = f end
+  end
+
+  local baseStats, weights = {}, {}
+  local totalW = 0
+  for _, fid in ipairs(activeFids) do
+    local sv = bufGetStat(origBuf, fid)
+    baseStats[fid] = sv
+    local w = math.max(4, sv - 30)
+    weights[fid] = w
+    totalW = totalW + w
+  end
+
+  local dir = (targetOVR > curOVR) and 1 or -1
+  local history = { copyByteBuf(origBuf) }
+  local bestBuf, bestOVR = copyByteBuf(origBuf), curOVR
+
+  for k = 1, #activeFids * 60 do
+    local cand = copyByteBuf(origBuf)
+    local floors, rems = {}, {}
+    local sumFl = 0
+    for _, fid in ipairs(activeFids) do
+      local q = (k * weights[fid]) / totalW
+      local fl = math.floor(q)
+      floors[fid] = fl
+      sumFl = sumFl + fl
+      rems[#rems + 1] = { rem = q - fl, w = weights[fid], fid = fid }
+    end
+    table.sort(rems, function(a, bItem)
+      if a.rem ~= bItem.rem then return a.rem > bItem.rem end
+      return a.w > bItem.w
+    end)
+    local remNeed = k - sumFl
+    for idx = 1, math.min(remNeed, #rems) do
+      local f = rems[idx].fid
+      floors[f] = floors[f] + 1
+    end
+    for _, fid in ipairs(activeFids) do
+      bufSetStat(cand, fid, baseStats[fid] + dir * floors[fid])
+    end
+
+    local newOVR = PES10.calcPlayerOVRFromBuf(cand)
+    bestBuf, bestOVR = cand, newOVR
+    if newOVR == targetOVR then
+      writeBytes(playerAddr, cand)
+      PES10.syncAllDynamicPointers()
+      return true, curOVR, newOVR
+    end
+
+    if (dir == 1 and newOVR > targetOVR) or (dir == -1 and newOVR < targetOVR) then
+      for idx = #rems, 1, -1 do
+        local tf = rems[idx].fid
+        if bufGetStat(cand, tf) ~= baseStats[tf] then
+          local alt = copyByteBuf(cand)
+          bufSetStat(alt, tf, bufGetStat(alt, tf) - dir)
+          if PES10.calcPlayerOVRFromBuf(alt) == targetOVR then
+            writeBytes(playerAddr, alt)
+            PES10.syncAllDynamicPointers()
+            return true, curOVR, targetOVR
+          end
+        end
+      end
+
+      local T = PES10.OVR_DATA
+      local posCode = PES10.POS_REMAP[regPos] or 0
+      local col = 1
+      for ci, pc in ipairs(T.pos_order) do if pc == posCode then col = ci; break end end
+      local slotByFid = {}
+      for _, p in ipairs(T.field_to_slot) do slotByFid[p[1]] = p[2] end
+      local dnaList = {}
+      for _, fid in ipairs(activeFids) do
+        local sl = slotByFid[fid] or 0
+        local pw = 8
+        for ri, sx in ipairs(T.stat_indices_23) do
+          if sx == sl then pw = T.weights_23x13[ri][col]; break end
+        end
+        dnaList[#dnaList + 1] = { score = pw * weights[fid], fid = fid }
+      end
+      table.sort(dnaList, function(a, bItem) return a.score > bItem.score end)
+
+      for hi = #history, math.max(1, #history - 9), -1 do
+        local trial = copyByteBuf(history[hi])
+        for _, item in ipairs(dnaList) do
+          local cv = bufGetStat(trial, item.fid)
+          local nv = math.max(40, math.min(99, cv + dir))
+          if nv ~= cv then
+            bufSetStat(trial, item.fid, nv)
+            local to = PES10.calcPlayerOVRFromBuf(trial)
+            if to == targetOVR then
+              writeBytes(playerAddr, trial)
+              PES10.syncAllDynamicPointers()
+              return true, curOVR, targetOVR
+            elseif (dir == 1 and to > targetOVR) or (dir == -1 and to < targetOVR) then
+              bufSetStat(trial, item.fid, cv)
+            end
+          end
+        end
+      end
+
+      writeBytes(playerAddr, cand)
+      PES10.syncAllDynamicPointers()
+      return true, curOVR, newOVR
+    end
+
+    history[#history + 1] = cand
+  end
+
+  writeBytes(playerAddr, bestBuf)
+  PES10.syncAllDynamicPointers()
+  return true, curOVR, bestOVR
+end
+
+function PES10.stepPlayerOVRProportional(delta)
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return false end
+  local curOVR, regPos = PES10.calcPlayerOVR(p)
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local target = math.max(40, math.min(99, curOVR + delta))
+  if target == curOVR then
+    PES10.toast(string.format(
+      PES10.T("%s já está no limite (%d OVR).", "%s is already at the limit (%d OVR)."),
+      pName, curOVR
+    ))
+    return false
+  end
+  local ok, oldO, newO = PES10.scalePlayerToTargetOVR(p, target)
+  if ok then
+    PES10.toast(string.format(
+      PES10.T("%s: Overall %d → %d (%s — DNA e estilo preservados)!", "%s: Overall %d → %d (%s — DNA & style preserved)!"),
+      pName, oldO, newO, PES10.posShort(regPos)
+    ))
+  end
+  return ok
+end
+
+function PES10.promptTargetOVRProportional()
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return false end
+  local curOVR, regPos = PES10.calcPlayerOVR(p)
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local ans = inputQuery(
+    PES10.T("Definir Overall Proporcional (", "Set Proportional Overall (") .. pName .. ")",
+    string.format(
+      PES10.T(
+        "Overall atual: %d (%s). Digite o novo OVR desejado (40–99) mantendo o DNA/estilo:",
+        "Current Overall: %d (%s). Enter target OVR (40–99) preserving player DNA/style:"
+      ),
+      curOVR, PES10.posShort(regPos)
+    ),
+    tostring(math.min(99, curOVR + 3))
+  )
+  if not ans then return false end
+  local t = tonumber(ans)
+  if not t then
+    PES10.toast(PES10.T("Overall inválido.", "Invalid Overall value."))
+    return false
+  end
+  local ok, oldO, newO = PES10.scalePlayerToTargetOVR(p, t)
+  if ok then
+    PES10.toast(string.format(
+      PES10.T("%s ajustado de %d → %d OVR preservando proporções!", "%s scaled from %d → %d OVR preserving proportions!"),
+      pName, oldO, newO
+    ))
+  end
+  return ok
+end
+
+function PES10.rejuvenateAndSyncMarket(yearsDelta)
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return false end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local oldAge = PES10.readU8(p + 0x1C) & 0x3F
+  local newAge = math.max(16, math.min(45, oldAge + (yearsDelta or -2)))
+  PES10.setBitsInDword(p + 0x1C, 0, 6, newAge)
+
+  local curOVR = PES10.calcPlayerOVR(p)
+  local snapOVR = PES10.readU8(p + 0x179)
+  local mktRaw  = PES10.readI32(p + 0x174)
+  if mktRaw > 0 and snapOVR >= 40 and curOVR ~= snapOVR then
+    local ratio = curOVR / snapOVR
+    mktRaw = math.max(500, math.min(20000000, math.floor(mktRaw * (ratio ^ 2.3) + 0.5)))
+    writeInteger(p + 0x174, mktRaw)
+  end
+  writeBytes(p + 0x178, newAge, curOVR)
+  PES10.syncAllDynamicPointers()
+  PES10.toast(string.format(
+    PES10.T("%s: Idade %d → %d anos | Valor & OVR %d sincronizados!", "%s: Age %d → %d yrs | Market & OVR %d synced!"),
+    pName, oldAge, newAge, curOVR
+  ))
+  return true
+end
+
+-- ============================================================================
+-- LIVE MATCH CLOCK CONTROL (FNV-1a CRASH-FREE!)
+-- ============================================================================
+PES10.PERIOD_NAMES_PT = {
   [0] = "Pré-Jogo", [1] = "1º Tempo", [2] = "Intervalo", [3] = "2º Tempo",
   [4] = "Fim 90'", [5] = "1ª Prorr.", [6] = "Int. Prorr.", [7] = "2ª Prorr.", [8] = "Pênaltis",
+}
+PES10.PERIOD_NAMES_EN = {
+  [0] = "Pre-Match", [1] = "1st Half", [2] = "Half-Time", [3] = "2nd Half",
+  [4] = "End 90'", [5] = "1st ET", [6] = "ET Break", [7] = "2nd ET", [8] = "Penalties",
 }
 PES10.PERIOD_BASE_MIN = { [1] = 0, [3] = 45, [5] = 90, [7] = 105 }
 
@@ -564,12 +1118,14 @@ function PES10.getMatchClockInfo()
     end
   end
 
+  local pTbl = (PES10.lang == "en") and PES10.PERIOD_NAMES_EN or PES10.PERIOD_NAMES_PT
+  local pName = pTbl[period] or ("P" .. tostring(period))
   return {
     matchState = mState, period = period,
-    periodName = PES10.PERIOD_NAMES[period] or ("P" .. tostring(period)),
+    periodName = pName,
     baseMin = baseMin, protTicks = protTicks, offTicks = offTicks, halfTicks = halfTicks,
     mm = mm, ss = ss,
-    formatted = string.format("%02d:%02d (%s)", mm, ss, PES10.PERIOD_NAMES[period] or tostring(period)),
+    formatted = string.format("%02d:%02d (%s)", mm, ss, pName),
   }
 end
 
@@ -577,7 +1133,7 @@ function PES10.setExactMatchMinute(targetMinuteFloat)
   PES10.ensureHookActive(5)
   local info = PES10.getMatchClockInfo()
   if not info then
-    PES10.toast("Nenhuma partida ao vivo em andamento no momento.")
+    PES10.toast(PES10.T("Nenhuma partida ao vivo em andamento.", "No live match currently in progress."))
     return false
   end
 
@@ -599,13 +1155,16 @@ function PES10.setExactMatchMinute(targetMinuteFloat)
   if PES10.readU32(PES10.symAddr("cfgFreezeClock")) == 1 then
     writeFloat(PES10.symAddr("valFrozenTotalTicks"), desiredHalfTicks)
   end
-  PES10.toast(string.format("Relógio ajustado para %02d:%02d!", math.floor(targetMinuteFloat), math.floor((targetMinuteFloat % 1) * 60 + 0.5)))
+  PES10.toast(string.format(
+    PES10.T("Relógio ajustado para %02d:%02d!", "Match clock set to %02d:%02d!"),
+    math.floor(targetMinuteFloat), math.floor((targetMinuteFloat % 1) * 60 + 0.5)
+  ))
   return true
 end
 
 function PES10.shiftMatchMinutes(deltaMinutes)
   local info = PES10.getMatchClockInfo()
-  if not info then PES10.toast("Entre em uma partida primeiro!"); return end
+  if not info then PES10.toast(PES10.T("Entre em uma partida primeiro!", "Start a live match first!")); return end
   local curMin = info.baseMin + (info.halfTicks / 3600.0)
   PES10.setExactMatchMinute(math.max(info.baseMin, curMin + deltaMinutes))
 end
@@ -613,25 +1172,25 @@ end
 function PES10.endCurrentHalfNow()
   PES10.ensureHookActive(5)
   local info = PES10.getMatchClockInfo()
-  if not info then PES10.toast("Entre em uma partida primeiro!"); return end
+  if not info then PES10.toast(PES10.T("Entre em uma partida primeiro!", "Start a live match first!")); return end
   local maxHalfMin = (info.period >= 5) and 15.5 or 46.5
   writeFloat(info.matchState + 0x1174, (maxHalfMin * 3600.0) - info.protTicks)
-  PES10.toast("Fim do tempo atual acionado!")
+  PES10.toast(PES10.T("Fim do tempo atual acionado!", "End of current half triggered!"))
 end
 
 function PES10.resetCurrentHalfNow()
   PES10.ensureHookActive(5)
   local info = PES10.getMatchClockInfo()
-  if not info then PES10.toast("Entre em uma partida primeiro!"); return end
+  if not info then PES10.toast(PES10.T("Entre em uma partida primeiro!", "Start a live match first!")); return end
   writeFloat(info.matchState + 0x1174, 0.0 - info.protTicks)
   if PES10.readU32(PES10.symAddr("cfgFreezeClock")) == 1 then
     writeFloat(PES10.symAddr("valFrozenTotalTicks"), 0.0)
   end
-  PES10.toast("Tempo atual reiniciado para o início!")
+  PES10.toast(PES10.T("Tempo atual reiniciado para o início!", "Current half reset to kick-off!"))
 end
 
 -- ============================================================================
--- OVERRIDE EXATO DE TAXA DE RESCISÃO (64 SLOTS)
+-- EXACT RELEASE FEE OVERRIDE (64 SLOTS)
 -- ============================================================================
 function PES10.setOverrideReleaseFeeForPlayer(playerAddr, rawFeeDiv100)
   if not playerAddr or playerAddr == 0 or PES10.stateBase == 0 then return false end
@@ -677,22 +1236,22 @@ function PES10.clearOverrideReleaseFeeForPlayer(playerAddr)
   end
   writeInteger(PES10.stateBase + PES10.SYM_OFFSETS.valCustomReleaseFee, 0)
   PES10.syncAllDynamicPointers()
-  PES10.toast("Override de Taxa de Rescisão removido para este atleta.")
+  PES10.toast(PES10.T("Override de Taxa de Rescisão removido.", "Custom Release Fee override cleared."))
 end
 
 -- ============================================================================
--- BUSCA GLOBAL DE JOGADORES (30.000 ATLETAS) & SELEÇÃO MEU PRO BAL
+-- GLOBAL CAREER PLAYER SEARCH (30,000 PLAYERS) & BAL MY PLAYER SELECTOR
 -- ============================================================================
 function PES10.pointToBALMyPlayer()
   PES10.syncAllDynamicPointers()
   local career = PES10.readU64(PES10.symAddr("ptrCareer"))
   if career == 0 then
-    PES10.toast("Carregue um save de Rumo ao Estrelato (BAL) primeiro!")
+    PES10.toast(PES10.T("Carregue um save de Rumo ao Estrelato (BAL) primeiro!", "Load a Become a Legend (BAL) save first!"))
     return false
   end
   local balHandle = PES10.readU64(career + 0x01819540)
   if math.floor(balHandle / 0x100000000) == 0 then
-    PES10.toast("Save atual é Master League (não há jogador único de BAL ativo).")
+    PES10.toast(PES10.T("Save atual é Master League (sem jogador único de BAL).", "Current save is Master League (no single BAL pro active)."))
     return false
   end
   local count = PES10.readU32(career + 0x00D0BCE8)
@@ -702,8 +1261,8 @@ function PES10.pointToBALMyPlayer()
     if PES10.readU64(p + 0x2C) == balHandle then
       writeQword(PES10.symAddr("ptrPlayer"), p)
       PES10.syncAllDynamicPointers()
-      local nm = readString(p + 0x38, 46, false) or "Meu Pro"
-      PES10.toast("Selecionado atleta do BAL: " .. nm)
+      local nm = readString(p + 0x38, 46, false) or "BAL Pro"
+      PES10.toast(PES10.T("Selecionado atleta do BAL: ", "Selected BAL player: ") .. nm)
       return true
     end
   end
@@ -714,13 +1273,16 @@ function PES10.searchCareerPlayerDialog()
   PES10.syncAllDynamicPointers()
   local career = PES10.readU64(PES10.symAddr("ptrCareer"))
   if career == 0 then
-    showMessage("Carregue um save de Master League ou Rumo ao Estrelato primeiro!")
+    showMessage(PES10.T(
+      "Carregue um save de Master League ou Rumo ao Estrelato primeiro!",
+      "Please load a Master League or Become a Legend save first!"
+    ))
     return
   end
 
   local query = inputQuery(
-    "PES 2021 v10.0 — Buscar Jogador na Carreira",
-    "Digite parte do Nome (com ou sem acento) ou o Player ID:",
+    PES10.T("PES 2021 v10.1 — Buscar Jogador na Carreira", "PES 2021 v10.1 — Search Career Player"),
+    PES10.T("Digite parte do Nome (com ou sem acento) ou o Player ID:", "Enter part of the Player Name (accents optional) or Player ID:"),
     ""
   )
   if not query or query == "" then return end
@@ -738,44 +1300,50 @@ function PES10.searchCareerPlayerDialog()
       local name = readString(p + 0x38, 60, false) or ""
       if (qNum and pid == qNum) or (name ~= "" and PES10.normalizeText(name):find(qNorm, 1, true)) then
         local age = PES10.readU8(p + 0x1C) % 64
+        local ovr, regPos = PES10.calcPlayerOVR(p)
+        local posStr = PES10.posShort(regPos)
         local _, _, clubDesc = PES10.decodeClubHandle(PES10.readU32(p + 0x12C))
-        matches[#matches + 1] = { addr = p, id = pid, name = name, age = age, club = clubDesc }
+        matches[#matches + 1] = { addr = p, id = pid, name = name, age = age, ovr = ovr, pos = posStr, club = clubDesc }
         if #matches >= 80 then break end
       end
     end
   end
 
   if #matches == 0 then
-    PES10.toast("Nenhum jogador encontrado para '" .. query .. "'.")
-    showMessage("Nenhum jogador encontrado para: " .. query)
+    local msg = PES10.T("Nenhum jogador encontrado para: ", "No player found matching: ") .. query
+    PES10.toast(msg)
+    showMessage(msg)
     return
   elseif #matches == 1 then
-    writeQword(PES10.symAddr("ptrPlayer"), matches[1].addr)
+    local m = matches[1]
+    writeQword(PES10.symAddr("ptrPlayer"), m.addr)
     PES10.syncAllDynamicPointers()
-    PES10.toast(string.format("Atleta carregado: %s (%s)", matches[1].name, matches[1].club))
+    PES10.toast(string.format(PES10.T("Carregado: %s (%d %s — %s)", "Loaded: %s (%d %s — %s)"), m.name, m.ovr, m.pos, m.club))
     return
   end
 
   local sl = createStringlist()
+  local ageUnit = PES10.T("anos", "yo")
   for _, m in ipairs(matches) do
-    sl.add(string.format("%s  |  %d anos  |  %s  |  ID %d", m.name, m.age, m.club, m.id))
+    sl.add(string.format("%s  |  OVR %d (%s)  |  %d %s  |  %s  |  ID %d", m.name, m.ovr, m.pos, m.age, ageUnit, m.club, m.id))
   end
   local idx = showSelectionList(
-    "Jogadores Encontrados (" .. tostring(#matches) .. ")",
-    "Dê duplo-clique no atleta desejado para carregá-lo no Edit Player v10.0:",
+    PES10.T("Jogadores Encontrados (", "Players Found (") .. tostring(#matches) .. ")",
+    PES10.T("Dê duplo-clique no atleta desejado para carregá-lo:", "Double-click a player to load into Studio & Edit Player:"),
     sl,
     false
   )
   sl.destroy()
   if idx and idx >= 0 and matches[idx + 1] then
-    writeQword(PES10.symAddr("ptrPlayer"), matches[idx + 1].addr)
+    local m = matches[idx + 1]
+    writeQword(PES10.symAddr("ptrPlayer"), m.addr)
     PES10.syncAllDynamicPointers()
-    PES10.toast(string.format("Atleta carregado: %s (%s)", matches[idx + 1].name, matches[idx + 1].club))
+    PES10.toast(string.format(PES10.T("Carregado: %s (%d %s — %s)", "Loaded: %s (%d %s — %s)"), m.name, m.ovr, m.pos, m.club))
   end
 end
 
 -- ============================================================================
--- SQUAD COMMANDER — AÇÕES EM TODO O MEU ELENCO (MASTER LEAGUE)
+-- SQUAD COMMANDER — FULL USER SQUAD ACTIONS (MASTER LEAGUE)
 -- ============================================================================
 function PES10.getUserSquadPlayerAddresses()
   PES10.syncAllDynamicPointers()
@@ -824,7 +1392,7 @@ PES10.PLAYER_STAT_BITS = {}
 function PES10.runSquadCommander(mode)
   local squad, career = PES10.getUserSquadPlayerAddresses()
   if #squad == 0 then
-    PES10.toast("Carregue um save de Master League primeiro!")
+    PES10.toast(PES10.T("Carregue um save de Master League primeiro!", "Load a Master League save first!"))
     return 0
   end
 
@@ -839,11 +1407,11 @@ function PES10.runSquadCommander(mode)
       PES10.setBitsInDword(p + 0x144, 24, 3, PES10.TOP_FORM_VALUE or 4)
     elseif mode == "heal_affection" then
       writeBytes(p + 0x148, 0)
-      PES10.setBitsInDword(p + 0x13C, 18, 7, 100) -- Real 7-bit Affection = 100%!
+      PES10.setBitsInDword(p + 0x13C, 18, 7, 100)
     elseif mode == "shield_contracts" then
       writeSmallInteger(p + 0x138, curYear + 5)
       PES10.setBitsInDword(p + 0x13C, 18, 7, 100)
-      PES10.setBitsInDword(p + 0x144, 30, 1, 0) -- Remove multa p/ blindar contra rivais!
+      PES10.setBitsInDword(p + 0x144, 30, 1, 0)
     elseif mode == "eternal_peak_breakthrough" then
       PES10.setBitsInDword(p + 0x18, 28, 3, 3)
       local lowH = PES10.readU32(p + 0x2C) % 0x10000
@@ -854,25 +1422,32 @@ function PES10.runSquadCommander(mode)
         if g >= 0x80000000 then g = g - 0x100000000 end
         writeInteger(gAddr, g)
       end
-    elseif mode == "plus_one_all_stats" then
-      for _, sb in ipairs(PES10.PLAYER_STAT_BITS) do
-        local cur = PES10.getBitsInDword(p + sb[1], sb[2], 7)
-        if cur < 99 then PES10.setBitsInDword(p + sb[1], sb[2], 7, math.min(99, cur + 1)) end
+    elseif mode == "plus_one_all_stats" or mode == "plus_one_ovr_dna" then
+      local curO = PES10.calcPlayerOVR(p)
+      if curO < 99 then
+        PES10.scalePlayerToTargetOVR(p, curO + 1)
       end
     end
   end
-  PES10.toast(string.format("Comando aplicado em %d jogadores do seu elenco!", #squad))
+  PES10.syncAllDynamicPointers()
+  PES10.toast(string.format(
+    PES10.T("Comando aplicado em %d atletas do seu elenco!", "Squad command applied to %d players!"),
+    #squad
+  ))
   return #squad
 end
 
 -- ============================================================================
--- MACROS DE 1 CLIQUE PARA O JOGADOR SELECIONADO (ptrPlayer) & BACKUP JSON
+-- 1-CLICK SELECTED PLAYER MACROS & JSON BACKUP
 -- ============================================================================
 function PES10.getSelectedPlayerOrWarn()
   PES10.syncAllDynamicPointers()
   local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
   if p == 0 then
-    PES10.toast("Selecione um jogador no menu do jogo ou clique em 'Buscar Jogador na Carreira'!")
+    PES10.toast(PES10.T(
+      "Selecione um jogador no menu do jogo ou clique em 'Buscar Jogador'!",
+      "Hover a player in-game or click 'Search Career Player' first!"
+    ))
     return 0
   end
   return p
@@ -882,91 +1457,90 @@ function PES10.runPlayerMacro(mode)
   local career = PES10.readU64(PES10.symAddr("ptrCareer"))
 
   if mode == "bal_instant_skill" then
-    if career == 0 then PES10.toast("Abra seu save BAL primeiro!"); return false end
+    if career == 0 then PES10.toast(PES10.T("Abra seu save BAL primeiro!", "Open your BAL save first!")); return false end
     local skillId = PES10.readI32(career + 0x016ECBEC)
     local balRec = PES10.readU64(PES10.symAddr("ptrBALTrainingRec"))
     if balRec ~= 0 and skillId >= 0 and skillId < 0x6C then
       writeSmallInteger(balRec + 0x16 + skillId * 2, 9999)
-      PES10.toast("Skill em treino colocada em 99,99% (completa no próximo avanço)!")
+      PES10.toast(PES10.T("Skill em treino colocada em 99,99%!", "Active BAL Skill set to 99.99% (completes next day)!"))
       return true
     end
-    PES10.toast("Escolha primeiro uma Skill para treinar no menu do BAL!")
+    PES10.toast(PES10.T("Escolha primeiro uma Skill para treinar no BAL!", "Select a Skill to train in BAL menu first!"))
     return false
   elseif mode == "bal_instant_pos" then
-    if career == 0 then PES10.toast("Abra seu save BAL primeiro!"); return false end
+    if career == 0 then PES10.toast(PES10.T("Abra seu save BAL primeiro!", "Open your BAL save first!")); return false end
     local posId = PES10.readI32(career + 0x016ECBF0)
     local balRec = PES10.readU64(PES10.symAddr("ptrBALTrainingRec"))
     if balRec ~= 0 and posId > 0 and posId < 0x0E then
       writeSmallInteger(balRec + 0x16 + posId * 2, 9999)
-      PES10.toast("Posição em treino colocada em 99,99% (completa no próximo avanço)!")
+      PES10.toast(PES10.T("Posição em treino colocada em 99,99%!", "Active BAL Position set to 99.99% (completes next day)!"))
       return true
     end
-    PES10.toast("Escolha primeiro uma Posição para treinar no menu do BAL!")
+    PES10.toast(PES10.T("Escolha primeiro uma Posição para treinar no BAL!", "Select a Position to train in BAL menu first!"))
     return false
   elseif mode == "bal_max_sliders" then
-    if career == 0 then PES10.toast("Abra seu save BAL primeiro!"); return false end
+    if career == 0 then PES10.toast(PES10.T("Abra seu save BAL primeiro!", "Open your BAL save first!")); return false end
     PES10.ensureHookActive(4)
     for i = 0, 9 do writeBytes(career + 0x016ECBE0 + i, 6) end
     writeBytes(career + 0x016ECBEA, 99)
-    PES10.toast("10 Barras no máximo + 99 Focus Points liberados no BAL!")
+    PES10.toast(PES10.T("10 Barras no máximo + 99 Focus Points liberados no BAL!", "All 10 BAL Sliders maxed + 99 Focus Points unlocked!"))
     return true
   end
 
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return false end
-  local pName = readString(p + 0x38, 36, false) or "Atleta"
+  local pName = readString(p + 0x38, 36, false) or PES10.T("Atleta", "Player")
 
   if mode == "stats_99" then
     for _, sb in ipairs(PES10.PLAYER_STAT_BITS) do PES10.setBitsInDword(p + sb[1], sb[2], 7, 99) end
-    PES10.toast("Todos os 25 atributos de " .. pName .. " definidos em 99!")
+    PES10.toast(PES10.T("Todos os 25 atributos em 99 para ", "All 25 attributes set to 99 for ") .. pName .. "!")
   elseif mode == "stats_plus_5" then
     for _, sb in ipairs(PES10.PLAYER_STAT_BITS) do
       local v = PES10.getBitsInDword(p + sb[1], sb[2], 7)
       PES10.setBitsInDword(p + sb[1], sb[2], 7, math.min(99, v + 5))
     end
-    PES10.toast("+5 em todos os atributos aplicado para " .. pName .. "!")
+    PES10.toast(PES10.T("+5 em todos os atributos para ", "+5 to all attributes applied for ") .. pName .. "!")
   elseif mode == "all_positions_a" then
     local posBits = {
       {0x1F, 1}, {0x1F, 3}, {0x1F, 5}, {0x20, 0}, {0x20, 2}, {0x20, 4}, {0x20, 6},
       {0x21, 0}, {0x21, 2}, {0x21, 4}, {0x21, 6}, {0x22, 0}, {0x22, 2},
     }
     for _, pb in ipairs(posBits) do PES10.setBitsInDword(p + pb[1], pb[2], 2, 2) end
-    PES10.toast("Todas as 13 posições definidas como 'A' para " .. pName .. "!")
+    PES10.toast(PES10.T("Todas as 13 posições definidas como 'A' para ", "All 13 playable positions set to 'A' for ") .. pName .. "!")
   elseif mode == "all_39_skills" then
     for _, sk in ipairs(PES10.ALL_SKILL_BITS or {}) do PES10.setBitsInDword(p + sk[1], sk[2], 1, 1) end
-    PES10.toast("Todas as 41 habilidades desbloqueadas para " .. pName .. "!")
+    PES10.toast(PES10.T("Todas as 41 habilidades desbloqueadas para ", "All 41 Player Skills unlocked for ") .. pName .. "!")
   elseif mode == "perfect_wf_form_injury" then
     PES10.setBitsInDword(p + 0x23, 0, 2, 3)
     PES10.setBitsInDword(p + 0x22, 4, 2, 3)
     PES10.setBitsInDword(p + 0x17, 4, 3, 7)
     PES10.setBitsInDword(p + 0x22, 6, 2, 2)
     writeBytes(p + 0x148, 0)
-    PES10.toast("Pé Ruim 4/4, Forma 8, Lesão 3 e saúde 100% em " .. pName .. "!")
+    PES10.toast(PES10.T("Pé Ruim 4/4, Forma 8, Lesão 3 e saúde 100% em ", "Weak Foot 4/4, Form 8, Injury Res 3 & healed: ") .. pName .. "!")
   elseif mode == "unlock_renegotiation" then
-    -- Limpa sentinel de renovação recente (0x0000FFFF) e recua chegada se recente!
     writeInteger(p + 0x16C, 0x0000FFFF)
     local joinYear = PES10.readU16(p + 0x168)
     if joinYear >= 1995 and joinYear <= 2200 then
       writeSmallInteger(p + 0x168, math.max(2018, joinYear - 2))
     end
-    PES10.toast("Bloqueio de contrato recente removido para " .. pName .. "!")
+    PES10.toast(PES10.T("Bloqueio de contrato recente removido para ", "Recent contract lock cleared for ") .. pName .. "!")
   elseif mode == "easy_sign_target" then
     PES10.setOverrideReleaseFeeForPlayer(p, 10) -- € 1.000 (raw = 10)
-    PES10.setBitsInDword(p + 0x13C, 18, 7, 100) -- Real 7-bit Affection = 100%
+    PES10.setBitsInDword(p + 0x13C, 18, 7, 100)
     writeInteger(p + 0x16C, 0x0000FFFF)
     local joinYear = PES10.readU16(p + 0x168)
     if joinYear >= 1995 and joinYear <= 2200 then
       writeSmallInteger(p + 0x168, math.max(2018, joinYear - 2))
     end
-    PES10.toast("Contratação Fácil pronta em " .. pName .. ": Multa € 1.000 + Afeição 100%!")
+    PES10.toast(PES10.T("Contratação Fácil pronta em ", "Easy Signing ready for ") .. pName .. " (€ 1,000 + 100%)!")
   elseif mode == "instant_subxp_player" then
     local trn = PES10.readU64(PES10.symAddr("ptrPlayerTraining"))
     if trn == 0 then
-      PES10.toast(pName .. " não pertence aos 82 slots de treino do seu clube/BAL.")
+      PES10.toast(pName .. PES10.T(" não está nos 82 slots de treino do seu clube/BAL.", " is not in your club/BAL 82 training slots."))
       return false
     end
     for fid = 14, 39 do writeSmallInteger(trn + 0x16 + fid * 2, 9999) end
-    PES10.toast("Todas as 25 barras de Sub-XP de " .. pName .. " em 9.999 / 10.000!")
+    PES10.toast(PES10.T("25 barras de Sub-XP em 9.999 / 10.000 para ", "All 25 Sub-XP bars set to 9,999 / 10,000 for ") .. pName .. "!")
   end
   PES10.syncAllDynamicPointers()
   return true
@@ -981,18 +1555,18 @@ function PES10.exportPlayerBackupJson()
   local pid = PES10.readU32(p + 0x30)
 
   local dlg = createSaveDialog(MainForm)
-  dlg.Title = "Exportar Backup JSON do Jogador"
+  dlg.Title = PES10.T("Exportar Backup JSON do Jogador", "Export Player JSON Backup")
   dlg.Filter = "JSON Files (*.json)|*.json"
   dlg.FileName = string.format("PES2021_%s_%d.json", name, pid)
   if dlg.execute() then
     local hexArr = {}
     for i = 1, #rawBytes do hexArr[i] = string.format("%02X", rawBytes[i]) end
     local content = string.format(
-      '{\n  "version": "PES2021_v10.0",\n  "player_id": %d,\n  "player_name": %q,\n  "struct_size": 380,\n  "hex_0x17C": "%s"\n}\n',
+      '{\n  "version": "PES2021_v10.1",\n  "player_id": %d,\n  "player_name": %q,\n  "struct_size": 380,\n  "hex_0x17C": "%s"\n}\n',
       pid, readString(p + 0x38, 60, false) or "", table.concat(hexArr, "")
     )
     local f = io.open(dlg.FileName, "w")
-    if f then f:write(content); f:close(); PES10.toast("Backup JSON exportado: " .. dlg.FileName) end
+    if f then f:write(content); f:close(); PES10.toast(PES10.T("JSON exportado: ", "JSON exported: ") .. dlg.FileName) end
   end
   dlg.destroy()
 end
@@ -1001,7 +1575,7 @@ function PES10.importPlayerBackupJson()
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local dlg = createOpenDialog(MainForm)
-  dlg.Title = "Importar Backup JSON no Jogador Selecionado"
+  dlg.Title = PES10.T("Importar Backup JSON no Jogador Selecionado", "Import JSON Backup into Selected Player")
   dlg.Filter = "JSON Files (*.json)|*.json"
   if dlg.execute() then
     local f = io.open(dlg.FileName, "r")
@@ -1017,7 +1591,7 @@ function PES10.importPlayerBackupJson()
         for keep = 0x160, 0x167 do newBytes[keep + 1] = curBytes[keep + 1] end
         writeBytes(p, newBytes)
         PES10.syncAllDynamicPointers()
-        PES10.toast("Backup JSON importado com sucesso (ID e Clube preservados)!")
+        PES10.toast(PES10.T("Backup JSON importado (ID e Clube preservados)!", "JSON Backup imported (ID & Club preserved)!"))
       end
     end
   end
@@ -1025,13 +1599,14 @@ function PES10.importPlayerBackupJson()
 end
 
 -- ============================================================================
--- HOOKS DE FORMATAÇÃO & DUPLO-CLIQUE NA ADDRESSLIST DO CHEAT ENGINE
+-- CHEAT ENGINE ADDRESSLIST DISPLAY & DOUBLE-CLICK HOOKS
 -- ============================================================================
 PES10.MONEY_DESC_TAGS = {}
 PES10.CLUB_HANDLE_IDS = {}
 PES10.CLOCK_RECORD_ID = -1
 PES10.STATUS_RECORD_ID = -1
 PES10.CUSTOM_RFEE_RECORD_ID = -1
+PES10.COMPUTED_OVR_RECORD_ID = -1
 PES10.SCORE_SYNC_IDS = {}
 
 function PES10.bindTableHooks()
@@ -1054,37 +1629,63 @@ function PES10.bindTableHooks()
         local _, _, label = PES10.decodeClubHandle(raw)
         return true, label
       end
+    elseif id == PES10.COMPUTED_OVR_RECORD_ID then
+      mr.OnGetDisplayValue = function(rec, valStr)
+        local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
+        if p == 0 then return true, "--" end
+        local ovr, regPos = PES10.calcPlayerOVR(p)
+        if ovr <= 0 then return true, "--" end
+        return true, string.format("%d  [%s]", ovr, PES10.posShort(regPos))
+      end
     elseif id == PES10.CLOCK_RECORD_ID then
       mr.OnGetDisplayValue = function(rec, valStr)
         local info = PES10.getMatchClockInfo()
-        if not info then return true, "Fora de Partida" end
+        if not info then return true, PES10.T("Fora de Partida", "Not in Match") end
         return true, info.formatted
       end
     elseif id == PES10.STATUS_RECORD_ID then
       mr.OnGetDisplayValue = function(rec, valStr)
-        if not PES10.isAttached() then return true, "Aguardando PES2021.exe..." end
+        if not PES10.isAttached() then
+          return true, PES10.T("Aguardando PES2021.exe...", "Waiting for PES2021.exe...")
+        end
         local modeStr, clubStr = PES10.getCareerModeAndClubInfo()
         local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
-        local pName = (p ~= 0) and (readString(p + 0x38, 36, false) or "Atleta") or "Nenhum"
+        local pDesc = PES10.T("Nenhum", "None")
+        if p ~= 0 then
+          local nm = readString(p + 0x38, 32, false) or PES10.T("Atleta", "Player")
+          local ovr, rp = PES10.calcPlayerOVR(p)
+          pDesc = string.format("%s (%d %s)", nm, ovr, PES10.posShort(rp))
+        end
         if clubStr ~= "" then modeStr = modeStr .. " (" .. clubStr .. ")" end
-        return true, string.format("Online | %s | Atleta: %s", modeStr, pName)
+        return true, string.format("Online | %s | %s", modeStr, pDesc)
       end
     end
   end
 
   al.OnValueChange = function(addrlist, memrec)
     local id = memrec.ID
+    if id == PES10.COMPUTED_OVR_RECORD_ID then
+      PES10.promptTargetOVRProportional()
+      return true
+    end
+
     if PES10.MONEY_DESC_TAGS[id] then
       local c = PES10.getCurrentCurrency()
       local curRaw = tonumber(memrec.Value) or 0
       local ans = inputQuery(
-        "Editar Valor Financeiro (" .. c.symbol .. ")",
-        "Digite o valor (aceita 50M, 500k, 1.5B, 1000 ou 80.000.000):",
+        PES10.T("Editar Valor Financeiro (", "Edit Financial Value (") .. c.symbol .. ")",
+        PES10.T(
+          "Digite o valor (aceita 50M, 500k, 1.5B, 1000 ou 80.000.000):",
+          "Enter amount (accepts 50M, 500k, 1.5B, 1000 or 80,000,000):"
+        ),
         PES10.formatMoneyFromRaw(curRaw)
       )
       if not ans then return true end
       local newRaw = PES10.parseHumanMoneyToRaw(ans)
-      if not newRaw then showMessage("Valor inválido: " .. tostring(ans)); return true end
+      if not newRaw then
+        showMessage(PES10.T("Valor inválido: ", "Invalid amount: ") .. tostring(ans))
+        return true
+      end
       if id == PES10.CUSTOM_RFEE_RECORD_ID then
         local p = PES10.getSelectedPlayerOrWarn()
         if p ~= 0 then PES10.setOverrideReleaseFeeForPlayer(p, newRaw) end
@@ -1096,10 +1697,13 @@ function PES10.bindTableHooks()
 
     if id == PES10.CLOCK_RECORD_ID then
       local info = PES10.getMatchClockInfo()
-      if not info then showMessage("Entre em uma partida ao vivo primeiro!"); return true end
+      if not info then
+        showMessage(PES10.T("Entre em uma partida ao vivo primeiro!", "Enter a live match first!"))
+        return true
+      end
       local ans = inputQuery(
-        "Definir Minuto Exato da Partida",
-        "Digite o minuto desejado (ex: 15, 44, 88 ou 44:30):",
+        PES10.T("Definir Minuto Exato da Partida", "Set Exact Match Minute"),
+        PES10.T("Digite o minuto desejado (ex: 15, 44, 88 ou 44:30):", "Enter desired minute (e.g., 15, 44, 88 or 44:30):"),
         string.format("%02d:%02d", info.mm, info.ss)
       )
       if not ans then return true end
@@ -1111,7 +1715,11 @@ function PES10.bindTableHooks()
 
     if PES10.SCORE_SYNC_IDS[id] then
       local side = PES10.SCORE_SYNC_IDS[id]
-      local ans = inputQuery("Editar Placar ao Vivo", "Digite o novo número de gols (0–99):", memrec.Value)
+      local ans = inputQuery(
+        PES10.T("Editar Placar ao Vivo", "Edit Live Score"),
+        PES10.T("Digite o novo número de gols (0–99):", "Enter new goal count (0–99):"),
+        memrec.Value
+      )
       if not ans then return true end
       local g = tonumber(ans)
       if g and g >= 0 and g <= 99 then
@@ -1147,13 +1755,16 @@ function PES10.asyncActionButton(memrec, fn)
 end
 
 -- ============================================================================
--- PES 2021 v10.0 PRO STUDIO — PAINEL GRÁFICO DARK MULTI-ABAS (DPI-RESPONSIVO!)
--- Zero botões nativos cinzas / Zero texto cortado em 100%, 125% ou 150% DPI!
+-- PES 2021 v10.1 PRO STUDIO — DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
+-- Pixel-exact symmetric layout, DPI-aware, stateful active glow & zero clipping
 -- ============================================================================
 function PES10.openDashboard()
   if PES10.dashboardForm then
     PES10.dashboardForm.show()
     PES10.dashboardForm.bringToFront()
+    if PES10.dashboardState and PES10.dashboardState.render then
+      PES10.dashboardState.render(true)
+    end
     return
   end
 
@@ -1162,467 +1773,524 @@ function PES10.openDashboard()
   local scale = dpi / 96.0
   local function S(px) return math.floor(px * scale + 0.5) end
 
-  -- Paleta Dark Studio Pro (BGR: 0xBBGGRR)
-  local C_BG         = 0x16110D -- #0D1116 Deep Obsidian
-  local C_HEADER     = 0x211913 -- #131921 Studio Header
-  local C_TABBAR     = 0x1B1510 -- #10151B Navigation Strip
-  local C_TAB_ACT    = 0x2B221A -- #1A222B Active Tab Surface
-  local C_TAB_HOV    = 0x241C15 -- #151C24 Hovered Tab Surface
-  local C_BORDER     = 0x423429 -- #293442 Crisp Slate 1px Border
-  local C_BORDER_HOV = 0x6B5542 -- #42556B Hovered Card Border
-  local C_CARD       = 0x261E17 -- #171E26 Action Card Surface
-  local C_CARD_HOV   = 0x33281F -- #1F2833 Action Card Hover
-  local C_CARD_FLASH = 0x47382B -- #2B3847 Click Feedback Flash
-  local C_BANNER     = 0x221A14 -- #141A22 Telemetry Banner
-  local C_FOOTER     = 0x1C1611 -- #11161C Status Footer
-  local C_TEXT       = 0xFAF6F2 -- #F2F6FA Crisp White
-  local C_MUTED      = 0xBAAB9C -- #9CABBA Soft Slate Subtitle
-  local C_GOLD       = 0x24B4FB -- #FBB424 Amber Gold
+  -- Studio Obsidian Palette v10.1 (BGR: 0xBBGGRR)
+  local C_BG         = 0x170F0B -- #0B0F17 Midnight Obsidian
+  local C_HDR        = 0x241811 -- #111824 Header Surface (Uniform behind ClearType text)
+  local C_HDR_GLOW   = 0x36251A -- #1A2536 Top Rim Highlight
+  local C_NAV        = 0x1A120C -- #0C121A Segmented Tab Strip
+  local C_TAB_IDLE   = 0x221810 -- #101822 Idle Pill Tab
+  local C_TAB_HOV    = 0x2E2117 -- #17212E Hovered Pill Tab
+  local C_TAB_ACT    = 0x3A2A1C -- #1C2A3A Active Pill Tab
+  local C_HERO       = 0x291D14 -- #141D29 Hero Telemetry Surface
+  local C_CARD       = 0x2B1E15 -- #151E2B Action Card Surface
+  local C_CARD_ACT   = 0x342819 -- #192834 Active Stateful Mode Surface
+  local C_CARD_HOV   = 0x3D2B1F -- #1F2B3D Action Card Hover
+  local C_CARD_FLASH = 0x543D2B -- #2B3D54 Action Card Click Flash
+  local C_CHIP_BG    = 0x1F150E -- #0E151F Card Tag Chip Surface
+  local C_CHIP_ACT   = 0x233E19 -- #193E23 Active Mode Badge Surface
+  local C_BORDER     = 0x4A3627 -- #27364A Crisp 1px Slate Border
+  local C_DIVIDER    = 0x36281C -- #1C2836 Subtle Section Line
+  local C_FOOTER     = 0x1B130D -- #0D131B Footer Bar
+  local C_TEXT       = 0xFCFAF8 -- #F8FAFC Pure Crisp White
+  local C_SUBTEXT    = 0xC4B2A0 -- #A0B2C4 Balanced Slate-Silver
   local C_BLUE       = 0xF8BD38 -- #38BDF8 Sky Cyan
-  local C_GREEN      = 0x68D934 -- #34D968 Emerald
-  local C_PURPLE     = 0xF768A8 -- #A868F7 Violet
-  local C_CRIMSON    = 0x5E43F4 -- #F4435E Rose Crimson
-  local C_HOOK_BG    = 0x27471B -- #1B4727 Emerald Pill Surface
-  local C_HOOK_HOV   = 0x335E24 -- #245E33 Emerald Pill Hover
+  local C_GREEN      = 0x99D334 -- #34D399 Vibrant Emerald
+  local C_LIME       = 0x35E6A3 -- #A3E635 Lime Rating
+  local C_GOLD       = 0x24BFFB -- #FBBF24 Amber Gold
+  local C_PURPLE     = 0xFA8BA7 -- #A78BFA Soft Violet
+  local C_CRIMSON    = 0x8571FB -- #FB7185 Rose Accent
+  local C_HOOK_BG    = 0x294A1D -- #1D4A29 Emerald Pill Surface
+  local C_HOOK_HOV   = 0x366326 -- #266336 Emerald Pill Hover
 
-  local W = S(880)
-  local H = S(580)
+  -- Symmetric 940 x 636 logical client grid (zero rounding remainder on 2-col & 4-tab!)
+  local W        = S(940)
+  local H        = S(636)
+  local PAD_X    = S(24)
+  local CONT_W   = W - 2 * PAD_X
+  local HDR_H    = S(72)
+  local NAV_H    = S(52)
+  local HERO_Y   = HDR_H + NAV_H + S(16)
+  local HERO_H   = S(74)
+  local GRID_Y   = HERO_Y + HERO_H + S(16)
+  local GAP_X    = S(18)
+  local GAP_Y    = S(14)
+  local CARD_W   = math.floor((CONT_W - GAP_X) / 2)
+  local CARD_H   = S(76)
+  local FOOTER_H = S(42)
+  local FOOTER_Y = H - FOOTER_H
 
   local f = createForm(false)
-  f.Caption = "PES 2021 — v10.0 Pro Studio (BMPES 16.0 Ready)"
-  f.Width = W
-  f.Height = H
+  f.Caption = "PES 2021 — v10.1 Pro Studio (PT-BR / EN)"
+  pcall(function() f.BorderStyle = "bsSingle" end)
   f.Color = C_BG
   f.DoubleBuffered = true
   f.DoNotSaveInTable = true
-  pcall(function() f.BorderStyle = "bsSingle" end)
+  pcall(function() f.ClientWidth = W; f.ClientHeight = H end)
+  if not f.ClientWidth or f.ClientWidth ~= W then
+    f.Width = W; f.Height = H
+  end
   f.centerScreen()
   f.OnClose = function() f.hide(); return caHide end
 
-  local function setHandCursor(ctrl)
-    pcall(function() ctrl.Cursor = -21 end)
-  end
+  local surface = createPanel(f)
+  surface.Left = 0; surface.Top = 0; surface.Width = W; surface.Height = H
+  surface.BevelOuter = "bvNone"; surface.BevelInner = "bvNone"
+  surface.Color = C_BG; surface.Caption = ""
+  surface.DoubleBuffered = true
 
-  local function mkPanel(parent, x, y, w, h, bg)
-    local p = createPanel(parent)
-    p.Left = x; p.Top = y; p.Width = w; p.Height = h
-    p.BevelOuter = "bvNone"
-    p.BevelInner = "bvNone"
+  local backBuf = createBitmap(W, H)
+
+  local function setFont(c, ptSize, color, bold)
+    c.Font.Name = "Segoe UI"
+    c.Font.Size = ptSize
+    c.Font.Color = color or C_TEXT
     pcall(function()
-      p.ParentColor = false
-      p.ParentBackground = false
-      p.FullRepaint = true
+      c.Font.Style = bold and "[fsBold]" or "[]"
+      c.Font.Quality = "fqCleartypeNatural"
     end)
-    p.Color = bg
-    p.Caption = ""
-    p.DoubleBuffered = true
-    return p
   end
 
-  local function mkText(parent, x, y, txt, ptSize, color, bold, fixedW, fixedH, center)
-    local l = createLabel(parent)
-    l.Left = x; l.Top = y
-    pcall(function() l.ParentFont = false end)
-    l.Font.Name = "Segoe UI"
-    l.Font.Size = ptSize
-    l.Font.Color = color or C_TEXT
-    if bold then pcall(function() l.Font.Style = "[fsBold]" end) end
-    if fixedW and fixedH then
-      pcall(function()
-        l.AutoSize = false
-        l.Width = fixedW
-        l.Height = fixedH
-        if center then
-          l.Alignment = "taCenter"
-          l.Layout = "tlCenter"
-        end
-      end)
-    end
-    l.Caption = txt
-    return l
-  end
-
-  local function bindInteractive(controls, onClickFn, onHoverFn)
-    for _, c in ipairs(controls) do
-      setHandCursor(c)
-      if onClickFn then c.OnClick = onClickFn end
-      if onHoverFn then
-        pcall(function()
-          c.OnMouseEnter = function() onHoverFn(true) end
-          c.OnMouseLeave = function() onHoverFn(false) end
-        end)
-      end
-    end
-  end
-
-  -- 1. HEADER BAR
-  local hdrH, hdrLineH = S(68), S(2)
-  local hdr = mkPanel(f, 0, 0, W, hdrH, C_HEADER)
-  mkPanel(hdr, 0, hdrH - hdrLineH, W, hdrLineH, C_BLUE)
-  mkText(hdr, S(20), S(10), "PES 2021  •  v10.0 PRO STUDIO", 12, C_BLUE, true)
-  local lblHeaderSub = mkText(hdr, S(20), S(38), "Inicializando telemetria...", 9, C_MUTED, false)
-
-  -- Botão rápido "Ativar 6 Hooks" + 4 Pílulas de Moeda no topo direito (centrados e espaçosos)
-  local hookBorder = mkPanel(hdr, W - S(466), S(16), S(164), S(36), C_GREEN)
-  local pillHooks  = mkPanel(hookBorder, 1, 1, S(164) - 2, S(36) - 2, C_HOOK_BG)
-  mkPanel(pillHooks, 0, 0, S(4), S(36) - 2, C_GREEN)
-  local lblPillHooks = mkText(pillHooks, S(4), 0, "⚡ Ativar 6 Hooks", 9, C_TEXT, true, S(160) - 2, S(36) - 2, true)
-  bindInteractive(
-    { hookBorder, pillHooks, lblPillHooks },
-    function() PES10.activateAllHooks() end,
-    function(isIn) pillHooks.Color = isIn and C_HOOK_HOV or C_HOOK_BG end
-  )
-
-  local currencyPills = {}
-  local currDefs = { {0, "€ EUR"}, {1, "R$ BRL"}, {2, "$ USD"}, {3, "£ GBP"} }
-  local pillW, pillH, pillGap = S(64), S(36), S(6)
-  local startCurrX = W - S(20) - (4 * pillW + 3 * pillGap)
-  for idx, cd in ipairs(currDefs) do
-    local px = startCurrX + (idx - 1) * (pillW + pillGap)
-    local pBorder = mkPanel(hdr, px, S(16), pillW, pillH, C_BORDER)
-    local pill    = mkPanel(pBorder, 1, 1, pillW - 2, pillH - 2, C_CARD)
-    local plbl    = mkText(pill, 0, 0, cd[2], 8, C_TEXT, true, pillW - 2, pillH - 2, true)
-    local cIdx    = cd[1]
-    bindInteractive(
-      { pBorder, pill, plbl },
-      function() PES10.setCurrency(cIdx) end,
-      function(isIn)
-        if PES10.currencyIndex ~= cIdx then
-          pill.Color = isIn and C_CARD_HOV or C_CARD
+  local function fitText(c, str, maxW)
+    local s = tostring(str or "")
+    if maxW <= S(16) then return "" end
+    if c.getTextWidth(s) <= maxW then return s end
+    local ell = "..."
+    local targetW = maxW - c.getTextWidth(ell)
+    if targetW <= 4 then return ell end
+    local n = #s
+    while n > 0 do
+      local b = s:byte(n)
+      n = n - 1
+      if not b or b < 0x80 or b >= 0xC0 then
+        local sub = s:sub(1, n)
+        if c.getTextWidth(sub) <= targetW then
+          return sub .. ell
         end
       end
-    )
-    currencyPills[cIdx] = { border = pBorder, panel = pill, label = plbl }
+    end
+    return ell
   end
 
-  -- 2. NAVIGATION TAB BAR (4 Abas Espaçosas Centradas)
-  local tabBarH = S(44)
-  local tabBar = mkPanel(f, 0, hdrH, W, tabBarH, C_TABBAR)
-  mkPanel(tabBar, 0, tabBarH - 1, W, 1, C_BORDER)
-  local tabPages = {}
-  local tabButtons = {}
-  local currentTabIdx = 1
+  local function drawTextLeft(c, x, y, bgCol, str, maxW)
+    c.Brush.Color = bgCol
+    local out = maxW and fitText(c, str, maxW) or tostring(str or "")
+    c.textOut(x, y, out)
+  end
+
+  local function drawTextCentered(c, rx, ry, rw, rh, bgCol, str)
+    c.Brush.Color = bgCol
+    local out = fitText(c, str, rw - S(8))
+    local tw = c.getTextWidth(out)
+    local th = c.getTextHeight(out)
+    local tx = rx + math.floor((rw - tw) / 2 + 0.5)
+    local ty = ry + math.floor((rh - th) / 2 + 0.5)
+    c.textOut(tx, ty, out)
+  end
+
+  local function drawRoundBox(c, x, y, w, h, rad, fillCol, borderCol)
+    c.Brush.Color = fillCol
+    c.Pen.Color = borderCol or fillCol
+    c.Pen.Width = 1
+    c.roundRect(x, y, x + w, y + h, rad, rad)
+  end
+
+  local function drawFlatRect(c, x, y, w, h, fillCol)
+    c.Brush.Color = fillCol
+    c.Pen.Color = fillCol
+    c.Pen.Width = 1
+    c.fillRect(x, y, x + w, y + h)
+  end
+
+  local function ovrBadgeColor(ovr)
+    if ovr >= 90 then return C_GOLD, 0x16110B end
+    if ovr >= 85 then return C_GREEN, 0x131A0D end
+    if ovr >= 80 then return C_BLUE, 0x18120B end
+    if ovr >= 75 then return C_LIME, 0x131A0D end
+    return C_SUBTEXT, 0x170F0B
+  end
+
   local TAB_DEFS = {
-    { title = "1. Master League & Elenco", accent = C_GREEN },
-    { title = "2. Jogador & Contratos",    accent = C_BLUE },
-    { title = "3. Treino ML & Estrelato",  accent = C_PURPLE },
-    { title = "4. Partida ao Vivo",        accent = C_CRIMSON },
+    { pt = "1. Master League & Elenco",   en = "1. Master League & Squad",     accent = C_GREEN },
+    { pt = "2. Jogador, DNA & Contratos", en = "2. Player, DNA & Contracts",   accent = C_BLUE },
+    { pt = "3. Treino ML & Estrelato",    en = "3. Training & BAL Suite",      accent = C_PURPLE },
+    { pt = "4. Partida ao Vivo",          en = "4. Live Match Control",        accent = C_CRIMSON },
   }
 
-  local function selectTab(activeIdx)
-    currentTabIdx = activeIdx
-    for i = 1, #TAB_DEFS do
-      local isAct = (i == activeIdx)
-      tabPages[i].Visible = isAct
-      tabButtons[i].panel.Color = isAct and C_TAB_ACT or C_TABBAR
-      tabButtons[i].bar.Visible = isAct
-      tabButtons[i].label.Font.Color = isAct and C_TEXT or C_MUTED
+  local CARDS_BY_TAB = {
+    [1] = {
+      { col=1, row=1, accent=C_GREEN,
+        tag_pt="+50M", tag_en="+50M",
+        title_pt="+ 50 Milhões (Transferências)", title_en="+ 50 Million (Transfer Budget)",
+        sub_pt="Adiciona +50M imediatos ao caixa de contratações", sub_en="Instantly adds +50M to your club transfer funds",
+        fn=function()
+          local c = PES10.readU64(PES10.symAddr("ptrCareer"))
+          if c == 0 then PES10.toast(PES10.T("Carregue sua Master League primeiro!", "Load your Master League save first!")); return end
+          writeInteger(c + 0x016ECBF4, math.min(2147483647, PES10.readI32(c + 0x016ECBF4) + 500000))
+          PES10.toast(PES10.T("+50 Milhões adicionados em Transferências!", "+50 Million added to Transfer Budget!"))
+        end },
+      { col=2, row=1, accent=C_GOLD,
+        tag_pt="BILIONÁRIO", tag_en="TYCOON",
+        title_pt="Pacote +500M Transf. / +50M Sal.", title_en="Tycoon Pack (+500M Transf / +50M Wage)",
+        sub_pt="Injeta +500M em Transferências e +50M em Salários", sub_en="Injects +500M into Transfers and +50M into Wages",
+        fn=function()
+          local c = PES10.readU64(PES10.symAddr("ptrCareer"))
+          if c == 0 then PES10.toast(PES10.T("Carregue sua Master League primeiro!", "Load your Master League save first!")); return end
+          writeInteger(c + 0x016ECBF4, math.min(2147483647, PES10.readI32(c + 0x016ECBF4) + 5000000))
+          writeInteger(c + 0x016ECC08, math.min(2147483647, PES10.readI32(c + 0x016ECC08) + 500000))
+          PES10.toast(PES10.T("+500M Transferências e +50M Salários adicionados!", "+500M Transfer & +50M Wage funds added!"))
+        end },
+      { col=1, row=2, accent=C_BLUE,
+        tag_pt="ELENCO", tag_en="SQUAD",
+        title_pt="100% Fôlego em Todo o Elenco", title_en="100% Stamina for Entire Squad",
+        sub_pt="Descansa 100% da barra de Stamina de todo o time", sub_en="Restores 100% fatigue bar for every club player",
+        fn=function() PES10.runSquadCommander("stamina_100") end },
+      { col=2, row=2, accent=C_BLUE,
+        tag_pt="TOP FORM", tag_en="TOP FORM",
+        title_pt="Seta Azul em Todo o Elenco", title_en="Flashing Blue Arrow for Squad",
+        sub_pt="Ativa condição excelente piscando p/ próximo jogo", sub_en="Sets flashing Top Form arrow for the next match",
+        fn=function() PES10.runSquadCommander("blue_form") end },
+      { col=1, row=3, accent=C_GREEN,
+        tag_pt="SAÚDE", tag_en="HEALTH",
+        title_pt="Curar Lesões + Afeição 100%", title_en="Heal All Injuries + 100% Affection",
+        sub_pt="Zera departamento médico e eleva afeição ao topo", sub_en="Clears all injuries and maxes squad club affection",
+        fn=function() PES10.runSquadCommander("heal_affection") end },
+      { col=2, row=3, accent=C_GOLD,
+        tag_pt="+5 ANOS", tag_en="+5 YEARS",
+        title_pt="Blindar Contratos do Elenco", title_en="Shield All Squad Contracts",
+        sub_pt="Estende vínculos em +5 anos e remove multas", sub_en="Extends contracts by +5 yrs & removes release fees",
+        fn=function() PES10.runSquadCommander("shield_contracts") end },
+      { col=1, row=4, accent=C_PURPLE,
+        tag_pt="AUGE", tag_en="PEAK",
+        title_pt="Ativar Breakthrough no Elenco", title_en="Trigger Squad Breakthrough",
+        sub_pt="Explosão de evolução e zero declínio pós-30 anos", sub_en="Activates growth surge & prevents age 30+ decline",
+        fn=function() PES10.runSquadCommander("eternal_peak_breakthrough") end },
+      { col=2, row=4, accent=C_CRIMSON,
+        tag_pt="+1 OVR DNA", tag_en="+1 OVR DNA",
+        title_pt="Subir +1 Overall no Elenco (DNA)", title_en="Squad +1 Overall (Preserves DNA)",
+        sub_pt="Sobe +1 OVR em cada atleta respeitando seu estilo", sub_en="Boosts every squad player +1 OVR keeping style",
+        fn=function() PES10.runSquadCommander("plus_one_ovr_dna") end },
+    },
+
+    [2] = {
+      { col=1, row=1, accent=C_BLUE,
+        tag_pt="BUSCA 30K", tag_en="SEARCH 30K",
+        title_pt="Buscar Jogador por Nome ou ID", title_en="Search Player by Name or ID",
+        sub_pt="Pesquisa com OVR, Posição e Clube ao vivo na RAM", sub_en="Live search across 30k players with OVR & Club",
+        fn=function() PES10.searchCareerPlayerDialog() end },
+      { col=2, row=1, accent=C_GREEN,
+        tag_pt="+1 OVR DNA", tag_en="+1 OVR DNA",
+        title_pt="Subir +1 Overall (Mantém DNA)", title_en="Boost +1 Overall (Keeps DNA)",
+        sub_pt="Cruza atributos proporcionalmente s/ mudar o estilo", sub_en="Scales stats proportionally without altering style",
+        fn=function() PES10.stepPlayerOVRProportional(1) end },
+      { col=1, row=2, accent=C_GOLD,
+        tag_pt="OVR ALVO", tag_en="TARGET OVR",
+        title_pt="Definir Overall Exato (c/ DNA)...", title_en="Set Exact Target Overall (DNA)...",
+        sub_pt="Escolher qualquer OVR (40–99) mantendo proporções", sub_en="Scale player to any OVR (40–99) keeping DNA ratios",
+        fn=function() PES10.promptTargetOVRProportional() end },
+      { col=2, row=2, accent=C_CRIMSON,
+        tag_pt="ALVO € 1K", tag_en="€ 1K SIGN",
+        title_pt="Contratação Fácil (€ 1.000 Multa)", title_en="Easy Sign Target (€ 1,000 Fee)",
+        sub_pt="Fixa multa € 1.000 + Afeição 100% + destrava data", sub_en="Sets € 1,000 release fee + 100% affection & unlocks",
+        fn=function() PES10.runPlayerMacro("easy_sign_target") end },
+      { col=1, row=3, accent=C_GOLD,
+        tag_pt="MULTA", tag_en="CLAUSE",
+        title_pt="Definir Taxa de Rescisão Exata...", title_en="Set Custom Release Clause...",
+        sub_pt="Crava valor customizado de multa (ex: 50M, 500k, 1B)", sub_en="Lock any exact release fee (e.g. 50M, 500k, 1B)",
+        fn=function()
+          local p = PES10.getSelectedPlayerOrWarn()
+          if p == 0 then return end
+          local c = PES10.getCurrentCurrency()
+          local ans = inputQuery(
+            PES10.T("Fixar Taxa de Rescisão (", "Set Custom Release Fee (") .. c.symbol .. ")",
+            PES10.T("Digite o valor exato da multa (ex: 1000, 80M, 1B):", "Enter exact release fee (e.g. 1000, 80M, 1B):"),
+            "80M"
+          )
+          if ans then
+            local raw = PES10.parseHumanMoneyToRaw(ans)
+            if raw then
+              PES10.setOverrideReleaseFeeForPlayer(p, raw)
+              PES10.toast(PES10.T("Multa fixada em ", "Release fee locked at ") .. PES10.formatMoneyFromRaw(raw) .. "!")
+            end
+          end
+        end },
+      { col=2, row=3, accent=C_BLUE,
+        tag_pt="CONTRATO", tag_en="UNLOCK",
+        title_pt="Destravar Renegociação Imediata", title_en="Unlock Instant Renegotiation",
+        sub_pt="Remove bloqueio de assinatura ou renovação recente", sub_en="Clears recent signing or contract renewal cooldown",
+        fn=function() PES10.runPlayerMacro("unlock_renegotiation") end },
+      { col=1, row=4, accent=C_PURPLE,
+        tag_pt="COMPLETO", tag_en="ALL-IN-ONE",
+        title_pt="41 Habilidades + 13 Posições 'A'", title_en="41 Skills + All 13 Positions 'A'",
+        sub_pt="Libera todas as Skills, Posições A, Pé 4/4 e Forma 8", sub_en="Unlocks all 41 Skills, 'A' Positions, WF 4/4 & Form 8",
+        fn=function()
+          local p = PES10.getSelectedPlayerOrWarn()
+          if p == 0 then return end
+          PES10.runPlayerMacro("all_positions_a")
+          PES10.runPlayerMacro("all_39_skills")
+          PES10.runPlayerMacro("perfect_wf_form_injury")
+          PES10.toast(PES10.T("Pacote Completo (Posições A + 41 Skills + Pé 4/4) aplicado!", "Complete Pro Pack (All 'A' + 41 Skills + WF 4/4) applied!"))
+        end },
+      { col=2, row=4, accent=C_GREEN,
+        tag_pt="LONGEVO", tag_en="YOUTH -2Y",
+        title_pt="Rejuvenescer (-2 Anos) & Valor", title_en="Rejuvenate (-2 Yrs) & Sync Value",
+        sub_pt="Reduz 2 anos de idade e alinha valor de mercado", sub_en="Subtracts 2 years of age & aligns market valuation",
+        fn=function() PES10.rejuvenateAndSyncMarket(-2) end },
+    },
+
+    [3] = {
+      { col=1, row=1, accent=C_GREEN,
+        tag_pt="10X XP", tag_en="10X XP",
+        title_pt="Multiplicador de Treino: 10x", title_en="Training XP Multiplier: 10x",
+        sub_pt="Evolução 10x mais rápida p/ seu clube, base e BAL", sub_en="10x faster Sub-XP growth for your club, youth & BAL",
+        isActive=function(tel) return tel.trnMode == 3 end,
+        fn=function()
+          local a = PES10.symAddr("cfgTrainingMultMode")
+          if a ~= 0 then writeInteger(a, 3); PES10.ensureHookActive(3); PES10.toast(PES10.T("Multiplicador de Treino 10x ATIVADO!", "10x Training Multiplier ACTIVATED!")) end
+        end },
+      { col=2, row=1, accent=C_GOLD,
+        tag_pt="1 DIA", tag_en="1-DAY MAX",
+        title_pt="Treino Instantâneo (10.000 XP)", title_en="Instant Training (10,000 XP/Day)",
+        sub_pt="Sobe atributo, Skill e Posição em apenas 1 avanço!", sub_en="Completes stat, Skill & Position growth in 1 day!",
+        isActive=function(tel) return tel.trnMode == 5 end,
+        fn=function()
+          local a = PES10.symAddr("cfgTrainingMultMode")
+          if a ~= 0 then writeInteger(a, 5); PES10.ensureHookActive(3); PES10.toast(PES10.T("Treino Instantâneo (10.000 XP/dia) ATIVADO!", "Instant Training (10,000 XP/day) ACTIVATED!")) end
+        end },
+      { col=1, row=2, accent=C_BLUE,
+        tag_pt="PADRÃO", tag_en="DEFAULT",
+        title_pt="Multiplicador Normal (1x)", title_en="Normal Training Speed (1x)",
+        sub_pt="Restaura velocidade original de evolução no treino", sub_en="Restores default Konami training progression rate",
+        isActive=function(tel) return tel.attached and tel.trnMode == 0 end,
+        fn=function()
+          local a = PES10.symAddr("cfgTrainingMultMode")
+          if a ~= 0 then writeInteger(a, 0); PES10.toast(PES10.T("Treino restaurado para 1x (Original).", "Training restored to 1x (Default).")) end
+        end },
+      { col=2, row=2, accent=C_PURPLE,
+        tag_pt="99,9% XP", tag_en="99.9% XP",
+        title_pt="Encher Sub-XP do Selecionado", title_en="Fill Selected Player Sub-XP",
+        sub_pt="Deixa as 25 barras do atleta atual em 9.999 / 10.000", sub_en="Sets all 25 Sub-XP bars of current player to 9,999",
+        fn=function() PES10.runPlayerMacro("instant_subxp_player") end },
+      { col=1, row=3, accent=C_BLUE,
+        tag_pt="MEU PRO", tag_en="MY PRO",
+        title_pt="BAL: Selecionar Meu Jogador", title_en="BAL: Select My Legend Player",
+        sub_pt="Carrega seu atleta do Estrelato no painel e editor", sub_en="Loads your BAL pro directly into Studio & Editor",
+        fn=function() PES10.pointToBALMyPlayer() end },
+      { col=2, row=3, accent=C_GOLD,
+        tag_pt="99 PTS", tag_en="99 PTS",
+        title_pt="BAL: 10 Barras + 99 Pontos", title_en="BAL: Max 10 Sliders + 99 Points",
+        sub_pt="Remove trava de 21 pontos e enche todas as barras", sub_en="Bypasses 21-pt cap and maxes all 10 training bars",
+        fn=function() PES10.runPlayerMacro("bal_max_sliders") end },
+      { col=1, row=4, accent=C_GREEN,
+        tag_pt="SKILL", tag_en="SKILL",
+        title_pt="BAL: Aprender Skill Agora", title_en="BAL: Learn Active Skill Now",
+        sub_pt="Completa em 99,99% a Habilidade em treino no BAL", sub_en="Brings currently trained BAL Skill to 99.99% XP",
+        fn=function() PES10.runPlayerMacro("bal_instant_skill") end },
+      { col=2, row=4, accent=C_GREEN,
+        tag_pt="POSIÇÃO", tag_en="POSITION",
+        title_pt="BAL: Aprender Posição Agora", title_en="BAL: Learn Active Position Now",
+        sub_pt="Completa em 99,99% a nova Posição em treino no BAL", sub_en="Brings currently trained BAL Position to 99.99% XP",
+        fn=function() PES10.runPlayerMacro("bal_instant_pos") end },
+    },
+
+    [4] = {
+      { col=1, row=1, accent=C_GOLD,
+        tag_pt="RELÓGIO", tag_en="CLOCK",
+        title_pt="Escolher Minuto Exato...", title_en="Jump to Exact Minute...",
+        sub_pt="Pula p/ qualquer minuto (15, 44, 88) sem crash FNV", sub_en="Jump to any match minute (15, 44, 88) crash-free",
+        fn=function()
+          local info = PES10.getMatchClockInfo()
+          if not info then PES10.toast(PES10.T("Entre em uma partida ao vivo primeiro!", "Enter a live match first!")); return end
+          local ans = inputQuery(
+            PES10.T("Escolher Minuto da Partida", "Set Match Minute"),
+            PES10.T("Digite o minuto desejado (ex: 15, 44, 88 ou 44:30):", "Enter desired minute (e.g. 15, 44, 88 or 44:30):"),
+            tostring(info.mm)
+          )
+          if ans then
+            local mm, ss = ans:match("^(%d+)%s*:%s*(%d+)$")
+            local tMin = mm and (tonumber(mm) + tonumber(ss) / 60.0) or tonumber((ans:gsub(",", ".")))
+            if tMin then PES10.setExactMatchMinute(tMin) end
+          end
+        end },
+      { col=2, row=1, accent=C_BLUE,
+        tag_pt="44' / 88'", tag_en="44' / 88'",
+        title_pt="Pular p/ Fim do Tempo (44' / 88')", title_en="Jump Near Half End (44' / 88')",
+        sub_pt="No 1ºT avança p/ 44:00  •  No 2ºT avança p/ 88:00", sub_en="In 1st Half jumps to 44:00  •  In 2nd Half to 88:00",
+        fn=function()
+          local info = PES10.getMatchClockInfo()
+          if not info then PES10.toast(PES10.T("Entre em uma partida ao vivo primeiro!", "Enter a live match first!")); return end
+          PES10.setExactMatchMinute(info.period == 1 and 44 or 88)
+        end },
+      { col=1, row=2, accent=C_BLUE,
+        tag_pt="00:00", tag_en="00:00",
+        title_pt="Reiniciar Tempo Atual", title_en="Restart Current Half",
+        sub_pt="Volta o cronômetro para o início da etapa atual", sub_en="Resets match timer to the start of current half",
+        fn=function() PES10.resetCurrentHalfNow() end },
+      { col=2, row=2, accent=C_CRIMSON,
+        tag_pt="APITO", tag_en="WHISTLE",
+        title_pt="Encerrar Tempo Atual Agora", title_en="End Current Half Now",
+        sub_pt="Avança o cronômetro para o apito imediatamente", sub_en="Advances timer to trigger the referee whistle now",
+        fn=function() PES10.endCurrentHalfNow() end },
+      { col=1, row=3, accent=C_GREEN,
+        tag_pt="GOLS", tag_en="SCORE",
+        title_pt="Alterar Placar ao Vivo...", title_en="Edit Live Match Score...",
+        sub_pt="Define gols de Casa e Fora sincronizando placar", sub_en="Set Home & Away goals syncing engine + scoreboard",
+        fn=function()
+          PES10.ensureHookActive(5)
+          local mCore = PES10.readU64(PES10.symAddr("ptrMatchCore"))
+          local mHud = PES10.readU64(PES10.symAddr("ptrMatchHud"))
+          if mCore == 0 and mHud == 0 then PES10.toast(PES10.T("Entre em uma partida ao vivo primeiro!", "Enter a live match first!")); return end
+          local hCur = (mCore ~= 0) and PES10.readU8(mCore + 0x9E) or 0
+          local aCur = (mCore ~= 0) and PES10.readU8(mCore + 0x9F) or 0
+          local ans = inputQuery(
+            PES10.T("Placar ao Vivo (Casa x Fora)", "Live Match Score (Home - Away)"),
+            PES10.T("Digite no formato CASA-FORA (ex: 3-0 ou 2-1):", "Enter as HOME-AWAY (e.g. 3-0 or 2-1):"),
+            string.format("%d-%d", hCur, aCur)
+          )
+          if ans then
+            local hg, ag = ans:match("^(%d+)%s*[%-%s:xX]%s*(%d+)$")
+            if hg and ag then
+              local hi, ai = tonumber(hg), tonumber(ag)
+              if mCore ~= 0 then writeBytes(mCore + 0x9E, hi); writeBytes(mCore + 0x9F, ai) end
+              if mHud ~= 0 then writeInteger(mHud + 0x120, hi); writeInteger(mHud + 0x124, ai) end
+              PES10.toast(string.format(PES10.T("Placar atualizado para %d x %d!", "Live score updated to %d - %d!"), hi, ai))
+            end
+          end
+        end },
+      { col=2, row=3, accent=C_PURPLE,
+        tag_pt="PAUSA", tag_en="FREEZE",
+        title_pt="Congelar / Descongelar Relógio", title_en="Freeze / Unfreeze Match Clock",
+        sub_pt="Alterna pausa exata dos segundos sem travar jogo", sub_en="Toggles exact match clock freeze without lag",
+        isActive=function(tel) return tel.frzMode == 1 end,
+        fn=function()
+          local a = PES10.symAddr("cfgFreezeClock")
+          local info = PES10.getMatchClockInfo()
+          if a == 0 or not info then PES10.toast(PES10.T("Entre em uma partida primeiro!", "Enter a live match first!")); return end
+          PES10.ensureHookActive(5)
+          local cur = PES10.readU32(a)
+          if cur == 0 then
+            writeFloat(PES10.symAddr("valFrozenTotalTicks"), info.halfTicks)
+            writeInteger(a, 1)
+            PES10.toast(PES10.T("Relógio CONGELADO em ", "Match clock FROZEN at ") .. info.formatted)
+          else
+            writeInteger(a, 0)
+            PES10.toast(PES10.T("Relógio DESCONGELADO!", "Match clock UNFROZEN!"))
+          end
+        end },
+      { col=1, row=4, accent=C_GREEN,
+        tag_pt="CASA 100%", tag_en="HOME 100%",
+        title_pt="Stamina 100%: Só Mandante", title_en="100% Stamina: Home Team Only",
+        sub_pt="Clique p/ ativar ou desligar fôlego infinito Casa", sub_en="Click to toggle infinite stamina for Home side",
+        isActive=function(tel) return tel.stamMode == 1 end,
+        fn=function()
+          local a = PES10.symAddr("cfgStaminaMode")
+          if a == 0 then return end
+          if PES10.readU32(a) == 1 then
+            writeInteger(a, 0)
+            PES10.toast(PES10.T("Stamina em campo restaurada para Original.", "Match Stamina restored to Default."))
+          else
+            writeInteger(a, 1); PES10.ensureHookActive(6)
+            PES10.toast(PES10.T("Stamina 100% ativada APENAS para Casa!", "100% Stamina active for HOME team only!"))
+          end
+        end },
+      { col=2, row=4, accent=C_GREEN,
+        tag_pt="FORA 100%", tag_en="AWAY 100%",
+        title_pt="Stamina 100%: Só Visitante", title_en="100% Stamina: Away Team Only",
+        sub_pt="Clique p/ ativar ou desligar fôlego infinito Fora", sub_en="Click to toggle infinite stamina for Away side",
+        isActive=function(tel) return tel.stamMode == 2 end,
+        fn=function()
+          local a = PES10.symAddr("cfgStaminaMode")
+          if a == 0 then return end
+          if PES10.readU32(a) == 2 then
+            writeInteger(a, 0)
+            PES10.toast(PES10.T("Stamina em campo restaurada para Original.", "Match Stamina restored to Default."))
+          else
+            writeInteger(a, 2); PES10.ensureHookActive(6)
+            PES10.toast(PES10.T("Stamina 100% ativada APENAS para Fora!", "100% Stamina active for AWAY team only!"))
+          end
+        end },
+    },
+  }
+
+  local TRN_NAMES_PT  = { [0]="1x Original", [1]="2x Dobrado", [2]="5x Rápido", [3]="10x Super", [4]="50x Turbo", [5]="Instantâneo (10.000 XP)" }
+  local TRN_NAMES_EN  = { [0]="1x Default",  [1]="2x Double",  [2]="5x Fast",   [3]="10x Super", [4]="50x Turbo", [5]="Instant (10,000 XP)" }
+  local STAM_NAMES_PT = { [0]="Original", [1]="Só Casa 100%", [2]="Só Fora 100%", [3]="Ambos 100%", [4]="Pressão Casa", [5]="Pressão Fora" }
+  local STAM_NAMES_EN = { [0]="Default",  [1]="Home 100%",    [2]="Away 100%",    [3]="Both 100%",  [4]="Home Press",   [5]="Away Press" }
+
+  local currentTab = 1
+  local hoverId    = nil
+  local flashId    = nil
+  local hitboxes   = {}
+  local lastSig    = ""
+
+  local function countActiveHooks()
+    local al = getAddressList()
+    if not al then return 0 end
+    local cnt = 0
+    for num = 1, 6 do
+      local id = PES10.HOOK_IDS_BY_NUM and PES10.HOOK_IDS_BY_NUM[num]
+      local mr = id and al.getMemoryRecordByID(id) or nil
+      if mr and mr.Active then cnt = cnt + 1 end
     end
+    return cnt
   end
 
-  local tabW = math.floor(W / #TAB_DEFS)
-  local tbH, barH = tabBarH - 1, S(3)
-  local footerH = S(38)
-  local pageTop = hdrH + tabBarH
-  local pageH   = H - pageTop - footerH
-  for i, td in ipairs(TAB_DEFS) do
-    local tb   = mkPanel(tabBar, (i - 1) * tabW, 0, tabW, tbH, C_TABBAR)
-    local bar  = mkPanel(tb, 0, tbH - barH, tabW, barH, td.accent)
-    local tlbl = mkText(tb, 0, 0, td.title, 9, C_MUTED, true, tabW, tbH - barH, true)
-    local idxCopy = i
-    bindInteractive(
-      { tb, bar, tlbl },
-      function() selectTab(idxCopy) end,
-      function(isIn)
-        if currentTabIdx ~= idxCopy then
-          tb.Color = isIn and C_TAB_HOV or C_TABBAR
-        end
-      end
-    )
-    tabButtons[i] = { panel = tb, bar = bar, label = tlbl }
-
-    local page = mkPanel(f, 0, pageTop, W, pageH, C_BG)
-    page.Visible = (i == 1)
-    tabPages[i] = page
-  end
-
-  -- 3. FOOTER TOAST BAR
-  local footer = mkPanel(f, 0, H - footerH, W, footerH, C_FOOTER)
-  mkPanel(footer, 0, 0, W, 1, C_BORDER)
-  local lblToast = mkText(footer, S(20), S(9), "✓ " .. PES10.lastToastMsg, 9, C_GREEN, false, W - S(40), S(22), false)
-
-  -- Helper para criar Banner de Telemetria c/ borda 1px + Cards 2 Colunas Largos (Zero Overflow!)
-  local function mkBanner(page, accentColor, initialText)
-    local bBorder = mkPanel(page, S(20), S(12), W - S(40), S(46), C_BORDER)
-    local b       = mkPanel(bBorder, 1, 1, W - S(40) - 2, S(46) - 2, C_BANNER)
-    mkPanel(b, 0, 0, S(4), S(46) - 2, accentColor)
-    local l = mkText(b, S(16), S(12), initialText, 9, C_TEXT, true, W - S(76), S(24), false)
-    return l
-  end
-
-  local CARD_W = math.floor((W - S(56)) / 2) -- 412px * scale por card!
-  local CARD_H = S(66)
-
-  local function mkActionCard(page, col, row, accentColor, title, subtitle, onClickFn)
-    local cx = S(20) + (col - 1) * (CARD_W + S(16))
-    local cy = S(70) + (row - 1) * (CARD_H + S(12))
-    local border = mkPanel(page, cx, cy, CARD_W, CARD_H, C_BORDER)
-    local card   = mkPanel(border, 1, 1, CARD_W - 2, CARD_H - 2, C_CARD)
-    local strip  = mkPanel(card, 0, 0, S(5), CARD_H - 2, accentColor)
-    local textW  = CARD_W - S(28)
-    local lTitle = mkText(card, S(18), S(9),  title,    10, C_TEXT,  true,  textW, S(24), false)
-    local lSub   = mkText(card, S(18), S(36), subtitle, 8,  C_MUTED, false, textW, S(22), false)
-
-    local flashing = false
-    local function setHover(isIn)
-      if flashing then return end
-      border.Color = isIn and accentColor or C_BORDER
-      card.Color   = isIn and C_CARD_HOV or C_CARD
-    end
-
-    local function trigger()
-      flashing = true
-      border.Color = accentColor
-      card.Color   = C_CARD_FLASH
-      local t = createTimer(f, true)
-      t.Interval = 140
-      t.OnTimer = function(tmr)
-        tmr.destroy()
-        flashing = false
-        if card and border then
-          border.Color = C_BORDER
-          card.Color   = C_CARD
-        end
-      end
-      pcall(onClickFn)
-      lblToast.Caption = PES10.lastToastMsg
-    end
-
-    bindInteractive({ border, card, strip, lTitle, lSub }, trigger, setHover)
-    return card
-  end
-
-  -- ==========================================================================
-  -- ABA 1: MASTER LEAGUE & SQUAD COMMANDER (8 Cards em 2x4)
-  -- ==========================================================================
-  local lblBannerML = mkBanner(tabPages[1], C_GREEN, "Master League: Aguardando save carregado...")
-
-  mkActionCard(tabPages[1], 1, 1, C_GREEN, "+ 50 Milhões (Transferências)", "Soma +50M imediatos ao caixa de contratações", function()
-    local c = PES10.readU64(PES10.symAddr("ptrCareer"))
-    if c == 0 then PES10.toast("Carregue sua Master League primeiro!"); return end
-    writeInteger(c + 0x016ECBF4, math.min(2147483647, PES10.readI32(c + 0x016ECBF4) + 500000))
-    PES10.toast("+50 Milhões adicionados em Transferências!")
-  end)
-  mkActionCard(tabPages[1], 2, 1, C_GREEN, "Pacote Bilionário (+500M / +50M)", "Soma +500M em Transferências e +50M em Salários", function()
-    local c = PES10.readU64(PES10.symAddr("ptrCareer"))
-    if c == 0 then PES10.toast("Carregue sua Master League primeiro!"); return end
-    writeInteger(c + 0x016ECBF4, math.min(2147483647, PES10.readI32(c + 0x016ECBF4) + 5000000))
-    writeInteger(c + 0x016ECC08, math.min(2147483647, PES10.readI32(c + 0x016ECC08) + 500000))
-    PES10.toast("+500M Transferências e +50M Salários adicionados!")
-  end)
-
-  mkActionCard(tabPages[1], 1, 2, C_BLUE, "100% Fôlego em Todo o Elenco", "Descansa 100% da barra de Stamina do seu clube", function()
-    PES10.runSquadCommander("stamina_100")
-  end)
-  mkActionCard(tabPages[1], 2, 2, C_BLUE, "Seta Azul em Todo o Elenco", "Ativa condição máxima (Top Form) p/ próximo jogo", function()
-    PES10.runSquadCommander("blue_form")
-  end)
-
-  mkActionCard(tabPages[1], 1, 3, C_GREEN, "Curar Lesões + Afeição 100%", "Zera departamento médico e sobe afeição ao máximo", function()
-    PES10.runSquadCommander("heal_affection")
-  end)
-  mkActionCard(tabPages[1], 2, 3, C_GOLD, "Blindar Contratos (+5 Anos)", "Estende contratos em +5 anos e remove multas", function()
-    PES10.runSquadCommander("shield_contracts")
-  end)
-
-  mkActionCard(tabPages[1], 1, 4, C_PURPLE, "Ativar Auge (Breakthrough) Geral", "Explosão de evolução e zero declínio pós-30", function()
-    PES10.runSquadCommander("eternal_peak_breakthrough")
-  end)
-  mkActionCard(tabPages[1], 2, 4, C_CRIMSON, "Evoluir +1 Overall no Elenco", "Soma +1 permanente nos 25 atributos do seu time", function()
-    PES10.runSquadCommander("plus_one_all_stats")
-  end)
-
-  -- ==========================================================================
-  -- ABA 2: JOGADOR SELECIONADO & CONTRATOS ATIVOS (8 Cards em 2x4)
-  -- ==========================================================================
-  local lblBannerPlayer = mkBanner(tabPages[2], C_BLUE, "Atleta Selecionado: Nenhum — Use a Busca Global ou passe o cursor no jogo.")
-
-  mkActionCard(tabPages[2], 1, 1, C_BLUE, "Buscar Jogador por Nome ou ID", "Pesquisa instantânea entre 30.000 atletas na RAM", function()
-    PES10.searchCareerPlayerDialog()
-  end)
-  mkActionCard(tabPages[2], 2, 1, C_CRIMSON, "Contratação Fácil (€ 1.000 Multa)", "Fixa multa € 1.000 + Afeição 100% + destrava data", function()
-    PES10.runPlayerMacro("easy_sign_target")
-  end)
-
-  mkActionCard(tabPages[2], 1, 2, C_GOLD, "Definir Taxa de Rescisão Exata", "Escolher valor exato de multa (ex: 50M, 500k, 1B)", function()
-    local p = PES10.getSelectedPlayerOrWarn()
-    if p == 0 then return end
+  local function collectTelemetry()
     local c = PES10.getCurrentCurrency()
-    local ans = inputQuery("Fixar Taxa de Rescisão (" .. c.symbol .. ")", "Digite o valor exato da multa (ex: 1000, 80M, 1B):", "80M")
-    if ans then
-      local raw = PES10.parseHumanMoneyToRaw(ans)
-      if raw then
-        PES10.setOverrideReleaseFeeForPlayer(p, raw)
-        PES10.toast("Multa fixada em " .. PES10.formatMoneyFromRaw(raw) .. "!")
-      end
-    end
-  end)
-  mkActionCard(tabPages[2], 2, 2, C_GOLD, "Destravar Renegociação Imediata", "Remove bloqueio de contrato assinado recentemente", function()
-    PES10.runPlayerMacro("unlock_renegotiation")
-  end)
+    local hooksOn = countActiveHooks()
+    local isEn = (PES10.lang == "en")
+    local trnTbl = isEn and TRN_NAMES_EN or TRN_NAMES_PT
+    local stamTbl = isEn and STAM_NAMES_EN or STAM_NAMES_PT
 
-  mkActionCard(tabPages[2], 1, 3, C_GREEN, "Todos os 25 Atributos em 99", "Coloca todas as notas técnicas e físicas em 99", function()
-    PES10.runPlayerMacro("stats_99")
-  end)
-  mkActionCard(tabPages[2], 2, 3, C_PURPLE, "41 Habilidades + 13 Posições 'A'", "Libera todas as Skills, Posições A, Pé 4/4 e Forma", function()
-    PES10.runPlayerMacro("all_positions_a")
-    PES10.runPlayerMacro("all_39_skills")
-    PES10.runPlayerMacro("perfect_wf_form_injury")
-    PES10.toast("Pacote Completo (Posições A + 41 Skills + Pé 4/4) aplicado!")
-  end)
+    local t = {
+      lang     = PES10.lang,
+      attached = PES10.isAttached(),
+      currIdx  = PES10.currencyIndex,
+      currSym  = c.symbol,
+      currCode = c.code,
+      hooksOn  = hooksOn,
+      trnMode  = 0,
+      stamMode = 0,
+      frzMode  = 0,
+      toast    = PES10.lastToastMsg,
+      hdrSub   = "",
+      mlTop    = PES10.T("FINANÇAS DO CLUBE & CALENDÁRIO MASTER LEAGUE", "CLUB FINANCES & MASTER LEAGUE CALENDAR"),
+      mlMain   = PES10.T("Nenhuma Carreira carregada — Abra sua Master League ou BAL.", "No Career loaded — Open your Master League or BAL save."),
+      pHas     = false,
+      pOVR     = 0,
+      pPos     = "OVR",
+      pTop     = PES10.T("Nenhum atleta selecionado no momento", "No player currently selected"),
+      pSub     = PES10.T("Clique em 'Buscar Jogador por Nome ou ID' abaixo ou passe o cursor sobre um atleta.", "Click 'Search Player by Name or ID' below or hover any player in-game."),
+      trnTop   = PES10.T("MOTOR DE EVOLUÇÃO SUB-XP (EXCLUSIVO SEU CLUBE, BASE & BAL)", "SUB-XP PROGRESSION ENGINE (YOUR CLUB, YOUTH & BAL ONLY)"),
+      trnMain  = PES10.T("Velocidade de Treino: 1x Original     •     BAL Focus Points: 0", "Training Speed: 1x Default     •     BAL Focus Points: 0"),
+      mTop     = PES10.T("TELEMETRIA DE PARTIDA AO VIVO (SIDER-SAFE)", "LIVE MATCH TELEMETRY (SIDER-SAFE)"),
+      mMain    = PES10.T("Fora de Partida     •     Modo Stamina Configurado: Original", "Not in Match     •     Configured Stamina Mode: Default"),
+    }
 
-  mkActionCard(tabPages[2], 1, 4, C_BLUE, "Exportar Backup JSON (.json)", "Salva os 380 bytes do atleta em arquivo externo", function()
-    PES10.exportPlayerBackupJson()
-  end)
-  mkActionCard(tabPages[2], 2, 4, C_BLUE, "Importar Backup JSON (.json)", "Restaura stats/skills mantendo ID e Clube atuais", function()
-    PES10.importPlayerBackupJson()
-  end)
-
-  -- ==========================================================================
-  -- ABA 3: TREINO MASTER LEAGUE & RUMO AO ESTRELATO (8 Cards em 2x4)
-  -- ==========================================================================
-  local lblBannerTrain = mkBanner(tabPages[3], C_PURPLE, "Motor de Sub-XP: 1x Original | Exclusivo para Seu Clube, Base e BAL")
-
-  mkActionCard(tabPages[3], 1, 1, C_GREEN, "Multiplicador de Treino: 10x", "Evolução 10x mais rápida p/ seu clube, base e BAL", function()
-    local a = PES10.symAddr("cfgTrainingMultMode")
-    if a ~= 0 then writeInteger(a, 3); PES10.ensureHookActive(3); PES10.toast("Multiplicador de Treino 10x ATIVADO!") end
-  end)
-  mkActionCard(tabPages[3], 2, 1, C_GOLD, "Treino Instantâneo (10.000 XP)", "Sobe atributo, Skill e Posição em apenas 1 dia!", function()
-    local a = PES10.symAddr("cfgTrainingMultMode")
-    if a ~= 0 then writeInteger(a, 5); PES10.ensureHookActive(3); PES10.toast("Modo Treino Instantâneo (10.000 XP/dia) ATIVADO!") end
-  end)
-
-  mkActionCard(tabPages[3], 1, 2, C_BLUE, "Multiplicador Normal (1x)", "Restaura velocidade original de evolução no treino", function()
-    local a = PES10.symAddr("cfgTrainingMultMode")
-    if a ~= 0 then writeInteger(a, 0); PES10.toast("Treino restaurado para 1x (Original).") end
-  end)
-  mkActionCard(tabPages[3], 2, 2, C_PURPLE, "Encher Sub-XP do Selecionado", "Coloca os 25 atributos do atleta em 99,99% de XP", function()
-    PES10.runPlayerMacro("instant_subxp_player")
-  end)
-
-  mkActionCard(tabPages[3], 1, 3, C_BLUE, "BAL: Selecionar Meu Jogador", "Aponta o Edit Player p/ seu craque do Estrelato", function()
-    PES10.pointToBALMyPlayer()
-  end)
-  mkActionCard(tabPages[3], 2, 3, C_GOLD, "BAL: 10 Barras + 99 Pontos", "Destrava trava de 21 pontos e enche as 10 barras", function()
-    PES10.runPlayerMacro("bal_max_sliders")
-  end)
-
-  mkActionCard(tabPages[3], 1, 4, C_GREEN, "BAL: Aprender Skill Agora", "Deixa em 99,99% a Habilidade em treino no BAL", function()
-    PES10.runPlayerMacro("bal_instant_skill")
-  end)
-  mkActionCard(tabPages[3], 2, 4, C_GREEN, "BAL: Aprender Posição Agora", "Deixa em 99,99% a nova Posição em treino no BAL", function()
-    PES10.runPlayerMacro("bal_instant_pos")
-  end)
-
-  -- ==========================================================================
-  -- ABA 4: PARTIDA AO VIVO — RELÓGIO, PLACAR & STAMINA (8 Cards em 2x4)
-  -- ==========================================================================
-  local lblBannerMatch = mkBanner(tabPages[4], C_CRIMSON, "Partida ao Vivo: Aguardando início da partida...")
-
-  mkActionCard(tabPages[4], 1, 1, C_GOLD, "Escolher Minuto Exato...", "Pula p/ qualquer minuto (15, 44, 88) sem travar", function()
-    local info = PES10.getMatchClockInfo()
-    if not info then PES10.toast("Entre em uma partida ao vivo primeiro!"); return end
-    local ans = inputQuery("Escolher Minuto da Partida", "Digite o minuto desejado (ex: 15, 44, 88 ou 44:30):", tostring(info.mm))
-    if ans then
-      local mm, ss = ans:match("^(%d+)%s*:%s*(%d+)$")
-      local tMin = mm and (tonumber(mm) + tonumber(ss) / 60.0) or tonumber((ans:gsub(",", ".")))
-      if tMin then PES10.setExactMatchMinute(tMin) end
-    end
-  end)
-  mkActionCard(tabPages[4], 2, 1, C_BLUE, "Pular p/ 44:00 ou 88:00", "No 1ºT avança p/ 44:00 | No 2ºT avança p/ 88:00", function()
-    local info = PES10.getMatchClockInfo()
-    if not info then PES10.toast("Entre em uma partida ao vivo primeiro!"); return end
-    PES10.setExactMatchMinute(info.period == 1 and 44 or 88)
-  end)
-
-  mkActionCard(tabPages[4], 1, 2, C_BLUE, "Reiniciar Tempo Atual (00:00)", "Volta o cronômetro para o início do tempo atual", function()
-    PES10.resetCurrentHalfNow()
-  end)
-  mkActionCard(tabPages[4], 2, 2, C_CRIMSON, "Encerrar Tempo Atual Agora", "Avança o cronômetro para o apito imediatamente", function()
-    PES10.endCurrentHalfNow()
-  end)
-
-  mkActionCard(tabPages[4], 1, 3, C_GREEN, "Alterar Placar ao Vivo...", "Define gols de Casa e Fora sincronizando placar", function()
-    PES10.ensureHookActive(5)
-    local mCore = PES10.readU64(PES10.symAddr("ptrMatchCore"))
-    local mHud = PES10.readU64(PES10.symAddr("ptrMatchHud"))
-    if mCore == 0 and mHud == 0 then PES10.toast("Entre em uma partida c/ Hook 5 ativo primeiro!"); return end
-    local hCur = (mCore ~= 0) and PES10.readU8(mCore + 0x9E) or 0
-    local aCur = (mCore ~= 0) and PES10.readU8(mCore + 0x9F) or 0
-    local ans = inputQuery("Placar ao Vivo (Casa x Fora)", "Digite no formato CASA-FORA (ex: 3-0 ou 2-1):", string.format("%d-%d", hCur, aCur))
-    if ans then
-      local hg, ag = ans:match("^(%d+)%s*[%-%s:xX]%s*(%d+)$")
-      if hg and ag then
-        local hi, ai = tonumber(hg), tonumber(ag)
-        if mCore ~= 0 then writeBytes(mCore + 0x9E, hi); writeBytes(mCore + 0x9F, ai) end
-        if mHud ~= 0 then writeInteger(mHud + 0x120, hi); writeInteger(mHud + 0x124, ai) end
-        PES10.toast(string.format("Placar atualizado para %d x %d!", hi, ai))
-      end
-    end
-  end)
-  mkActionCard(tabPages[4], 2, 3, C_PURPLE, "Congelar / Descongelar Relógio", "Alterna pausa exata do tempo durante a partida", function()
-    local a = PES10.symAddr("cfgFreezeClock")
-    local info = PES10.getMatchClockInfo()
-    if a == 0 or not info then PES10.toast("Entre em uma partida primeiro!"); return end
-    PES10.ensureHookActive(5)
-    local cur = PES10.readU32(a)
-    if cur == 0 then
-      writeFloat(PES10.symAddr("valFrozenTotalTicks"), info.halfTicks)
-      writeInteger(a, 1)
-      PES10.toast("Relógio CONGELADO em " .. info.formatted)
-    else
-      writeInteger(a, 0)
-      PES10.toast("Relógio DESCONGELADO!")
-    end
-  end)
-
-  mkActionCard(tabPages[4], 1, 4, C_GREEN, "Stamina 100%: Só Mandante", "Fôlego infinito só para Casa (sem ajudar Fora)", function()
-    local a = PES10.symAddr("cfgStaminaMode")
-    if a ~= 0 then writeInteger(a, 1); PES10.ensureHookActive(6); PES10.toast("Stamina 100% ativada APENAS para o Mandante (Casa)!") end
-  end)
-  mkActionCard(tabPages[4], 2, 4, C_GREEN, "Stamina 100%: Só Visitante", "Fôlego infinito só para Fora (sem ajudar Casa)", function()
-    local a = PES10.symAddr("cfgStaminaMode")
-    if a ~= 0 then writeInteger(a, 2); PES10.ensureHookActive(6); PES10.toast("Stamina 100% ativada APENAS para o Visitante (Fora)!") end
-  end)
-
-  -- Timer de atualização suave da UI (400ms)
-  local TRN_NAMES = { [0]="1x Original", [1]="2x", [2]="5x", [3]="10x Super", [4]="50x Turbo", [5]="Instantâneo (10.000 XP)" }
-  local STAM_NAMES = { [0]="Original", [1]="Só Casa 100%", [2]="Só Fora 100%", [3]="Ambos 100%", [4]="Pressão Casa", [5]="Pressão Fora" }
-
-  local uiTimer = createTimer(f, true)
-  uiTimer.Interval = 400
-  uiTimer.OnTimer = function()
-    if not f.Visible then return end
-    local c = PES10.getCurrentCurrency()
-    for idx, cp in pairs(currencyPills) do
-      local active = (idx == PES10.currencyIndex)
-      cp.border.Color = active and C_GOLD or C_BORDER
-      cp.panel.Color  = active and C_GOLD or C_CARD
-      cp.label.Font.Color = active and C_BG or C_TEXT
-    end
-    lblToast.Caption = PES10.lastToastMsg
-
-    if not PES10.isAttached() then
-      lblHeaderSub.Caption = "○ Aguardando PES2021.exe...  |  Moeda: " .. c.symbol .. " (" .. c.code .. ")"
-      lblHeaderSub.Font.Color = C_MUTED
-      return
+    if not t.attached then
+      t.hdrSub = string.format(
+        PES10.T("○ Aguardando PES2021.exe...   •   Moeda: %s (%s)", "○ Waiting for PES2021.exe...   •   Currency: %s (%s)"),
+        c.symbol, c.code
+      )
+      return t
     end
 
     local modeStr, clubStr, career = PES10.getCareerModeAndClubInfo()
+    local shortMode = modeStr
+    if modeStr == "Master League" and clubStr ~= "" then
+      local cleanClub = clubStr:gsub("%s*%(ID %d+%)", "")
+      shortMode = "ML: " .. cleanClub
+    elseif clubStr ~= "" then
+      shortMode = modeStr .. " — " .. clubStr:gsub("%s*%(ID %d+%)", "")
+    end
     local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
-    local pName = (p ~= 0) and (readString(p + 0x38, 30, false) or "Atleta") or "Nenhum"
-    lblHeaderSub.Caption = string.format("● Conectado  |  %s%s  |  Atleta: %s", modeStr, clubStr ~= "" and (" — " .. clubStr) or "", pName)
-    lblHeaderSub.Font.Color = C_GREEN
+    local pSummary = PES10.T("Sem Atleta", "No Player")
+    local pName = PES10.T("Nenhum", "None")
+    if p ~= 0 then
+      pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+      local hOvr, hPos = PES10.calcPlayerOVR(p)
+      pSummary = string.format("%s (%d %s)", pName, hOvr, PES10.posShort(hPos))
+    end
+    t.hdrSub = string.format("● Online  •  %s  •  %s", shortMode, pSummary)
 
     if career ~= 0 then
       local tb = PES10.formatMoneyFromRaw(PES10.readI32(career + 0x016ECBF4))
@@ -1630,43 +2298,398 @@ function PES10.openDashboard()
       local yr = PES10.readU16(career + 0x01642A24)
       local mo = PES10.readU8(career + 0x01642A26)
       local dy = PES10.readU8(career + 0x01642A27)
-      lblBannerML.Caption = string.format("Transferências: %s   |   Salários: %s   |   Data: %02d/%02d/%04d", tb, sb, dy, mo, yr)
-    else
-      lblBannerML.Caption = "Nenhuma Carreira carregada — Entre na Master League ou BAL."
+      t.mlMain = string.format(
+        PES10.T(
+          "Transferências: %s     •     Salários: %s     •     Data: %02d/%02d/%04d",
+          "Transfer Budget: %s     •     Wage Budget: %s     •     Date: %04d-%02d-%02d"
+        ),
+        tb, sb, isEn and yr or dy, mo, isEn and dy or yr
+      )
     end
 
     if p ~= 0 then
+      t.pHas = true
+      local ovr, regPos, posRank = PES10.getPlayerBestPositions(p)
+      local age = PES10.readU8(p + 0x1C) & 0x3F
+      local aff = PES10.getBitsInDword(p + 0x13C, 18, 7)
       local _, _, pClub = PES10.decodeClubHandle(PES10.readU32(p + 0x12C))
       local pSal = PES10.formatMoneyFromRaw(PES10.readI32(p + 0x15C))
+      local pMkt = PES10.formatMoneyFromRaw(PES10.readI32(p + 0x174))
       local rfeeRaw = PES10.readI32(PES10.symAddr("valComputedReleaseFee"))
-      local rfeeStr = (rfeeRaw > 0) and PES10.formatMoneyFromRaw(rfeeRaw) or "Sem Multa"
-      lblBannerPlayer.Caption = string.format("%s  |  %s  |  Salário: %s  |  Multa: %s", pName, pClub, pSal, rfeeStr)
-    else
-      lblBannerPlayer.Caption = "Nenhum atleta selecionado — Clique em 'Buscar Jogador' abaixo ou passe o cursor no jogo."
+      local rfeeStr = (rfeeRaw > 0) and PES10.formatMoneyFromRaw(rfeeRaw) or PES10.T("Sem Multa", "No Clause")
+      t.pOVR = ovr
+      t.pPos = PES10.posShort(regPos)
+      local bestHint = ""
+      if posRank[1] and posRank[1].ovr > ovr then
+        bestHint = string.format("  •  ★ %d %s", posRank[1].ovr, PES10.posShort(posRank[1].pos))
+      end
+      t.pTop = string.format(
+        PES10.T("%s  •  %d anos  •  %s%s", "%s  •  %d yo  •  %s%s"),
+        pName, age, pClub, bestHint
+      )
+      t.pSub = string.format(
+        PES10.T(
+          "Sal: %s  •  Merc: %s  •  Multa: %s  •  Af: %d%%",
+          "Wage: %s  •  Val: %s  •  Clause: %s  •  Aff: %d%%"
+        ),
+        pSal, pMkt, rfeeStr, aff
+      )
     end
 
     local tm = PES10.readU32(PES10.symAddr("cfgTrainingMultMode"))
     local fp = (career ~= 0) and PES10.readU8(career + 0x016ECBEA) or 0
-    lblBannerTrain.Caption = string.format("Treino Ativo: %s   |   BAL Focus Points: %d", TRN_NAMES[tm] or "1x", fp)
+    t.trnMode = tm
+    t.trnMain = string.format(
+      PES10.T(
+        "Velocidade de Treino: %s     •     BAL Focus Points: %d",
+        "Training Speed: %s     •     BAL Focus Points: %d"
+      ),
+      trnTbl[tm] or trnTbl[0], fp
+    )
 
     local clk = PES10.getMatchClockInfo()
     local sm = PES10.readU32(PES10.symAddr("cfgStaminaMode"))
+    local fz = PES10.readU32(PES10.symAddr("cfgFreezeClock"))
+    t.stamMode = sm
+    t.frzMode  = fz
     if clk then
       local mCore = PES10.readU64(PES10.symAddr("ptrMatchCore"))
-      local sc = (mCore ~= 0) and string.format("%d x %d", PES10.readU8(mCore + 0x9E), PES10.readU8(mCore + 0x9F)) or "Ao Vivo"
-      lblBannerMatch.Caption = string.format("Cronômetro: %s   |   Placar: %s   |   Stamina: %s", clk.formatted, sc, STAM_NAMES[sm] or "Original")
+      local sc = (mCore ~= 0) and string.format("%d x %d", PES10.readU8(mCore + 0x9E), PES10.readU8(mCore + 0x9F)) or PES10.T("Ao Vivo", "Live")
+      t.mMain = string.format(
+        PES10.T(
+          "Cronômetro: %s     •     Placar: %s     •     Stamina: %s",
+          "Match Clock: %s     •     Score: %s     •     Stamina: %s"
+        ),
+        clk.formatted, sc, stamTbl[sm] or stamTbl[0]
+      )
     else
-      lblBannerMatch.Caption = "Fora de Partida   |   Modo Stamina Pré-Configurado: " .. (STAM_NAMES[sm] or "Original")
+      t.mMain = PES10.T("Fora de Partida     •     Modo Stamina Configurado: ", "Not in Match     •     Configured Stamina Mode: ") .. (stamTbl[sm] or stamTbl[0])
+    end
+
+    return t
+  end
+
+  local function renderAll(forceRepaint)
+    local tel = collectTelemetry()
+    local sig = table.concat({
+      tel.lang, tostring(currentTab), tostring(hoverId), tostring(flashId),
+      tostring(tel.currIdx), tostring(tel.hooksOn),
+      tostring(tel.trnMode), tostring(tel.stamMode), tostring(tel.frzMode),
+      tel.hdrSub, tel.mlMain, tostring(tel.pOVR), tel.pTop, tel.pSub, tel.trnMain, tel.mMain, tel.toast
+    }, "|")
+    if not forceRepaint and sig == lastSig then return end
+    lastSig = sig
+
+    local isEn = (tel.lang == "en")
+    local c = backBuf.Canvas
+    hitboxes = {}
+    local function addHitbox(id, x, y, w, h, fn)
+      hitboxes[#hitboxes + 1] = { id = id, x = x, y = y, w = w, h = h, fn = fn }
+    end
+
+    -- 0. Global Midnight Surface
+    drawFlatRect(c, 0, 0, W, H, C_BG)
+
+    -- 1. HEADER BAR & GLOBAL CONTROLS (Hooks + Currencies + PT|EN Toggle)
+    drawFlatRect(c, 0, 0, W, HDR_H, C_HDR)
+    drawFlatRect(c, 0, 0, W, S(2), C_HDR_GLOW)
+    drawFlatRect(c, 0, HDR_H - S(2), W, S(2), TAB_DEFS[currentTab].accent)
+
+    local pillH   = S(36)
+    local pillY   = S(18)
+    local segW    = S(35)
+    local langW   = segW * 2
+    local langX   = W - PAD_X - langW
+    drawRoundBox(c, langX, pillY, langW, pillH, S(8), C_TAB_IDLE, C_BORDER)
+    local ptAct   = not isEn
+    local ptHov   = (hoverId == "btn_lang_pt")
+    local enHov   = (hoverId == "btn_lang_en")
+    local ptBg    = ptAct and C_BLUE or (ptHov and C_CARD_HOV or C_TAB_IDLE)
+    local enBg    = isEn  and C_BLUE or (enHov and C_CARD_HOV or C_TAB_IDLE)
+    drawRoundBox(c, langX, pillY, segW, pillH, S(8), ptBg, ptAct and C_BLUE or C_BORDER)
+    drawRoundBox(c, langX + segW, pillY, segW, pillH, S(8), enBg, isEn and C_BLUE or C_BORDER)
+    setFont(c, 8, ptAct and C_BG or C_SUBTEXT, true)
+    drawTextCentered(c, langX, pillY, segW, pillH, ptBg, "PT")
+    setFont(c, 8, isEn and C_BG or C_SUBTEXT, true)
+    drawTextCentered(c, langX + segW, pillY, segW, pillH, enBg, "EN")
+    addHitbox("btn_lang_pt", langX, pillY, segW, pillH, function() PES10.setLang("pt") end)
+    addHitbox("btn_lang_en", langX + segW, pillY, segW, pillH, function() PES10.setLang("en") end)
+
+    local pillW, pillGap = S(58), S(6)
+    local currStartX = langX - S(10) - (4 * pillW + 3 * pillGap)
+    local currDefs = { {0, "€ EUR"}, {1, "R$ BRL"}, {2, "$ USD"}, {3, "£ GBP"} }
+    for idx, cd in ipairs(currDefs) do
+      local cIdx = cd[1]
+      local px = currStartX + (idx - 1) * (pillW + pillGap)
+      local id = "curr_" .. tostring(cIdx)
+      local isAct = (tel.currIdx == cIdx)
+      local isHov = (hoverId == id)
+      local bg = isAct and C_GOLD or (isHov and C_CARD_HOV or C_CARD)
+      local bd = isAct and C_GOLD or (isHov and C_BLUE or C_BORDER)
+      drawRoundBox(c, px, pillY, pillW, pillH, S(8), bg, bd)
+      setFont(c, 8, isAct and C_BG or C_TEXT, true)
+      drawTextCentered(c, px, pillY, pillW, pillH, bg, cd[2])
+      addHitbox(id, px, pillY, pillW, pillH, function() PES10.setCurrency(cIdx) end)
+    end
+
+    local hookW = S(146)
+    local hookX = currStartX - S(10) - hookW
+    local hookHov = (hoverId == "btn_hooks")
+    local hookBg  = hookHov and C_HOOK_HOV or C_HOOK_BG
+    local hookTxt = (tel.hooksOn == 6)
+      and PES10.T("⚡ 6/6 Hooks ON", "⚡ 6/6 Hooks ON")
+      or string.format(PES10.T("⚡ Ligar Hooks (%d/6)", "⚡ Arm Hooks (%d/6)"), tel.hooksOn)
+    drawRoundBox(c, hookX, pillY, hookW, pillH, S(8), hookBg, C_GREEN)
+    setFont(c, 8, C_TEXT, true)
+    drawTextCentered(c, hookX, pillY, hookW, pillH, hookBg, hookTxt)
+    addHitbox("btn_hooks", hookX, pillY, hookW, pillH, function() PES10.activateAllHooks(false) end)
+
+    local maxHdrTextW = hookX - PAD_X - S(16)
+    setFont(c, 12, C_TEXT, true)
+    drawTextLeft(c, PAD_X, S(12), C_HDR, "PES 2021  •  v10.1 PRO STUDIO", maxHdrTextW)
+    setFont(c, 8, tel.attached and C_GREEN or C_SUBTEXT, false)
+    drawTextLeft(c, PAD_X, S(41), C_HDR, tel.hdrSub, maxHdrTextW)
+
+    -- 2. SEGMENTED 4-TAB BAR
+    drawFlatRect(c, 0, HDR_H, W, NAV_H, C_NAV)
+    drawFlatRect(c, 0, HDR_H + NAV_H - 1, W, 1, C_DIVIDER)
+    local tabGap = S(12)
+    local tabW   = math.floor((CONT_W - 3 * tabGap) / 4)
+    local tabH   = S(36)
+    local tabY   = HDR_H + S(8)
+    for i, td in ipairs(TAB_DEFS) do
+      local tx = PAD_X + (i - 1) * (tabW + tabGap)
+      local id = "tab_" .. tostring(i)
+      local isAct = (currentTab == i)
+      local isHov = (hoverId == id)
+      local bg = isAct and C_TAB_ACT or (isHov and C_TAB_HOV or C_TAB_IDLE)
+      local bd = isAct and td.accent or (isHov and C_BORDER or C_DIVIDER)
+      drawRoundBox(c, tx, tabY, tabW, tabH, S(8), bg, bd)
+      if isAct then
+        drawFlatRect(c, tx + S(14), tabY + tabH - S(3), tabW - S(28), S(2), td.accent)
+      end
+      setFont(c, 9, isAct and C_TEXT or C_SUBTEXT, true)
+      drawTextCentered(c, tx, tabY, tabW, tabH - S(2), bg, isEn and td.en or td.pt)
+      local idxCopy = i
+      addHitbox(id, tx, tabY, tabW, tabH, function() currentTab = idxCopy end)
+    end
+
+    -- 3. HERO TELEMETRY BANNER
+    local activeAccent = TAB_DEFS[currentTab].accent
+    drawRoundBox(c, PAD_X, HERO_Y, CONT_W, HERO_H, S(10), C_HERO, C_BORDER)
+    drawRoundBox(c, PAD_X + S(10), HERO_Y + S(14), S(4), HERO_H - S(28), S(2), activeAccent, activeAccent)
+
+    if currentTab == 2 then
+      -- Clickable OVR Shield Badge (opens 13-Pos & DNA X-Ray!)
+      local bx, by, bw, bh = PAD_X + S(22), HERO_Y + S(10), S(58), S(54)
+      local bCol, bTxtCol = ovrBadgeColor(tel.pHas and tel.pOVR or 0)
+      local badgeHov = (hoverId == "hero_ovr_badge")
+      drawRoundBox(c, bx, by, bw, bh, S(8), bCol, badgeHov and C_TEXT or bCol)
+      setFont(c, 13, bTxtCol, true)
+      drawTextCentered(c, bx, by + S(3), bw, S(30), bCol, tel.pHas and tostring(tel.pOVR) or "--")
+      setFont(c, 7, bTxtCol, true)
+      drawTextCentered(c, bx, by + S(32), bw, S(18), bCol, tel.pPos)
+      addHitbox("hero_ovr_badge", bx, by, bw, bh, function() PES10.showPlayerDNAReport() end)
+
+      local stepDefs = {
+        { id="hero_ovr_dn",  txt="-1 OVR",                         w=S(68), bg=C_CARD,    bd=C_BORDER, fn=function() PES10.stepPlayerOVRProportional(-1) end },
+        { id="hero_ovr_up",  txt="+1 OVR",                         w=S(74), bg=C_HOOK_BG, bd=C_GREEN,  fn=function() PES10.stepPlayerOVRProportional(1) end },
+        { id="hero_ovr_set", txt=PES10.T("OVR Alvo", "Target"),    w=S(80), bg=C_TAB_ACT, bd=C_GOLD,   fn=function() PES10.promptTargetOVRProportional() end },
+        { id="hero_dna_x",   txt=PES10.T("Raio-X", "X-Ray"),       w=S(72), bg=C_CARD,    bd=C_PURPLE, fn=function() PES10.showPlayerDNAReport() end },
+      }
+      local sGap = S(6)
+      local totalStepW = stepDefs[1].w + stepDefs[2].w + stepDefs[3].w + stepDefs[4].w + 3 * sGap
+      local sx = PAD_X + CONT_W - S(14) - totalStepW
+      local sy, sh = HERO_Y + S(19), S(36)
+      local curSx = sx
+      for _, sd in ipairs(stepDefs) do
+        local isHov = (hoverId == sd.id)
+        local pBg = isHov and C_CARD_HOV or sd.bg
+        drawRoundBox(c, curSx, sy, sd.w, sh, S(8), pBg, isHov and C_TEXT or sd.bd)
+        setFont(c, 8, C_TEXT, true)
+        drawTextCentered(c, curSx, sy, sd.w, sh, pBg, sd.txt)
+        addHitbox(sd.id, curSx, sy, sd.w, sh, sd.fn)
+        curSx = curSx + sd.w + sGap
+      end
+
+      local tx = bx + bw + S(14)
+      local maxHeroW = sx - tx - S(14)
+      setFont(c, 10, C_TEXT, true)
+      drawTextLeft(c, tx, HERO_Y + S(14), C_HERO, tel.pTop, maxHeroW)
+      setFont(c, 8, C_SUBTEXT, false)
+      drawTextLeft(c, tx, HERO_Y + S(42), C_HERO, tel.pSub, maxHeroW)
+    else
+      local topLbl = (currentTab == 1 and tel.mlTop) or (currentTab == 3 and tel.trnTop) or tel.mTop
+      local mainLbl = (currentTab == 1 and tel.mlMain) or (currentTab == 3 and tel.trnMain) or tel.mMain
+      local tx = PAD_X + S(24)
+      local maxW = CONT_W - S(40)
+      setFont(c, 8, activeAccent, true)
+      drawTextLeft(c, tx, HERO_Y + S(13), C_HERO, topLbl, maxW)
+      setFont(c, 10, C_TEXT, true)
+      drawTextLeft(c, tx, HERO_Y + S(38), C_HERO, mainLbl, maxW)
+    end
+
+    -- 4. 2x4 ACTION CARDS GRID (WITH STATEFUL ACTIVE GLOW)
+    local cards = CARDS_BY_TAB[currentTab] or {}
+    for idx, cd in ipairs(cards) do
+      local cx = PAD_X + (cd.col - 1) * (CARD_W + GAP_X)
+      local cy = GRID_Y + (cd.row - 1) * (CARD_H + GAP_Y)
+      local id = string.format("card_%d_%d", currentTab, idx)
+      local isFlash = (flashId == id)
+      local isHov   = (hoverId == id)
+      local isAct   = (cd.isActive and cd.isActive(tel)) or false
+
+      local bg = isFlash and C_CARD_FLASH or (isHov and C_CARD_HOV or (isAct and C_CARD_ACT or C_CARD))
+      local bd = (isFlash or isHov or isAct) and cd.accent or C_BORDER
+
+      drawRoundBox(c, cx, cy, CARD_W, CARD_H, S(10), bg, bd)
+      drawRoundBox(c, cx + S(11), cy + S(14), S(4), CARD_H - S(28), S(2), cd.accent, cd.accent)
+
+      local chipTxt = isAct and PES10.T("● ATIVO", "● ACTIVE") or (isEn and cd.tag_en or cd.tag_pt)
+      local chipBg  = isAct and C_CHIP_ACT or C_CHIP_BG
+      local chipBd  = isAct and C_GREEN or C_DIVIDER
+      local chipCol = isAct and C_GREEN or cd.accent
+
+      setFont(c, 7, chipCol, true)
+      local chipW = c.getTextWidth(chipTxt) + S(16)
+      local chipH = S(20)
+      local chipX = cx + CARD_W - chipW - S(14)
+      local chipY = cy + S(13)
+      drawRoundBox(c, chipX, chipY, chipW, chipH, S(6), chipBg, chipBd)
+      drawTextCentered(c, chipX, chipY, chipW, chipH, chipBg, chipTxt)
+
+      local titleStr  = isEn and cd.title_en or cd.title_pt
+      local subStr    = isEn and cd.sub_en or cd.sub_pt
+      local maxTitleW = chipX - (cx + S(24)) - S(10)
+      local maxSubW   = CARD_W - S(38)
+      setFont(c, 10, C_TEXT, true)
+      drawTextLeft(c, cx + S(24), cy + S(13), bg, titleStr, maxTitleW)
+      setFont(c, 8, C_SUBTEXT, false)
+      drawTextLeft(c, cx + S(24), cy + S(44), bg, subStr, maxSubW)
+
+      addHitbox(id, cx, cy, CARD_W, CARD_H, cd.fn)
+    end
+
+    -- 5. FOOTER STATUS & JSON BACKUP SHORTCUTS
+    drawFlatRect(c, 0, FOOTER_Y, W, FOOTER_H, C_FOOTER)
+    drawFlatRect(c, 0, FOOTER_Y, W, 1, C_DIVIDER)
+
+    local jBtnW, jBtnH = S(112), S(26)
+    local impX = W - PAD_X - jBtnW
+    local expX = impX - S(8) - jBtnW
+    local jBtnY = FOOTER_Y + math.floor((FOOTER_H - jBtnH) / 2 + 0.5)
+
+    local expHov = (hoverId == "ftr_exp")
+    local impHov = (hoverId == "ftr_imp")
+    local expBg  = expHov and C_CARD_HOV or C_CARD
+    local impBg  = impHov and C_CARD_HOV or C_CARD
+    drawRoundBox(c, expX, jBtnY, jBtnW, jBtnH, S(6), expBg, expHov and C_BLUE or C_BORDER)
+    drawRoundBox(c, impX, jBtnY, jBtnW, jBtnH, S(6), impBg, impHov and C_BLUE or C_BORDER)
+    setFont(c, 8, C_SUBTEXT, true)
+    drawTextCentered(c, expX, jBtnY, jBtnW, jBtnH, expBg, PES10.T("Exportar .JSON", "Export .JSON"))
+    drawTextCentered(c, impX, jBtnY, jBtnW, jBtnH, impBg, PES10.T("Importar .JSON", "Import .JSON"))
+    addHitbox("ftr_exp", expX, jBtnY, jBtnW, jBtnH, function() PES10.exportPlayerBackupJson() end)
+    addHitbox("ftr_imp", impX, jBtnY, jBtnW, jBtnH, function() PES10.importPlayerBackupJson() end)
+
+    local maxToastW = expX - PAD_X - S(16)
+    setFont(c, 9, C_GREEN, false)
+    local th = c.getTextHeight(tel.toast)
+    drawTextLeft(c, PAD_X, FOOTER_Y + math.floor((FOOTER_H - th) / 2 + 0.5), C_FOOTER, tel.toast, maxToastW)
+
+    surface.repaint()
+  end
+
+  local function findHitboxAt(cx, cy)
+    if not cx or not cy then return nil end
+    for i = #hitboxes, 1, -1 do
+      local hb = hitboxes[i]
+      if cx >= hb.x and cx < (hb.x + hb.w) and cy >= hb.y and cy < (hb.y + hb.h) then
+        return hb
+      end
+    end
+    return nil
+  end
+
+  local function updateHoverAt(cx, cy)
+    local hb = findHitboxAt(cx, cy)
+    local newHover = hb and hb.id or nil
+    if newHover ~= hoverId then
+      hoverId = newHover
+      pcall(function() surface.Cursor = hoverId and -21 or 0 end)
+      renderAll(true)
     end
   end
 
-  selectTab(1)
+  local function handleClickAt(cx, cy)
+    local hb = findHitboxAt(cx, cy)
+    if not hb then return false end
+    flashId = hb.id
+    renderAll(true)
+    local t = createTimer(f, true)
+    t.Interval = 130
+    t.OnTimer = function(tmr)
+      tmr.destroy()
+      flashId = nil
+      renderAll(true)
+    end
+    pcall(hb.fn)
+    renderAll(true)
+    return true
+  end
+
+  surface.OnPaint = function()
+    surface.Canvas.draw(0, 0, backBuf)
+  end
+
+  surface.OnClick = function()
+    local mx, my = getMousePos()
+    local cx, cy = surface.screenToClient(mx, my)
+    handleClickAt(cx, cy)
+  end
+
+  local tickCounter = 0
+  local uiTimer = createTimer(f, true)
+  uiTimer.Interval = 75
+  uiTimer.OnTimer = function()
+    if not f.Visible then return end
+    if getMousePos then
+      local mx, my = getMousePos()
+      if mx and my then
+        local cx, cy = surface.screenToClient(mx, my)
+        if cx and cy and cx >= 0 and cx < W and cy >= 0 and cy < H then
+          updateHoverAt(cx, cy)
+        elseif hoverId ~= nil then
+          updateHoverAt(-1, -1)
+        end
+      end
+    end
+    tickCounter = tickCounter + 1
+    if tickCounter >= 5 then
+      tickCounter = 0
+      renderAll(false)
+    end
+  end
+
+  PES10.dashboardState = {
+    form = f,
+    surface = surface,
+    backBuf = backBuf,
+    width = W,
+    height = H,
+    render = renderAll,
+    selectTab = function(idx) currentTab = idx; renderAll(true) end,
+    hoverAt = updateHoverAt,
+    clickAt = handleClickAt,
+    getHitboxes = function() return hitboxes end,
+  }
+
+  renderAll(true)
   PES10.dashboardForm = f
   f.show()
 end
 
 -- ============================================================================
--- AUTO-ATTACH & TIMER DE TELEMETRIA (300ms, ZERO BLOQUEIO)
+-- AUTO-ATTACH & 300ms NON-BLOCKING TELEMETRY ENGINE
 -- ============================================================================
 function PES10.startBackgroundEngine()
   PES10.bindTableHooks()
@@ -1700,7 +2723,7 @@ end
 -- __PES10_CONFIG_INJECTION__
 PES10.startBackgroundEngine()
 
--- Hook opcional para automação de desenvolvimento via variável de ambiente (desativado por padrão)
+-- Optional dev automation bridge via env var (disabled by default)
 pcall(function()
   local devBridge = os.getenv and os.getenv("PES10_DEV_BRIDGE")
   if devBridge and devBridge ~= "" then

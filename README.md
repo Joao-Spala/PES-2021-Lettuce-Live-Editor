@@ -1,74 +1,89 @@
-# PES 2021 — Cheat Table v10.0 Pro Overhaul (BMPES / Sider Ready)
+# PES 2021 — Cheat Table v10.1 Pro Studio Overhaul (PT-BR & EN)
 
 ![PES 2021](https://img.shields.io/badge/eFootball_PES_2021-v1.7.2.0_(Data_Pack_7.0)-0095D9?style=for-the-badge)
+![Editions](https://img.shields.io/badge/Editions-PT--BR_%7C_English-38BDF8?style=for-the-badge)
 ![Cheat Engine](https://img.shields.io/badge/Cheat_Engine-7.2%2B_(64--bit)-2EA043?style=for-the-badge)
-![Sider Compatible](https://img.shields.io/badge/Sider_7.3_%2F_BMPES_16.0-100%25_Compat%C3%ADvel-F59E0B?style=for-the-badge)
-![License](https://img.shields.io/badge/Licen%C3%A7a-MIT-purple?style=for-the-badge)
+![Sider Compatible](https://img.shields.io/badge/Sider_7.3_%2F_BMPES_16.0-100%25_Compatible-F59E0B?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)
 
-Uma **Cheat Table v10.0 Pro Overhaul** completa, moderna e reescrita via engenharia reversa nativa x64 (`r2ghidra` + `Capstone/Keystone`) para **eFootball PES 2021 Season Update (`v1.7.2.0`)**, projetada desde a base para funcionar com **zero conflito com Sider 7.3+ e grandes patches** (**BMPES 16.0**, **SmokePatch / Football Life**, **VirtuaRED**, **Dream Patch**).
-
----
-
-## Download Rápido & Como Usar
-
-1. Baixe o arquivo pronto em **[`dist/PES 2021 - v10.0 Pro Overhaul.CT`](dist/PES%202021%20-%20v10.0%20Pro%20Overhaul.CT)**.
-2. Abra o **PES 2021** (com ou sem Sider / Patch) e abra o arquivo `.CT` no **Cheat Engine 7.2+** (clique em **Sim / Yes** ao perguntar sobre executar o script Lua da tabela).
-3. A tabela faz **Auto-Attach** sozinha ao `PES2021.exe` (mesmo que você abra a tabela antes de clicar em *Jogar* no launcher!) e já inicia configurada em **Euro (`€`)**.
-4. Na seção **`[ CENTRAL v10.0 ]`**, marque **`[ ATIVAR TUDO ] Ligar Todos os 6 Hooks Mestres v10.0 de Uma Vez`** ou clique em **`[ PAINEL GUI ] Abrir Dashboard Gráfico PES 2021 v10.0 Pro`**.
+> **[Português (PT-BR)](#português-pt-br)** &nbsp;•&nbsp; **[English](#english)**
 
 ---
 
-## Principais Recursos da v10.0 Pro
+## Português (PT-BR)
 
-### 1. Painel Gráfico Dark Studio (Multi-Abas & DPI-Responsivo)
-- Interface flutuante moderna dividida em **4 abas temáticas** (*Master League & Elenco*, *Jogador & Contratos*, *Treino ML & Estrelato* e *Partida ao Vivo*).
-- **Escala automática de DPI (`100%`, `125%`, `150%`)**: cards largos em duas colunas com bordas nítidas, efeito *hover*, pílulas rápidas de moeda (`€ EUR`, `R$ BRL`, `$ USD`, `£ GBP`), banners de telemetria ao vivo e zero texto cortado.
+Uma **Cheat Table v10.1 Pro Studio Overhaul** completa, bilíngue (**Português PT-BR** e **Inglês EN**) e construída via engenharia reversa nativa x64 para **eFootball PES 2021 Season Update (`v1.7.2.0`)**, projetada desde a base para operar com **zero conflito com Sider 7.3+ e grandes patches** (**BMPES 16.0**, **SmokePatch / Football Life**, **VirtuaRED**, **Dream Patch**).
 
-### 2. Finanças Formatadas em Moeda Real (`€`, `R$`, `$`, `£`)
-- Inicia por padrão em **Euro (`€ 125.500.000`)** e converte automaticamente o formato interno `/ 100` da Konami em **16 campos financeiros** (Orçamento de Transferências, Salários, Receitas de Sócios/Merchandising/Patrocínios, Salário do Atleta, Valor de Mercado, Bônus e Multa Rescisória).
-- **Entrada Humana Inteligente**: dê duplo-clique no valor e digite **`50M`**, **`500k`**, **`1.5B`** ou **`80.000.000`**.
+### Download Rápido & Como Usar
 
-### 3. Engenharia Real de Contratos Ativos & Taxa de Rescisão (`Release Fee`)
-- **Ligar / Remover Multa Rescisória** em contratos já assinados (`ptrPlayer + 0x147` bit 6).
-- **Fixar Taxa de Rescisão Exata (`Hook 2`)**: sobrescreve o cálculo dinâmico em `fcn.14156BE00` para até 64 atletas simultâneos (ex.: fixe **`€ 1.000`** para contratar qualquer craque rival pagando multa simbólica, ou **`€ 1 Bilhão`** para blindar titulares).
-- **Destravar Renegociação Imediata**: limpa o sentinela de assinatura recente (`+0x16C`) e recua o ano de chegada (`+0x168`) para permitir renovação/proposta no mesmo dia.
-- **Folha & Bônus Ativos**: edita os bônus de partida, gol e clean sheet comprometidos na folha do seu clube (`ptrCareer + 0x016EE854`).
+1. Baixe a edição no seu idioma preferido na pasta [`dist/`](dist) (ou na aba **Releases**):
+   - **Português (PT-BR)**: [`dist/PES 2021 - v10.1 Pro Overhaul (PT-BR).CT`](dist/PES%202021%20-%20v10.1%20Pro%20Overhaul%20(PT-BR).CT)
+   - **English (EN)**: [`dist/PES 2021 - v10.1 Pro Overhaul (EN).CT`](dist/PES%202021%20-%20v10.1%20Pro%20Overhaul%20(EN).CT)
+2. Abra o **PES 2021** (com ou sem Sider / Patch) e abra o arquivo `.CT` no **Cheat Engine 7.2+** (clique em **Sim / Yes** para autorizar o motor Lua da tabela).
+3. **Pronto para usar (Zero Cliques Manuais)**: a tabela faz **Auto-Attach** ao `PES2021.exe`, inicia em **Euro (`€`)** e **ativa automaticamente os 6 Hooks Mestres** após conectar ao processo.
+4. Na primeira linha de **`[ 1. CENTRAL STUDIO v10.1 ]`**, clique em **`[ ★ ABRIR PAINEL STUDIO ]`** para abrir a interface gráfica completa (com chave seletora **`[ PT | EN ]`** ao vivo no topo!).
 
-### 4. Treino Real de Master League, Base & BAL (`Sub-XP Engine`)
-- **Multiplicador Universal de Sub-XP (`Hook 3`)**: `2x`, `5x`, `10x`, `50x` ou **`Instantâneo (10.000 XP/dia)`** atuando exclusivamente sobre a tabela de 82 slots do jogador (`ptrCareer + 0x016BF710` — Elenco ML, Base/Youth e BAL), **sem acelerar times da CPU**.
-- **Inspector das 25 Barras de Sub-XP (`0..10.000`)** + curva de **Auge (`Breakthrough`)** e **Anti-Declínio pós-30 anos**.
-- **Suite Rumo ao Estrelato (BAL)**: remove a trava de `21` Focus Points nas setas (`Hook 4`), edita as 10 barras individuais e conclui em 1 clique a **Skill** ou **Posição** em treinamento.
+### Destaques da v10.1 Pro Studio
 
-### 5. Squad Commander, Busca Global (30.000 Atletas) & Leitor de Clubes na RAM
-- **Squad Commander**: *100% Fôlego no Elenco*, *Seta Azul (Top Form)*, *Curar Lesões + Afeição Real 100%* (7 bits em `+0x13E`), *Blindar Contratos (+5 Anos + Sem Multa)*, *Breakthrough Geral* e *+1 Overall em Todo o Elenco*.
-- **Busca Global Instantânea**: pesquise qualquer atleta da carreira por nome (com ou sem acento) ou `Player ID` sem precisar navegar pelos menus do jogo.
-- **Clubes Decodificados Direto da RAM (`ptrCareer + 0xADF4BC`)**: exibe automaticamente o nome UTF-8 real e a sigla de todos os ~800+ clubes e seleções de qualquer patch instalado (ex.: `FLAMENGO [FLA] (ID 1248)`, `ARSENAL [ARS] (ID 101)`).
-- **Edit Player Completo**: nomes UTF-8 de `60` bytes, 25 atributos, 13 posições, **41 Player Skills**, 7 estilos COM, Team Role e **Exportar/Importar Backup `.json`**.
+#### 1. Evolução Proporcional de Overall (`OVR`) Preservando o DNA do Atleta
+- **Motor Nativo Konami (`fcn.1414e7a50` + `fcn.141e640a0`)**: calcula em tempo real o `Overall` exato do jogador a partir das matrizes oficiais de pesos (`23 × 13`) e da curva não-linear do executável `PES2021.exe`.
+- **`+1 OVR DNA` / `-1 OVR DNA` / `OVR Alvo (40–99)`**: escala os atributos cruzando-os proporcionalmente (Método de Maior Resto de Hamilton + refinamento de atributos-chave), **sem descaracterizar o estilo de jogo do atleta** e sem tocar em atributos de goleiro em jogadores de linha.
+- **`Raio-X de 13 Posições & DNA`**: analisa o rendimento exato do jogador em todas as **13 posições** e avisa automaticamente no painel sempre que ele render um Overall maior em outra posição natural (ex.: `★ 91 VOL`).
+- **`Squad +1 OVR DNA`**: evolui todo o seu elenco da Master League em `+1 OVR` respeitando a individualidade de cada jogador.
 
-### 6. Partida ao Vivo — Relógio Exato (FNV-Safe), Placar & Stamina Seletiva
-- **Pular para Qualquer Minuto Sem Travar**: altera o acumulador aberto de ticks (`MatchState + 0x1174`, `1 min = 3600 ticks`) sem corromper a verificação de integridade FNV-1a do cronômetro, além de **Congelar Relógio**, **Reiniciar Tempo** e **Apito Imediato**.
-- **Placar Oficial & Pênaltis Sincronizados (`Hook 5`)**: posicionado a `+0x1AC` bytes de distância do hook do `sider.dll` (`zero colisão`), atualizando motor interno e HUD simultaneamente.
-- **Stamina Seletiva em Campo (`Hook 6`)**: *Só Mandante 100%*, *Só Visitante 100%*, *Ambos 100%* ou *Pressão Total (100% Meu Time + Drenar Rival p/ 5%)*.
+#### 2. Interface Gráfica Pro Studio (Renderização Offscreen `Canvas` & DPI-Perfeita)
+- Renderização *double-buffered* sem cintilação, simetria exata em `100%`, `125%` e `150%` de escala DPI do Windows, escudo colorido dinâmico de Overall, indicadores luminosos **`● ATIVO`** nos modos persistentes (*Treino 10x/Instantâneo*, *Congelar Relógio*, *Stamina Casa/Fora*) e troca instantânea **`PT | EN`** no cabeçalho.
+
+#### 3. Finanças Formatadas (`€`, `R$`, `$`, `£`), Contratos Ativos & Taxa de Rescisão
+- Conversão automática (`/ 100`) em 16 campos financeiros (iniciando em **`€`**) e entrada rápida por duplo-clique (`50M`, `500k`, `1.5B`).
+- **Override de Taxa de Rescisão Exata (`Hook 2`)** para até 64 atletas simultâneos, macro **Contratação Fácil (`€ 1.000` + Afeição 100% + Destravar Data)** e edição de bônus da folha salarial.
+
+#### 4. Sub-XP Seletivo, Suite Rumo ao Estrelato (BAL) & Partida ao Vivo Sider-Safe
+- **Multiplicador Sub-XP (`2x` a `50x` e `Instantâneo 10.000 XP/dia`)** restrito aos 82 slots do usuário (Clube ML, Base e BAL), sem afetar rivais da CPU.
+- **Suite BAL Completa**: destrava o teto de `21` Focus Points nas setas (`Hook 4`), maximiza as 10 barras e conclui a **Skill** ou **Posição** em treinamento em 1 clique.
+- **Partida ao Vivo (`Hook 5` & `Hook 6`)**: pulo para minuto exato sem crash FNV-1a (`15'`, `44'`, `88'`), congelamento de cronômetro, placar/pênaltis sincronizados (`+0x1AC` longe do hook do Sider) e Stamina Seletiva em campo.
 
 ---
 
-## Estrutura do Repositório & Compilação a partir do Código-Fonte
+## English
+
+A complete, bilingual (**English** & **Portuguese PT-BR**) **v10.1 Pro Studio Cheat Table Overhaul** built through x64 reverse engineering for **eFootball PES 2021 Season Update (`v1.7.2.0`)**, engineered from the ground up for **100% compatibility with Sider 7.3+ and major community patches** (**SmokePatch / Football Life**, **VirtuaRED**, **Dream Patch**, **BMPES 16.0**).
+
+### Quick Download & Usage
+
+1. Download your preferred standalone edition from [`dist/`](dist) (or from **GitHub Releases**):
+   - **English Edition**: [`dist/PES 2021 - v10.1 Pro Overhaul (EN).CT`](dist/PES%202021%20-%20v10.1%20Pro%20Overhaul%20(EN).CT)
+   - **Portuguese Edition**: [`dist/PES 2021 - v10.1 Pro Overhaul (PT-BR).CT`](dist/PES%202021%20-%20v10.1%20Pro%20Overhaul%20(PT-BR).CT)
+2. Launch **PES 2021** and open the `.CT` file in **Cheat Engine 7.2+** (click **Yes** when prompted to execute the table Lua script).
+3. **Zero-Click Setup**: the table automatically attaches to `PES2021.exe`, defaults to **Euro (`€`)**, and **auto-arms all 6 Master Hooks** safely on attach.
+4. Click **`[ ★ OPEN PRO STUDIO GUI ]`** at the very top of **`[ 1. CENTRAL STUDIO v10.1 ]`** to launch the floating Studio Dashboard (featuring a live **`[ PT | EN ]`** switcher in the header!).
+
+### Key Highlights in v10.1 Pro Studio
+
+- **DNA-Preserving Proportional Overall (`OVR`) Engine**: Uses Konami's exact decompiled `PES2021.exe` rating matrices (`fcn.1414e7a50` + `fcn.141e640a0`) + Hamilton Largest-Remainder solver to step **`+1 OVR`**, **`-1 OVR`**, or scale to any **Target OVR (`40–99`)** while preserving each player's attribute proportions and playing style — plus **Squad `+1 OVR DNA`** and a **13-Position & DNA X-Ray** advisor.
+- **Double-Buffered Offscreen `Canvas` Studio GUI**: Flicker-free custom rendering, verified pixel-by-pixel at `100%`, `125%`, and `150%` Windows DPI scaling, with color-coded OVR shields, glowing **`● ACTIVE`** toggle badges, and instant **`PT | EN`** switching.
+- **Human-Readable Finances & Active Contract Engineering**: Live formatting across 16 financial fields (`€`, `R$`, `$`, `£`), natural shorthand input (`50M`, `500k`, `1.5B`), 64-slot **Exact Release Clause Override**, **Easy Sign (`€ 1,000` Clause + 100% Affection)**, and instant contract cooldown unlock.
+- **User-Only Sub-XP Multiplier, BAL Suite & Sider-Safe Match Control**: `2x..50x` & `Instant (10,000 XP/day)` training exclusively for your club/youth/BAL, 99 BAL Focus Points cap unlock, FNV-1a crash-free exact match minute jump, clock freeze, live score sync, and selective Home/Away stamina.
+
+---
+
+## Repository Structure & Building from Source
 
 ```text
 ├── dist/
-│   └── PES 2021 - v10.0 Pro Overhaul.CT   # Tabela compilada pronta para uso no Cheat Engine
+│   ├── PES 2021 - v10.1 Pro Overhaul (PT-BR).CT  # Standalone Portuguese Cheat Table
+│   └── PES 2021 - v10.1 Pro Overhaul (EN).CT     # Standalone English Cheat Table
 ├── src/
-│   ├── pes10_lua_engine.lua               # Motor Lua 5.3 + Painel Gráfico Dark Studio DPI-Aware
-│   ├── build_pes2021_v10_ct.py            # Compilador determinístico (.lua + .asm + .json -> .CT)
+│   ├── pes10_lua_engine.lua                      # Bilingual Lua 5.3 Engine + OVR DNA Solver + Studio GUI
+│   ├── build_pes2021_v10_ct.py                   # Dual-edition deterministic compiler (PT-BR & EN)
 │   └── data/
-│       ├── player_schema.json             # Mapeamento completo de bitfields e dropdowns
-│       └── bmpes_dicts.json               # Dicionários de fallback de clubes e competições
+│       ├── konami_ovr_tables.json                # Exact weight matrices & curve extracted from PES2021.exe
+│       ├── player_schema.json                    # Bitfield & dropdown definitions (150+ fields)
+│       └── bmpes_dicts.json                      # Fallback club & competition dictionaries
 └── tests/
-    ├── test_ct_linter.py                  # Auditoria estática de XML, simetria x64 e bitfields
-    └── test_lua_and_gui_dpi.py            # Testes na VM Lua 5.3 + medição GDI de DPI (100/125/150%)
+    ├── test_ct_linter.py                         # Static XML, x64 alloc/dealloc & bit-overlap auditor
+    └── test_lua_and_gui_dpi.py                   # Lua 5.3 VM + Real Win32 GDI ClearType DPI QA suite
 ```
-
-Para recompilar a `.CT` e rodar os testes localmente (requer Python 3.10+):
 
 ```bash
 python src/build_pes2021_v10_ct.py
@@ -76,8 +91,6 @@ python tests/test_ct_linter.py
 python tests/test_lua_and_gui_dpi.py
 ```
 
----
+## License
 
-## Créditos & Licença
-
-Distribuído sob a licença [MIT](LICENSE). Inspirado na comunidade de modding de PES 2021 / Cheat Engine, com engenharia reversa x64, motor de contratos/Sub-XP/relógio FNV-safe e interface Studio desenvolvidos para a série v10.0 Pro.
+Distributed under the [MIT License](LICENSE).
