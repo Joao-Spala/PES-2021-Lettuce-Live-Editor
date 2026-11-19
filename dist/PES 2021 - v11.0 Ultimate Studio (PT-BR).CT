@@ -3,13 +3,13 @@
   <CheatEntries>
     <CheatEntry>
       <ID>1</ID>
-      <Description>"[ 1. CENTRAL STUDIO v10.2 ] Painel Gráfico, Telemetria, Moeda &amp; Hooks"</Description>
+      <Description>"[ 1. CENTRAL STUDIO v11.0 ] Painel Gráfico, Telemetria, Moeda &amp; Hooks"</Description>
       <GroupHeader>1</GroupHeader>
       <Color>0066CC</Color>
       <CheatEntries>
         <CheatEntry>
           <ID>2</ID>
-          <Description>"[ ★ ABRIR PAINEL STUDIO ] Interface Gráfica Pro v10.2 (PT-BR / EN)"</Description>
+          <Description>"[ ★ ABRIR PAINEL STUDIO ] Interface Gráfica Pro v11.0 (PT-BR / EN)"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -53,7 +53,7 @@ end)
               <ID>6</ID>
               <Description>"[ HOOK 1 ] Captura Automática de Jogador (Edit / Elenco / Negociações)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v10.2 Pro — Hook 1: Automatic Player Capture (Edit / Squad / Transfer) }
+              <AssemblerScript>{ PES 2021 v11.0 Pro — Hook 1: Automatic Player Capture (Edit / Squad / Transfer) }
 [ENABLE]
 aobscanmodule(INJECT_ptrPlayer,PES2021.exe,CB B8 02 00 00 00 0F 1F 40 00 66 0F 1F 84 00 00 00 00 00 0F 10 02 0F 11 01)
 alloc(newmem_p1,$1000,INJECT_ptrPlayer)
@@ -116,7 +116,7 @@ dealloc(newmem_p2)
               <ID>7</ID>
               <Description>"[ HOOK 2 ] Motor de Taxa de Rescisão Exata (Release Fee Override)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v10.2 Pro — Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
+              <AssemblerScript>{ PES 2021 v11.0 Pro — Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
 [ENABLE]
 aobscanmodule(INJECT_ReleaseFeeGetter,PES2021.exe,0F 29 74 24 40 48 8B DA 48 8B F1 0F 29 7C 24 30 48 8B 09)
 alloc(newmem_rfee,$1000,INJECT_ReleaseFeeGetter)
@@ -187,7 +187,7 @@ dealloc(newmem_rfee)
               <ID>8</ID>
               <Description>"[ HOOK 3 ] Multiplicador Universal de Sub-XP (Treino ML, Base &amp; BAL)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v10.2 Pro — Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
+              <AssemblerScript>{ PES 2021 v11.0 Pro — Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
 [ENABLE]
 aobscanmodule(INJECT_TrainingXpAdder,PES2021.exe,45 8B C8 83 FA 6C 0F 8D 1E 01 00 00)
 alloc(newmem_txp,$1000,INJECT_TrainingXpAdder)
@@ -252,7 +252,7 @@ dealloc(newmem_txp)
               <ID>9</ID>
               <Description>"[ HOOK 4 ] Destravar Limite de 21 Focus Points nas Setas do BAL"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v10.2 Pro — Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
+              <AssemblerScript>{ PES 2021 v11.0 Pro — Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
 [ENABLE]
 aobscanmodule(INJECT_BALFocusCap,PES2021.exe,0F BE 41 0A 2B C2 83 F8 15 77 09 48 63 C3)
 INJECT_BALFocusCap+08:
@@ -269,7 +269,7 @@ unregistersymbol(INJECT_BALFocusCap)
               <ID>10</ID>
               <Description>"[ HOOK 5 ] Partida ao Vivo — Placar, Pênaltis &amp; Relógio (Sider-Safe)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v10.2 Pro — Hook 5: Sider-Safe Match HUD, Live Score, Penalties &amp; FNV-Safe Clock }
+              <AssemblerScript>{ PES 2021 v11.0 Pro — Hook 5: Sider-Safe Match HUD, Live Score, Penalties &amp; FNV-Safe Clock }
 [ENABLE]
 aobscanmodule(INJECT_MatchHud,PES2021.exe,49 8B F8 44 0F B6 E2 88 55 B7)
 alloc(newmem_mhud,$1000,INJECT_MatchHud)
@@ -346,7 +346,7 @@ dealloc(newmem_mclk)
               <ID>11</ID>
               <Description>"[ HOOK 6 ] Stamina Seletiva em Campo (Casa / Fora / Ambos / Pressão)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v10.2 Pro — Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
+              <AssemblerScript>{ PES 2021 v11.0 Pro — Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
 [ENABLE]
 aobscanmodule(INJECT_SelectiveStamina,PES2021.exe,6B 45 10 64 48 8B 5C 24 50)
 alloc(newmem_stam,$1000,INJECT_SelectiveStamina)
@@ -619,20 +619,20 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>25</ID>
-          <Description>"Negociações &amp; Olheiros — 3 Listas de Observação (100% Sucesso)"</Description>
+          <Description>"Negociações, Radar 30K &amp; Olheiros (RAM Real — 3 Listas + Shortlist)"</Description>
           <GroupHeader>1</GroupHeader>
           <Color>0066CC</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>26</ID>
-              <Description>"[ OLHEIROS 1–3 ] Adicionar Jogador Selecionado ao Menu de Observação..."</Description>
+              <Description>"[ CENTRAL OLHEIROS ] Abrir Gerenciador Visual dos 3 Olheiros &amp; Favoritos (RAM Real)"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
 {$lua}
 if syntaxcheck then return end
 PES10.asyncActionButton(memrec, function()
-  PES10.promptAddPlayerToScoutList()
+  PES10.openScoutListsModal()
 end)
 {$asm}
 [DISABLE]
@@ -640,6 +640,21 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>27</ID>
+              <Description>"[ RADAR 30K ] Caçador Visual de Joias (Filtrar OVR / Idade / Posição / Contrato)"</Description>
+              <Color>CC5500</Color>
+              <VariableType>Auto Assembler Script</VariableType>
+              <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+PES10.asyncActionButton(memrec, function()
+  PES10.openScoutFinderModal()
+end)
+{$asm}
+[DISABLE]
+</AssemblerScript>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>28</ID>
               <Description>"[ NEGÓCIO 100% ] Negociação Irrecusável (Lista Transf. + Multa € 1k + 1º Contato)"</Description>
               <Color>2828C6</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -654,8 +669,8 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>28</ID>
-              <Description>"[ LIMPAR ] Limpar as 3 Listas de Observação dos Olheiros"</Description>
+              <ID>29</ID>
+              <Description>"[ LIMPAR ] Limpar as 3 Listas de Observação dos Olheiros na RAM"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -671,14 +686,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>29</ID>
+          <ID>30</ID>
           <Description>"Receitas Comerciais &amp; Balanço da Temporada"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>3B8E1E</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>30</ID>
+              <ID>31</ID>
               <Description>"Receita do Clube de Sócios / Torcedores"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -688,7 +703,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>31</ID>
+              <ID>32</ID>
               <Description>"Receita de Merchandising / Produtos"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -698,7 +713,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>32</ID>
+              <ID>33</ID>
               <Description>"Receita de Patrocínios"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -708,7 +723,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>33</ID>
+              <ID>34</ID>
               <Description>"Balanço de Transferências na Temporada"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -718,7 +733,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>34</ID>
+              <ID>35</ID>
               <Description>"Balanço Salarial na Temporada"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -728,7 +743,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>35</ID>
+              <ID>36</ID>
               <Description>"Outras Despesas / Indenizações"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -740,14 +755,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>36</ID>
+          <ID>37</ID>
           <Description>"Calendário da Carreira (Ano / Mês / Dia)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>3B8E1E</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>37</ID>
+              <ID>38</ID>
               <Description>"Ano Atual"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -757,7 +772,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>38</ID>
+              <ID>39</ID>
               <Description>"Mês Atual (1–12)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -767,7 +782,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>39</ID>
+              <ID>40</ID>
               <Description>"Dia Atual (1–31)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -781,29 +796,29 @@ end)
       </CheatEntries>
     </CheatEntry>
     <CheatEntry>
-      <ID>40</ID>
-      <Description>"[ 3. JOGADOR, OVERALL DNA &amp; CONTRATOS ] Edit Player v10.2 Pro (150+ Campos)"</Description>
+      <ID>41</ID>
+      <Description>"[ 3. JOGADOR, OVERALL DNA &amp; CONTRATOS ] Edit Player v11.0 Pro (150+ Campos)"</Description>
       <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
       <GroupHeader>1</GroupHeader>
       <Color>807A00</Color>
       <CheatEntries>
         <CheatEntry>
-          <ID>41</ID>
-          <Description>"[ BUSCA 30K ] Procurar Qualquer Jogador por Nome ou ID (c/ OVR &amp; Clube)"</Description>
+          <ID>42</ID>
+          <Description>"[ RADAR 30K ] Busca Visual Avançada por Nome, ID, Posição, OVR &amp; Idade"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
 {$lua}
 if syntaxcheck then return end
 PES10.asyncActionButton(memrec, function()
-  PES10.searchCareerPlayerDialog()
+  PES10.openScoutFinderModal()
 end)
 {$asm}
 [DISABLE]
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>42</ID>
+          <ID>43</ID>
           <Description>"[ ★ OVERALL ATUAL ] Duplo-Clique p/ Escalar OVR Mantendo o DNA / Estilo!"</Description>
           <ShowAsSigned>1</ShowAsSigned>
           <Color>3B8E1E</Color>
@@ -811,7 +826,7 @@ end)
           <Address>valComputedOVR</Address>
         </CheatEntry>
         <CheatEntry>
-          <ID>43</ID>
+          <ID>44</ID>
           <Description>"[ +1 OVR DNA ] Subir +1 Overall Proporcionalmente (Sem Mudar Estilo de Jogo)"</Description>
           <Color>3B8E1E</Color>
           <VariableType>Auto Assembler Script</VariableType>
@@ -826,7 +841,7 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>44</ID>
+          <ID>45</ID>
           <Description>"[ -1 OVR DNA ] Reduzir -1 Overall Proporcionalmente (Sem Mudar Estilo de Jogo)"</Description>
           <Color>0066CC</Color>
           <VariableType>Auto Assembler Script</VariableType>
@@ -841,30 +856,15 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>45</ID>
-          <Description>"[ ★ +1 OVR POSIÇÃO ] Subir +1 Overall em Qualquer Posição Específica (Mantém DNA)..."</Description>
+          <ID>46</ID>
+          <Description>"[ ★ LAB POSIÇÕES ] Abrir Laboratório Visual (+1 OVR Posição &amp; Grau C / B / A)"</Description>
           <Color>3B8E1E</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
 {$lua}
 if syntaxcheck then return end
 PES10.asyncActionButton(memrec, function()
-  PES10.promptTargetPositionOVRPlusOne()
-end)
-{$asm}
-[DISABLE]
-</AssemblerScript>
-        </CheatEntry>
-        <CheatEntry>
-          <ID>46</ID>
-          <Description>"[ AFINIDADE C/B/A ] Editar Grau de Posição ou Promover Secundárias B → A..."</Description>
-          <Color>CC5500</Color>
-          <VariableType>Auto Assembler Script</VariableType>
-          <AssemblerScript>[ENABLE]
-{$lua}
-if syntaxcheck then return end
-PES10.asyncActionButton(memrec, function()
-  PES10.promptEditPositionAptitude()
+  PES10.openPositionLabModal()
 end)
 {$asm}
 [DISABLE]
@@ -872,14 +872,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>47</ID>
-          <Description>"[ TEAM ROLE ] Alterar Função de Equipe (Lenda / Bandeira / Maestro / General)..."</Description>
+          <Description>"[ TEAM ROLE ] Abrir Seletor Visual de Função de Equipe (22 Papéis + Nível 1–3)"</Description>
           <Color>0066CC</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
 {$lua}
 if syntaxcheck then return end
 PES10.asyncActionButton(memrec, function()
-  PES10.promptSetTeamRole()
+  PES10.openTeamRoleModal()
 end)
 {$asm}
 [DISABLE]
@@ -887,6 +887,21 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>48</ID>
+          <Description>"[ DESFAZER / UNDO ] Reverter Última Edição no Jogador Selecionado (Até 10 Níveis)"</Description>
+          <Color>2828C6</Color>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+PES10.asyncActionButton(memrec, function()
+  PES10.undoLastPlayerEdit()
+end)
+{$asm}
+[DISABLE]
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>49</ID>
           <Description>"[ RAIO-X 13 POS ] Ver Melhor Posição Natural &amp; Top 5 Atributos DNA"</Description>
           <Color>A8326E</Color>
           <VariableType>Auto Assembler Script</VariableType>
@@ -901,14 +916,14 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>49</ID>
+          <ID>50</ID>
           <Description>"1. Contrato Ativo, Salário, Multa Exata &amp; Contratação € 1k"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>50</ID>
+              <ID>51</ID>
               <Description>"Possui Taxa de Rescisão / Multa Rescisória"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não (Sem Multa)
 1:Sim (Com Multa Rescisória)</DropDownList>
@@ -924,7 +939,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>51</ID>
+              <ID>52</ID>
               <Description>"Taxa de Rescisão Atual (Visualização Calculada)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <Color>807A00</Color>
@@ -932,7 +947,7 @@ end)
               <Address>valComputedReleaseFee</Address>
             </CheatEntry>
             <CheatEntry>
-              <ID>52</ID>
+              <ID>53</ID>
               <Description>"Fixar Taxa de Rescisão Exata neste Atleta (Duplo-Clique: ex. 1k, 80M, 1B)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <Color>3B8E1E</Color>
@@ -940,7 +955,7 @@ end)
               <Address>valCustomReleaseFee</Address>
             </CheatEntry>
             <CheatEntry>
-              <ID>53</ID>
+              <ID>54</ID>
               <Description>"[ 1-CLIQUE ] Remover Override de Multa Exata deste Jogador"</Description>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -954,7 +969,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>54</ID>
+              <ID>55</ID>
               <Description>"Fator de Valorização na Base (Youth Slot)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -964,7 +979,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>55</ID>
+              <ID>56</ID>
               <Description>"Salário Anual Ativo (Duplo-Clique: ex. 5M, 500k)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <Color>3B8E1E</Color>
@@ -975,7 +990,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>56</ID>
+              <ID>57</ID>
               <Description>"Valor de Mercado Base (Duplo-Clique: ex. 120M)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <Color>3B8E1E</Color>
@@ -986,7 +1001,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>57</ID>
+              <ID>58</ID>
               <Description>"Idade Base do Valor de Mercado (+0x178)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -996,7 +1011,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>58</ID>
+              <ID>59</ID>
               <Description>"Overall (OVR) Base do Valor de Mercado (+0x179)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -1006,7 +1021,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>59</ID>
+              <ID>60</ID>
               <Description>"[ ALVO € 1K ] Contratação Fácil (Multa € 1.000 + Afeição 100% + Destravar)"</Description>
               <Color>2828C6</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -1021,14 +1036,14 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>60</ID>
+              <ID>61</ID>
               <Description>"Bônus Ativos na Folha Salarial (Meu Elenco ML)"</Description>
               <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
               <GroupHeader>1</GroupHeader>
               <Color>807A00</Color>
               <CheatEntries>
                 <CheatEntry>
-                  <ID>61</ID>
+                  <ID>62</ID>
                   <Description>"Salário Comprometido na Folha"</Description>
                   <ShowAsSigned>1</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
@@ -1038,7 +1053,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>62</ID>
+                  <ID>63</ID>
                   <Description>"Bônus Contratual #1 (Partida / Atuação)"</Description>
                   <ShowAsSigned>1</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
@@ -1048,7 +1063,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>63</ID>
+                  <ID>64</ID>
                   <Description>"Bônus Contratual #2 (Gol / Vitória)"</Description>
                   <ShowAsSigned>1</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
@@ -1058,7 +1073,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>64</ID>
+                  <ID>65</ID>
                   <Description>"Bônus Contratual #3 (Clean Sheet / Extra)"</Description>
                   <ShowAsSigned>1</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
@@ -1070,14 +1085,14 @@ end)
               </CheatEntries>
             </CheatEntry>
             <CheatEntry>
-              <ID>65</ID>
+              <ID>66</ID>
               <Description>"Datas de Término, Chegada &amp; Última Renovação"</Description>
               <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
               <GroupHeader>1</GroupHeader>
               <Color>807A00</Color>
               <CheatEntries>
                 <CheatEntry>
-                  <ID>66</ID>
+                  <ID>67</ID>
                   <Description>"Término do Contrato — Ano"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>2 Bytes</VariableType>
@@ -1087,7 +1102,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>67</ID>
+                  <ID>68</ID>
                   <Description>"Término do Contrato — Mês (1–12)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
@@ -1097,7 +1112,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>68</ID>
+                  <ID>69</ID>
                   <Description>"Término do Contrato — Dia (1–31)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
@@ -1107,7 +1122,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>69</ID>
+                  <ID>70</ID>
                   <Description>"Última Assinatura / Renovação — Ano (65535 = Sem Trava)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>2 Bytes</VariableType>
@@ -1117,7 +1132,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>70</ID>
+                  <ID>71</ID>
                   <Description>"Última Assinatura / Renovação — Mês"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
@@ -1127,7 +1142,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>71</ID>
+                  <ID>72</ID>
                   <Description>"Última Assinatura / Renovação — Dia"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
@@ -1137,7 +1152,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>72</ID>
+                  <ID>73</ID>
                   <Description>"Chegada ao Clube — Ano"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>2 Bytes</VariableType>
@@ -1147,7 +1162,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>73</ID>
+                  <ID>74</ID>
                   <Description>"Chegada ao Clube — Mês"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
@@ -1157,7 +1172,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>74</ID>
+                  <ID>75</ID>
                   <Description>"Chegada ao Clube — Dia"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
@@ -1167,7 +1182,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>75</ID>
+                  <ID>76</ID>
                   <Description>"[ 1-CLIQUE ] Destravar Renegociação Imediata"</Description>
                   <Color>CC5500</Color>
                   <VariableType>Auto Assembler Script</VariableType>
@@ -1184,14 +1199,14 @@ end)
               </CheatEntries>
             </CheatEntry>
             <CheatEntry>
-              <ID>76</ID>
+              <ID>77</ID>
               <Description>"Empréstimo, Lista de Transferências &amp; Afeição (0–100%)"</Description>
               <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
               <GroupHeader>1</GroupHeader>
               <Color>807A00</Color>
               <CheatEntries>
                 <CheatEntry>
-                  <ID>77</ID>
+                  <ID>78</ID>
                   <Description>"Afeição pelo Clube / Treinador (0–100%)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <Color>3B8E1E</Color>
@@ -1205,7 +1220,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>78</ID>
+                  <ID>79</ID>
                   <Description>"Está Emprestado (Is On Loan)"</Description>
                   <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -1220,7 +1235,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>79</ID>
+                  <ID>80</ID>
                   <Description>"Clube Detentor do Passe (RAM)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
@@ -1230,7 +1245,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>80</ID>
+                  <ID>81</ID>
                   <Description>"Clube Anterior / Origem (RAM)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
@@ -1240,7 +1255,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>81</ID>
+                  <ID>82</ID>
                   <Description>"Na Lista de Transferências"</Description>
                   <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -1255,7 +1270,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>82</ID>
+                  <ID>83</ID>
                   <Description>"Na Lista de Empréstimo"</Description>
                   <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -1270,7 +1285,7 @@ end)
                   </Offsets>
                 </CheatEntry>
                 <CheatEntry>
-                  <ID>83</ID>
+                  <ID>84</ID>
                   <Description>"Jogador Listado"</Description>
                   <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -1289,14 +1304,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>84</ID>
+          <ID>85</ID>
           <Description>"2. Macros de 1 Clique, Rejuvenescer &amp; Backup JSON"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>CC5500</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>85</ID>
+              <ID>86</ID>
               <Description>"[ 1-CLIQUE ] Rejuvenescer (-2 Anos) &amp; Sincronizar Valor de Mercado"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -1311,7 +1326,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>86</ID>
+              <ID>87</ID>
               <Description>"[ 1-CLIQUE ] Todas as 13 Posições Jogáveis em Aptidão 'A'"</Description>
               <Color>A8326E</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -1326,7 +1341,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>87</ID>
+              <ID>88</ID>
               <Description>"[ 1-CLIQUE ] Desbloquear Todas as 41 Habilidades (Skills)"</Description>
               <Color>0066CC</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -1341,7 +1356,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>88</ID>
+              <ID>89</ID>
               <Description>"[ 1-CLIQUE ] Pé Ruim 4/4 + Forma 8 + Lesão 3 + Curar"</Description>
               <Color>807A00</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -1356,7 +1371,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>89</ID>
+              <ID>90</ID>
               <Description>"[ 1-CLIQUE ] Somar +5 em Todos os Atributos (Até 99)"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -1371,7 +1386,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>90</ID>
+              <ID>91</ID>
               <Description>"[ 1-CLIQUE ] Todos os 25 Atributos em 99"</Description>
               <Color>2828C6</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -1386,7 +1401,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>91</ID>
+              <ID>92</ID>
               <Description>"[ BACKUP JSON ] Exportar Jogador Selecionado (.json)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -1400,7 +1415,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>92</ID>
+              <ID>93</ID>
               <Description>"[ RESTORE JSON ] Importar Arquivo .json no Jogador Atual"</Description>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -1416,14 +1431,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>93</ID>
+          <ID>94</ID>
           <Description>"3. Identidade, Nomes UTF-8 (60B) &amp; Clubes ao Vivo"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>94</ID>
+              <ID>95</ID>
               <Description>"ID do Jogador (Player ID)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -1433,7 +1448,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>95</ID>
+              <ID>96</ID>
               <Description>"Nome do Jogador (UTF-8 — Até 60 Bytes)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>String</VariableType>
@@ -1447,7 +1462,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>96</ID>
+              <ID>97</ID>
               <Description>"Nome na Camisa — Clube (UTF-8)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>String</VariableType>
@@ -1461,7 +1476,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>97</ID>
+              <ID>98</ID>
               <Description>"Nome na Camisa — Seleção (UTF-8)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>String</VariableType>
@@ -1475,7 +1490,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>98</ID>
+              <ID>99</ID>
               <Description>"Clube Atual (Decodificado ao Vivo na RAM)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>3B8E1E</Color>
@@ -1486,7 +1501,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>99</ID>
+              <ID>100</ID>
               <Description>"Seleção Nacional (Decodificada ao Vivo na RAM)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -1496,7 +1511,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>100</ID>
+              <ID>101</ID>
               <Description>"Nacionalidade / País (221 Países)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 'None'
 1: 'Afghanistan'
@@ -1727,7 +1742,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>101</ID>
+              <ID>102</ID>
               <Description>"Idade (15–50)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -1740,7 +1755,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>102</ID>
+              <ID>103</ID>
               <Description>"Altura (cm)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -1753,7 +1768,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>103</ID>
+              <ID>104</ID>
               <Description>"Peso (kg)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -1766,7 +1781,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>104</ID>
+              <ID>105</ID>
               <Description>"Pé Dominante"</Description>
               <DropDownList DisplayValueAsItem="1">0:Direito (Right)
 1:Esquerdo (Left)</DropDownList>
@@ -1781,7 +1796,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>105</ID>
+              <ID>106</ID>
               <Description>"Comemoração de Gol Principal (+0x02)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -1791,7 +1806,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>106</ID>
+              <ID>107</ID>
               <Description>"ID de Narração (Commentary ID)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
@@ -1803,14 +1818,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>107</ID>
+          <ID>108</ID>
           <Description>"4. Condição Física, Seta de Forma, Pé Ruim &amp; Lesões"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>108</ID>
+              <ID>109</ID>
               <Description>"Barra de Fôlego / Stamina (0–100)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -1823,7 +1838,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>109</ID>
+              <ID>110</ID>
               <Description>"Seta de Forma para a Próxima Partida"</Description>
               <DropDownList DisplayValueAsItem="1">0:0 — Péssima (Seta Vermelha p/ Baixo)
 1:1 — Ruim (Seta Laranja Diagonal)
@@ -1841,7 +1856,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>110</ID>
+              <ID>111</ID>
               <Description>"Seta Piscando (Em Destaque)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -1856,7 +1871,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>111</ID>
+              <ID>112</ID>
               <Description>"Dias Indisponível por Lesão (0 = Saudável)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -1866,7 +1881,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>112</ID>
+              <ID>113</ID>
               <Description>"Uso do Pé Ruim (1–4)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 1
 1: 2
@@ -1883,7 +1898,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>113</ID>
+              <ID>114</ID>
               <Description>"Precisão do Pé Ruim (1–4)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 1
 1: 2
@@ -1900,7 +1915,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>114</ID>
+              <ID>115</ID>
               <Description>"Forma Física / Regularidade (1–8)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 1
 1: 2
@@ -1921,7 +1936,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>115</ID>
+              <ID>116</ID>
               <Description>"Resistência a Lesões (1–3)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 1
 1: 2
@@ -1939,14 +1954,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>116</ID>
+          <ID>117</ID>
           <Description>"5. Posição de Origem &amp; 13 Posições Jogáveis (C / B / A)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>117</ID>
+              <ID>118</ID>
               <Description>"[ 1-CLIQUE ] Promover Todas as Secundárias ('B' → 'A')"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -1961,7 +1976,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>118</ID>
+              <ID>119</ID>
               <Description>"[ +1 OVR POSIÇÃO ] Subir +1 OVR em Posição Específica..."</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -1976,7 +1991,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>126</ID>
+              <ID>127</ID>
               <Description>"Posição de Origem (Registered Position)"</Description>
               <DropDownList DisplayValueAsItem="1">0:GL (GK) — Goleiro
 1:ZAG (CB) — Zagueiro
@@ -2002,7 +2017,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>127</ID>
+              <ID>128</ID>
               <Description>"CA (CF) — Centroavante"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2018,7 +2033,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>128</ID>
+              <ID>129</ID>
               <Description>"SA (SS) — Segundo Atacante"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2034,7 +2049,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>129</ID>
+              <ID>130</ID>
               <Description>"PTE (LWF) — Ponta Esquerda"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2050,7 +2065,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>130</ID>
+              <ID>131</ID>
               <Description>"PTD (RWF) — Ponta Direita"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2066,7 +2081,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>131</ID>
+              <ID>132</ID>
               <Description>"MAT (AMF) — Meia Atacante"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2082,7 +2097,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>132</ID>
+              <ID>133</ID>
               <Description>"MLE (LMF) — Meia Esquerda"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2098,7 +2113,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>133</ID>
+              <ID>134</ID>
               <Description>"MLD (RMF) — Meia Direita"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2114,7 +2129,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>134</ID>
+              <ID>135</ID>
               <Description>"MLG (CMF) — Meia de Ligação"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2130,7 +2145,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>135</ID>
+              <ID>136</ID>
               <Description>"VOL (DMF) — Volante"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2146,7 +2161,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>136</ID>
+              <ID>137</ID>
               <Description>"LE (LB) — Lateral Esquerdo"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2162,7 +2177,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>137</ID>
+              <ID>138</ID>
               <Description>"LD (RB) — Lateral Direito"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2178,7 +2193,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>138</ID>
+              <ID>139</ID>
               <Description>"ZAG (CB) — Zagueiro"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2194,7 +2209,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>139</ID>
+              <ID>140</ID>
               <Description>"GL (GK) — Goleiro"</Description>
               <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
 1:B (Secundária)
@@ -2212,14 +2227,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>119</ID>
+          <ID>120</ID>
           <Description>"6. Todos os 25 Atributos Técnicos, Físicos, Defensivos &amp; GK (40–99)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>140</ID>
+              <ID>141</ID>
               <Description>"Talento Ofensivo (Offensive Awareness)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2232,7 +2247,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>141</ID>
+              <ID>142</ID>
               <Description>"Controle de Bola (Ball Control)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2245,7 +2260,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>142</ID>
+              <ID>143</ID>
               <Description>"Drible (Dribbling)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2258,7 +2273,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>143</ID>
+              <ID>144</ID>
               <Description>"Condução Firme (Tight Possession)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2271,7 +2286,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>144</ID>
+              <ID>145</ID>
               <Description>"Passe Rasteiro (Low Pass)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2284,7 +2299,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>145</ID>
+              <ID>146</ID>
               <Description>"Passe Alto (Lofted Pass)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2297,7 +2312,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>146</ID>
+              <ID>147</ID>
               <Description>"Finalização (Finishing)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2310,7 +2325,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>147</ID>
+              <ID>148</ID>
               <Description>"Cabeceio (Heading)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2323,7 +2338,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>148</ID>
+              <ID>149</ID>
               <Description>"Chute Colocado / Bola Parada (Place Kicking)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2336,7 +2351,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>149</ID>
+              <ID>150</ID>
               <Description>"Curva (Curl)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2349,7 +2364,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>150</ID>
+              <ID>151</ID>
               <Description>"Velocidade (Speed)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2362,7 +2377,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>151</ID>
+              <ID>152</ID>
               <Description>"Aceleração (Acceleration)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2375,7 +2390,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>152</ID>
+              <ID>153</ID>
               <Description>"Força do Chute (Kicking Power)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2388,7 +2403,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>153</ID>
+              <ID>154</ID>
               <Description>"Impulsão (Jump)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2401,7 +2416,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>154</ID>
+              <ID>155</ID>
               <Description>"Contato Físico (Physical Contact)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2414,7 +2429,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>155</ID>
+              <ID>156</ID>
               <Description>"Equilíbrio (Balance)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2427,7 +2442,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>156</ID>
+              <ID>157</ID>
               <Description>"Resistência / Fôlego (Stamina)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2440,7 +2455,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>157</ID>
+              <ID>158</ID>
               <Description>"Talento Defensivo (Defensive Awareness)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2453,7 +2468,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>158</ID>
+              <ID>159</ID>
               <Description>"Desarme (Ball Winning)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2466,7 +2481,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>159</ID>
+              <ID>160</ID>
               <Description>"Agressividade (Aggression)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2479,7 +2494,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>160</ID>
+              <ID>161</ID>
               <Description>"Talento de Goleiro (GK Awareness)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2492,7 +2507,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>161</ID>
+              <ID>162</ID>
               <Description>"Firmeza de Goleiro (GK Catching)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2505,7 +2520,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>162</ID>
+              <ID>163</ID>
               <Description>"Afastar de Goleiro (GK Clearing)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2518,7 +2533,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>163</ID>
+              <ID>164</ID>
               <Description>"Reflexos de Goleiro (GK Reflexes)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2531,7 +2546,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>164</ID>
+              <ID>165</ID>
               <Description>"Alcance / Cobertura (GK Reach)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -2546,14 +2561,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>120</ID>
+          <ID>121</ID>
           <Description>"7. Estilo de Jogo &amp; Todas as 41 Habilidades (Player Skills)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>165</ID>
+              <ID>166</ID>
               <Description>"Pedalada Simples (Scissors Feint)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2568,7 +2583,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>166</ID>
+              <ID>167</ID>
               <Description>"Toque Duplo (Double Touch)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2583,7 +2598,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>167</ID>
+              <ID>168</ID>
               <Description>"Elástico (Flip Flap)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2598,7 +2613,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>168</ID>
+              <ID>169</ID>
               <Description>"Roleta / Giro de Marselha (Marseille Turn)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2613,7 +2628,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>169</ID>
+              <ID>170</ID>
               <Description>"Chapéu / Sombreiro (Sombrero)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2628,7 +2643,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>170</ID>
+              <ID>171</ID>
               <Description>"Corte de Letra (Cross Over Turn)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2643,7 +2658,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>171</ID>
+              <ID>172</ID>
               <Description>"Puxada e Giro (Cut Behind &amp; Turn)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2658,7 +2673,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>172</ID>
+              <ID>173</ID>
               <Description>"Toque Escocês (Scotch Move)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2673,7 +2688,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>173</ID>
+              <ID>174</ID>
               <Description>"Domínio Pisando na Bola (Step On Control)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2688,7 +2703,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>174</ID>
+              <ID>175</ID>
               <Description>"Cabeceio Preciso — Skill (Heading)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2703,7 +2718,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>175</ID>
+              <ID>176</ID>
               <Description>"Chute Colocado de Longe (Long Range Drive)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2718,7 +2733,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>176</ID>
+              <ID>177</ID>
               <Description>"Cavadinha Precisa (Chip Shot Control)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2733,7 +2748,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>177</ID>
+              <ID>178</ID>
               <Description>"Chute de Longa Distância (Long Range Shooting)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2748,7 +2763,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>178</ID>
+              <ID>179</ID>
               <Description>"Folha Seca (Knuckle Shot)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2763,7 +2778,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>179</ID>
+              <ID>180</ID>
               <Description>"Chute com Queda Rápida (Dipping Shot)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2778,7 +2793,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>180</ID>
+              <ID>181</ID>
               <Description>"Chute Ascendente (Rising Shots)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2793,7 +2808,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>181</ID>
+              <ID>182</ID>
               <Description>"Finalização Acrobática (Acrobatic Finishing)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2808,7 +2823,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>182</ID>
+              <ID>183</ID>
               <Description>"Toque de Calcanhar (Heel Trick)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2823,7 +2838,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>183</ID>
+              <ID>184</ID>
               <Description>"Chute de Primeira (First-time Shot)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2838,7 +2853,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>184</ID>
+              <ID>185</ID>
               <Description>"Passe de Primeira (One-touch Pass)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2853,7 +2868,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>185</ID>
+              <ID>186</ID>
               <Description>"Passe em Profundidade (Through Passing)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2868,7 +2883,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>186</ID>
+              <ID>187</ID>
               <Description>"Passe na Medida (Weighted Pass)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2883,7 +2898,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>187</ID>
+              <ID>188</ID>
               <Description>"Cruzamento Preciso (Pinpoint Crossing)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2898,7 +2913,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>188</ID>
+              <ID>189</ID>
               <Description>"Trivela (Outside Curler)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2913,7 +2928,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>189</ID>
+              <ID>190</ID>
               <Description>"Letra (Rabona)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2928,7 +2943,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>190</ID>
+              <ID>191</ID>
               <Description>"Passe Sem Olhar (No Look Pass)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2943,7 +2958,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>191</ID>
+              <ID>192</ID>
               <Description>"Lançamento Tenso (Low Lofted Pass)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2958,7 +2973,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>192</ID>
+              <ID>193</ID>
               <Description>"Reposição Baixa de Goleiro (GK Low Punt)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2973,7 +2988,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>193</ID>
+              <ID>194</ID>
               <Description>"Reposição Alta de Goleiro (GK High Punt)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -2988,7 +3003,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>194</ID>
+              <ID>195</ID>
               <Description>"Lateral Longo (Long Throw)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3003,7 +3018,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>195</ID>
+              <ID>196</ID>
               <Description>"Arremesso Longo do Goleiro (GK Long Throw)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3018,7 +3033,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>196</ID>
+              <ID>197</ID>
               <Description>"Especialista em Pênaltis (Penalty Specialist)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3033,7 +3048,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>197</ID>
+              <ID>198</ID>
               <Description>"Pegador de Pênaltis (GK Penalty Saver)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3048,7 +3063,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>198</ID>
+              <ID>199</ID>
               <Description>"Malícia / Cavar Falta (Gamesmanship)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3063,7 +3078,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>199</ID>
+              <ID>200</ID>
               <Description>"Marcação Individual (Man Marking)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3078,7 +3093,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>200</ID>
+              <ID>201</ID>
               <Description>"Voltar para Marcar (Track Back)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3093,7 +3108,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>201</ID>
+              <ID>202</ID>
               <Description>"Interceptação (Interception)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3108,7 +3123,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>202</ID>
+              <ID>203</ID>
               <Description>"Corte Acrobático (Acrobatic Clear)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3123,7 +3138,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>203</ID>
+              <ID>204</ID>
               <Description>"Liderança / Capitão (Captaincy)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3138,7 +3153,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>204</ID>
+              <ID>205</ID>
               <Description>"Super Substituto / Talismã (Super-Sub)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3153,7 +3168,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>205</ID>
+              <ID>206</ID>
               <Description>"Espírito Guerreiro (Fighting Spirit)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3168,7 +3183,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>206</ID>
+              <ID>207</ID>
               <Description>"Estilo de Jogo do Atleta (Playing Style)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Nenhum (-)
 1:Artilheiro (Goal Poacher)
@@ -3206,14 +3221,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>121</ID>
+          <ID>122</ID>
           <Description>"8. Estilos IA COM &amp; Papel no Time (Team Role)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>122</ID>
+              <ID>123</ID>
               <Description>"[ PRESET ] Tornar LENDA (Nível 3)"</Description>
               <Color>0066CC</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -3228,7 +3243,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>123</ID>
+              <ID>124</ID>
               <Description>"[ PRESET ] Tornar BANDEIRA (Nível 3)"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -3243,7 +3258,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>124</ID>
+              <ID>125</ID>
               <Description>"[ PRESET ] Tornar MAESTRO (Nível 3)"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -3258,7 +3273,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>125</ID>
+              <ID>126</ID>
               <Description>"[ PRESET ] Tornar GENERAL (Nível 3)"</Description>
               <Color>A8326E</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -3273,7 +3288,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>207</ID>
+              <ID>208</ID>
               <Description>"[IA COM] Driblador (Trickster)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3288,7 +3303,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>208</ID>
+              <ID>209</ID>
               <Description>"[IA COM] Arrancada em Zigue-Zague (Mazing Run)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3303,7 +3318,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>209</ID>
+              <ID>210</ID>
               <Description>"[IA COM] Bala Veloz (Speeding Bullet)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3318,7 +3333,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>210</ID>
+              <ID>211</ID>
               <Description>"[IA COM] Corrida Incisiva (Incisive Run)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3333,7 +3348,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>211</ID>
+              <ID>212</ID>
               <Description>"[IA COM] Especialista em Bola Longa (Long Ball Expert)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3348,7 +3363,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>212</ID>
+              <ID>213</ID>
               <Description>"[IA COM] Cruzamento Antecipado (Early Cross)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3363,7 +3378,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>213</ID>
+              <ID>214</ID>
               <Description>"[IA COM] Chutador de Longe (Long Ranger)"</Description>
               <DropDownList DisplayValueAsItem="1">0:Não
 1:Sim</DropDownList>
@@ -3378,7 +3393,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>214</ID>
+              <ID>215</ID>
               <Description>"Papel no Time (Team Role)"</Description>
               <DropDownList DisplayValueAsItem="1">0:-
 1:Youth Prospect
@@ -3414,7 +3429,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>215</ID>
+              <ID>216</ID>
               <Description>"Nível do Papel no Time (Level)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -3427,7 +3442,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>216</ID>
+              <ID>217</ID>
               <Description>"Espírito Coletivo &lt;-&gt; Lobo Solitário"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3437,7 +3452,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>217</ID>
+              <ID>218</ID>
               <Description>"Paixão &lt;-&gt; Frieza"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3447,7 +3462,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>218</ID>
+              <ID>219</ID>
               <Description>"Técnica &lt;-&gt; Força"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3457,7 +3472,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>219</ID>
+              <ID>220</ID>
               <Description>"Visão &lt;-&gt; Instinto"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3467,7 +3482,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>220</ID>
+              <ID>221</ID>
               <Description>"Impacto / Carisma (Impact)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3479,34 +3494,34 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>221</ID>
+          <ID>222</ID>
           <Description>"9. Diagnóstico Técnico de Ponteiros (Avançado)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <CheatEntries>
             <CheatEntry>
-              <ID>222</ID>
+              <ID>223</ID>
               <Description>"ptrPlayer"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>8 Bytes</VariableType>
               <Address>ptrPlayer</Address>
             </CheatEntry>
             <CheatEntry>
-              <ID>223</ID>
+              <ID>224</ID>
               <Description>"ptrCareer"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>8 Bytes</VariableType>
               <Address>ptrCareer</Address>
             </CheatEntry>
             <CheatEntry>
-              <ID>224</ID>
+              <ID>225</ID>
               <Description>"ptrPlayerTraining"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>8 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
             </CheatEntry>
             <CheatEntry>
-              <ID>225</ID>
+              <ID>226</ID>
               <Description>"ptrPlayerSquadBonus"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>8 Bytes</VariableType>
@@ -3517,14 +3532,14 @@ end)
       </CheatEntries>
     </CheatEntry>
     <CheatEntry>
-      <ID>226</ID>
+      <ID>227</ID>
       <Description>"[ 4. TREINO &amp; ESTRELATO ] Multiplicador Sub-XP, Base &amp; Suite BAL"</Description>
       <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
       <GroupHeader>1</GroupHeader>
       <Color>A8326E</Color>
       <CheatEntries>
         <CheatEntry>
-          <ID>227</ID>
+          <ID>228</ID>
           <Description>"Velocidade de Evolução Sub-XP (Clube, Base &amp; BAL)"</Description>
           <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:1x — Evolução Original
 1:2x — Evolução Dobrada
@@ -3538,7 +3553,7 @@ end)
           <Address>cfgTrainingMultMode</Address>
         </CheatEntry>
         <CheatEntry>
-          <ID>228</ID>
+          <ID>229</ID>
           <Description>"[ 1-CLIQUE ] Encher 25 Barras de Sub-XP do Atleta Selecionado (9.999 / 10.000)"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
@@ -3553,13 +3568,13 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>229</ID>
+          <ID>230</ID>
           <Description>"Suite Rumo ao Estrelato (Become a Legend — BAL)"</Description>
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>230</ID>
+              <ID>231</ID>
               <Description>"[ BAL 1-CLIQUE ] Carregar Meu Jogador do Estrelato no Editor"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -3574,7 +3589,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>231</ID>
+              <ID>232</ID>
               <Description>"Focus Points Restantes no BAL"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>A8326E</Color>
@@ -3585,7 +3600,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>232</ID>
+              <ID>233</ID>
               <Description>"Travar Focus Points Sempre em 99"</Description>
               <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Desativado
 1:Ativado (99 Pontos Infinitos)</DropDownList>
@@ -3594,7 +3609,7 @@ end)
               <Address>cfgLockBALFocusPoints</Address>
             </CheatEntry>
             <CheatEntry>
-              <ID>233</ID>
+              <ID>234</ID>
               <Description>"[ BAL 1-CLIQUE ] Colocar 10 Barras no Máximo + 99 Pontos"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -3609,7 +3624,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>234</ID>
+              <ID>235</ID>
               <Description>"Habilidade (Skill) em Treinamento no BAL"</Description>
               <DropDownList DisplayValueAsItem="1">60:Pedalada Simples (Scissors Feint)
 61:Toque Duplo (Double Touch)
@@ -3661,7 +3676,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>235</ID>
+              <ID>236</ID>
               <Description>"[ BAL 1-CLIQUE ] Aprender Habilidade em Treino Agora (99,99%)"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -3676,7 +3691,7 @@ end)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
-              <ID>236</ID>
+              <ID>237</ID>
               <Description>"Posição em Treinamento no BAL"</Description>
               <DropDownList DisplayValueAsItem="1">1:CA (CF) — Centroavante
 2:SA (SS) — Segundo Atacante
@@ -3700,7 +3715,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>237</ID>
+              <ID>238</ID>
               <Description>"[ BAL 1-CLIQUE ] Aprender Posição em Treino Agora (99,99%)"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
@@ -3717,14 +3732,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>238</ID>
+          <ID>239</ID>
           <Description>"As 10 Barras Individuais de Treino do BAL"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>239</ID>
+              <ID>240</ID>
               <Description>"Barra 1 — Chute (Shooting)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3734,7 +3749,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>240</ID>
+              <ID>241</ID>
               <Description>"Barra 2 — Passe (Passing)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3744,7 +3759,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>241</ID>
+              <ID>242</ID>
               <Description>"Barra 3 — Drible (Dribbling)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3754,7 +3769,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>242</ID>
+              <ID>243</ID>
               <Description>"Barra 4 — Destreza / Ataque (Dexterity)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3764,7 +3779,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>243</ID>
+              <ID>244</ID>
               <Description>"Barra 5 — Velocidade / Explosão (Lower Body)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3774,7 +3789,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>244</ID>
+              <ID>245</ID>
               <Description>"Barra 6 — Jogo Aéreo / Físico (Aerial)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3784,7 +3799,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>245</ID>
+              <ID>246</ID>
               <Description>"Barra 7 — Defesa (Defending)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3794,7 +3809,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>246</ID>
+              <ID>247</ID>
               <Description>"Barra 8 — Goleiro (GK)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3804,7 +3819,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>247</ID>
+              <ID>248</ID>
               <Description>"Barra 9 — Foco em Habilidade (Skill)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3814,7 +3829,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>248</ID>
+              <ID>249</ID>
               <Description>"Barra 10 — Foco em Posição (Position)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3826,14 +3841,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>249</ID>
+          <ID>250</ID>
           <Description>"Status no Elenco &amp; Confiança do Técnico (BAL)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>250</ID>
+              <ID>251</ID>
               <Description>"Status no Clube Principal (0=Reserva .. 3=Titular)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3843,7 +3858,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>251</ID>
+              <ID>252</ID>
               <Description>"Flags de Moral / Titularidade no Clube"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3853,7 +3868,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>252</ID>
+              <ID>253</ID>
               <Description>"Status Secundário / Seleção"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -3865,14 +3880,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>253</ID>
+          <ID>254</ID>
           <Description>"Auge (Breakthrough), Pico de Idade &amp; Anti-Declínio 30+"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>254</ID>
+              <ID>255</ID>
               <Description>"Curva de Desenvolvimento / Declínio Pós-30"</Description>
               <DropDownList DisplayValueAsItem="1">0:0 — Precoce (Pico Cedo)
 1:1 — Padrão Equilibrado
@@ -3893,7 +3908,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>255</ID>
+              <ID>256</ID>
               <Description>"Estado de Auge / Breakthrough (2 = Em Explosão!)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -3906,7 +3921,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>256</ID>
+              <ID>257</ID>
               <Description>"Idade de Pico Calculada"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
@@ -3921,14 +3936,14 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>257</ID>
+          <ID>258</ID>
           <Description>"Inspector das 25 Barras de Sub-XP (0..10.000)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>258</ID>
+              <ID>259</ID>
               <Description>"Sub-XP: Talento Ofensivo (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -3938,7 +3953,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>259</ID>
+              <ID>260</ID>
               <Description>"Sub-XP: Talento Defensivo (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -3948,7 +3963,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>260</ID>
+              <ID>261</ID>
               <Description>"Sub-XP: Talento de Goleiro (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -3958,7 +3973,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>261</ID>
+              <ID>262</ID>
               <Description>"Sub-XP: Drible (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -3968,7 +3983,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>262</ID>
+              <ID>263</ID>
               <Description>"Sub-XP: Bola Parada (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -3978,7 +3993,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>263</ID>
+              <ID>264</ID>
               <Description>"Sub-XP: Finalização (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -3988,7 +4003,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>264</ID>
+              <ID>265</ID>
               <Description>"Sub-XP: Passe Rasteiro (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -3998,7 +4013,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>265</ID>
+              <ID>266</ID>
               <Description>"Sub-XP: Passe Alto (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4008,7 +4023,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>266</ID>
+              <ID>267</ID>
               <Description>"Sub-XP: Cabeceio (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4018,7 +4033,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>267</ID>
+              <ID>268</ID>
               <Description>"Sub-XP: Curva (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4028,7 +4043,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>268</ID>
+              <ID>269</ID>
               <Description>"Sub-XP: Resistência (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4038,7 +4053,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>269</ID>
+              <ID>270</ID>
               <Description>"Sub-XP: Velocidade (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4048,7 +4063,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>270</ID>
+              <ID>271</ID>
               <Description>"Sub-XP: Força do Chute (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4058,7 +4073,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>271</ID>
+              <ID>272</ID>
               <Description>"Sub-XP: Impulsão (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4068,7 +4083,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>272</ID>
+              <ID>273</ID>
               <Description>"Sub-XP: Alcance GK (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4078,7 +4093,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>273</ID>
+              <ID>274</ID>
               <Description>"Sub-XP: Afastar GK (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4088,7 +4103,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>274</ID>
+              <ID>275</ID>
               <Description>"Sub-XP: Reflexos GK (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4098,7 +4113,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>275</ID>
+              <ID>276</ID>
               <Description>"Sub-XP: Firmeza GK (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4108,7 +4123,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>276</ID>
+              <ID>277</ID>
               <Description>"Sub-XP: Controle de Bola (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4118,7 +4133,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>277</ID>
+              <ID>278</ID>
               <Description>"Sub-XP: Contato Físico (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4128,7 +4143,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>278</ID>
+              <ID>279</ID>
               <Description>"Sub-XP: Equilíbrio (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4138,7 +4153,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>279</ID>
+              <ID>280</ID>
               <Description>"Sub-XP: Aceleração (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4148,7 +4163,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>280</ID>
+              <ID>281</ID>
               <Description>"Sub-XP: Desarme (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4158,7 +4173,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>281</ID>
+              <ID>282</ID>
               <Description>"Sub-XP: Condução Firme (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4168,7 +4183,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>282</ID>
+              <ID>283</ID>
               <Description>"Sub-XP: Agressividade (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
@@ -4182,14 +4197,14 @@ end)
       </CheatEntries>
     </CheatEntry>
     <CheatEntry>
-      <ID>283</ID>
+      <ID>284</ID>
       <Description>"[ 5. PARTIDA AO VIVO ] Relógio Exato, Placar, Pênaltis &amp; Stamina"</Description>
       <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
       <GroupHeader>1</GroupHeader>
       <Color>2828C6</Color>
       <CheatEntries>
         <CheatEntry>
-          <ID>284</ID>
+          <ID>285</ID>
           <Description>"[ RELÓGIO ] Tempo da Partida (Duplo-Clique p/ Definir Minuto Exato: 15, 44, 88)"</Description>
           <ShowAsSigned>0</ShowAsSigned>
           <Color>2828C6</Color>
@@ -4200,7 +4215,7 @@ end)
           </Offsets>
         </CheatEntry>
         <CheatEntry>
-          <ID>285</ID>
+          <ID>286</ID>
           <Description>"Período da Partida"</Description>
           <DropDownList DisplayValueAsItem="1">1:1º Tempo
 3:2º Tempo
@@ -4214,7 +4229,7 @@ end)
           </Offsets>
         </CheatEntry>
         <CheatEntry>
-          <ID>286</ID>
+          <ID>287</ID>
           <Description>"Congelar Relógio da Partida"</Description>
           <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Desativado (Relógio Correndo Normal)
 1:Congelado no Segundo Atual</DropDownList>
@@ -4223,7 +4238,7 @@ end)
           <Address>cfgFreezeClock</Address>
         </CheatEntry>
         <CheatEntry>
-          <ID>287</ID>
+          <ID>288</ID>
           <Description>"[ MINUTO 44' ] Pular para 44:00 (Fim do 1º Tempo)"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
@@ -4238,7 +4253,7 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>288</ID>
+          <ID>289</ID>
           <Description>"[ MINUTO 88' ] Pular para 88:00 (Minutos Finais)"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
@@ -4253,7 +4268,7 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>289</ID>
+          <ID>290</ID>
           <Description>"[ +10 MIN ] Avançar +10 Minutos no Relógio"</Description>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -4267,7 +4282,7 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>290</ID>
+          <ID>291</ID>
           <Description>"[ -10 MIN ] Voltar -10 Minutos no Relógio"</Description>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -4281,7 +4296,7 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>291</ID>
+          <ID>292</ID>
           <Description>"[ 00:00 ] Reiniciar Tempo Atual"</Description>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -4295,7 +4310,7 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>292</ID>
+          <ID>293</ID>
           <Description>"[ APITO ] Encerrar Tempo Atual Agora"</Description>
           <Color>2828C6</Color>
           <VariableType>Auto Assembler Script</VariableType>
@@ -4310,7 +4325,7 @@ end)
 </AssemblerScript>
         </CheatEntry>
         <CheatEntry>
-          <ID>293</ID>
+          <ID>294</ID>
           <Description>"Minutos de Acréscimo no Placar (-1 = Sem Acréscimo)"</Description>
           <ShowAsSigned>1</ShowAsSigned>
           <VariableType>4 Bytes</VariableType>
@@ -4320,13 +4335,13 @@ end)
           </Offsets>
         </CheatEntry>
         <CheatEntry>
-          <ID>294</ID>
+          <ID>295</ID>
           <Description>"Placar ao Vivo &amp; Disputa de Pênaltis"</Description>
           <GroupHeader>1</GroupHeader>
           <Color>2828C6</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>295</ID>
+              <ID>296</ID>
               <Description>"Gols — Time Mandante (Casa) [Sincroniza Motor + Placar]"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>3B8E1E</Color>
@@ -4337,7 +4352,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>296</ID>
+              <ID>297</ID>
               <Description>"Gols — Time Visitante (Fora) [Sincroniza Motor + Placar]"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>3B8E1E</Color>
@@ -4348,7 +4363,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>297</ID>
+              <ID>298</ID>
               <Description>"Pênaltis Convertidos — Mandante (Casa)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -4358,7 +4373,7 @@ end)
               </Offsets>
             </CheatEntry>
             <CheatEntry>
-              <ID>298</ID>
+              <ID>299</ID>
               <Description>"Pênaltis Convertidos — Visitante (Fora)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
@@ -4370,13 +4385,13 @@ end)
           </CheatEntries>
         </CheatEntry>
         <CheatEntry>
-          <ID>299</ID>
+          <ID>300</ID>
           <Description>"Stamina Seletiva em Campo"</Description>
           <GroupHeader>1</GroupHeader>
           <Color>2828C6</Color>
           <CheatEntries>
             <CheatEntry>
-              <ID>300</ID>
+              <ID>301</ID>
               <Description>"Modo de Stamina durante a Partida"</Description>
               <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Desativado (Desgaste Original)
 1:Stamina 100% — Apenas Time Mandante (Casa)
@@ -4396,13 +4411,15 @@ end)
   </CheatEntries>
   <UserdefinedSymbols />
   <LuaScript>-- ============================================================================
--- PES 2021 — v10.2 PRO STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
+-- PES 2021 — v11.0 ULTIMATE STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
 -- Bilingual Core Engine (PT-BR &amp; EN) + Konami Exact OVR DNA Solver + Canvas GUI
+-- + Visual Studio Modals (Radar 30K, Position Lab, Team Role, Real-RAM Scouts)
+-- + 10-Level Automatic Player Undo Stack
 -- Validated live on PES2021.exe v1.7.2.0 + Sider 7.3.3
 -- ============================================================================
 
 PES10 = PES10 or {}
-PES10.VERSION = "10.2 Pro Studio"
+PES10.VERSION = "11.0 Ultimate Studio"
 PES10.PROCESS_NAME = "PES2021.exe"
 PES10.lang = "pt"
 if PES10.lang ~= "en" and PES10.lang ~= "pt" then
@@ -4504,6 +4521,55 @@ PES10.SCOUT_LISTS = {
   [3] = { base = 0x01676234, cap = 30,  pt = "Olheiro 3", en = "Scout 3" },
   [4] = { base = 0x01675D34, cap = 100, pt = "Lista de Favoritos (Shortlist)", en = "Shortlist (Favorites)" },
 }
+
+-- Automatic 10-Level Player Undo Stack (stores full 0x17C byte snapshot per playerAddr)
+PES10.undoStack = {}
+PES10.UNDO_MAX_DEPTH = 10
+
+function PES10.pushPlayerUndo(playerAddr, actionLabel)
+  if not playerAddr or playerAddr &lt;= 0x10000 or not PES10.isAttached() then return false end
+  local snap = readBytes(playerAddr, 0x17C, true)
+  if not snap or #snap &lt; 0x17C then return false end
+  local stack = PES10.undoStack[playerAddr]
+  if not stack then stack = {}; PES10.undoStack[playerAddr] = stack end
+  stack[#stack + 1] = {
+    bytes = snap,
+    label = tostring(actionLabel or PES10.T("Edição", "Edit")),
+    time = os.date and os.date("%H:%M:%S") or "",
+  }
+  while #stack &gt; PES10.UNDO_MAX_DEPTH do
+    table.remove(stack, 1)
+  end
+  return true
+end
+
+function PES10.canUndoPlayer(playerAddr)
+  local stack = playerAddr and PES10.undoStack[playerAddr]
+  return (stack ~= nil and #stack &gt; 0) and #stack or 0
+end
+
+function PES10.undoLastPlayerEdit(playerAddr)
+  local p = playerAddr or PES10.getSelectedPlayerOrWarn()
+  if not p or p == 0 then return false end
+  local stack = PES10.undoStack[p]
+  if not stack or #stack == 0 then
+    PES10.toast(PES10.T("Nenhuma alteração recente para desfazer neste atleta.", "No recent edit to undo for this player."))
+    return false
+  end
+  local entry = table.remove(stack)
+  writeBytes(p, entry.bytes)
+  PES10.syncAllDynamicPointers()
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local ovr, regPos = PES10.calcPlayerOVR(p)
+  PES10.toast(string.format(
+    PES10.T("Desfeito (%s) em %s — restaurado para %d %s! (%d no histórico)", "Undid (%s) on %s — restored to %d %s! (%d left)"),
+    entry.label, pName, ovr, PES10.posShort(regPos), #stack
+  ))
+  if PES10.dashboardState and PES10.dashboardState.render then
+    PES10.dashboardState.render(true)
+  end
+  return true
+end
 
 function PES10.setLang(langCode)
   if langCode ~= "pt" and langCode ~= "en" then return end
@@ -6004,10 +6070,11 @@ function PES10.getPosAptitude(playerAddr, posIdx)
   return (b and ((b &gt;&gt; loc[2]) &amp; 3)) or 0
 end
 
-function PES10.setPosAptitude(playerAddr, posIdx, grade)
+function PES10.setPosAptitude(playerAddr, posIdx, grade, skipUndo)
   if not playerAddr or playerAddr &lt;= 0x10000 or not PES10.isAttached() then return false end
   local loc = PES10.POS_APT_LOC[posIdx]
   if not loc then return false end
+  if not skipUndo then PES10.pushPlayerUndo(playerAddr, PES10.T("Afinidade " .. PES10.posShort(posIdx), "Aptitude " .. PES10.posShort(posIdx))) end
   grade = math.max(0, math.min(2, grade or 2))
   PES10.setBitsInDword(playerAddr + loc[1], loc[2], 2, grade)
   PES10.syncAllDynamicPointers()
@@ -6016,11 +6083,12 @@ end
 
 function PES10.promoteSecondaryPositionsToA(playerAddr)
   if not playerAddr or playerAddr &lt;= 0x10000 or not PES10.isAttached() then return 0 end
+  PES10.pushPlayerUndo(playerAddr, PES10.T("Promover B→A", "Promote B→A"))
   local count = 0
   for pIdx = 0, 12 do
     local apt = PES10.getPosAptitude(playerAddr, pIdx)
     if apt == 1 then -- B (Secondary)
-      PES10.setPosAptitude(playerAddr, pIdx, 2) -- upgrade to A (Full Mastery)
+      PES10.setPosAptitude(playerAddr, pIdx, 2, true) -- upgrade to A (Full Mastery)
       count = count + 1
     end
   end
@@ -6038,6 +6106,7 @@ end
 
 function PES10.setTeamRole(playerAddr, role, lvl)
   if not playerAddr or playerAddr &lt;= 0x10000 or not PES10.isAttached() then return false end
+  PES10.pushPlayerUndo(playerAddr, "Team Role")
   role = math.max(0, math.min(22, role or 0))
   lvl  = math.max(1, math.min(3, lvl or 3))
   PES10.setBitsInDword(playerAddr + 0x150, 0, 5, role)
@@ -6048,7 +6117,7 @@ end
 
 -- Proportional DNA-Preserving Overall Solver (Hamilton Largest-Remainder + Core DNA Refinement)
 -- Supports both primary registered position (evalPos == nil) and target secondary position!
-function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos)
+function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos, skipUndo)
   if not playerAddr or playerAddr &lt;= 0x10000 or not PES10.isAttached() then return false, 0, 0 end
   local origBuf = readBytes(playerAddr, 0x28, true)
   if not origBuf or #origBuf &lt; 0x28 then return false, 0, 0 end
@@ -6058,6 +6127,10 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos)
   local curOVR, regPos = PES10.calcPlayerOVRFromBuf(origBuf, evalPos, isSpecificPos)
   local targetPos = isSpecificPos and evalPos or regPos
   if curOVR == targetOVR then return true, curOVR, curOVR end
+  if not skipUndo then
+    local lbl = isSpecificPos and string.format("OVR %s→%d", PES10.posShort(targetPos), targetOVR) or string.format("OVR %d→%d", curOVR, targetOVR)
+    PES10.pushPlayerUndo(playerAddr, lbl)
+  end
 
   local activeFids = {}
   if targetPos == 0 then
@@ -6140,7 +6213,7 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos)
     bestBuf, bestOVR = cand, newOVR
     if newOVR == targetOVR then
       writeBytes(playerAddr, cand)
-      if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
+      if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2, true) end
       PES10.syncAllDynamicPointers()
       return true, curOVR, newOVR
     end
@@ -6153,7 +6226,7 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos)
           bufSetStat(alt, tf, bufGetStat(alt, tf) - dir)
           if PES10.calcPlayerOVRFromBuf(alt, evalPos, isSpecificPos) == targetOVR then
             writeBytes(playerAddr, alt)
-            if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
+            if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2, true) end
             PES10.syncAllDynamicPointers()
             return true, curOVR, targetOVR
           end
@@ -6190,7 +6263,7 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos)
             local to = PES10.calcPlayerOVRFromBuf(trial, evalPos, isSpecificPos)
             if to == targetOVR then
               writeBytes(playerAddr, trial)
-              if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
+              if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2, true) end
               PES10.syncAllDynamicPointers()
               return true, curOVR, targetOVR
             elseif (dir == 1 and to &gt; targetOVR) or (dir == -1 and to &lt; targetOVR) then
@@ -6201,7 +6274,7 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos)
       end
 
       writeBytes(playerAddr, cand)
-      if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
+      if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2, true) end
       PES10.syncAllDynamicPointers()
       return true, curOVR, newOVR
     end
@@ -6210,7 +6283,7 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos)
   end
 
   writeBytes(playerAddr, bestBuf)
-  if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
+  if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2, true) end
   PES10.syncAllDynamicPointers()
   return true, curOVR, bestOVR
 end
@@ -6483,6 +6556,44 @@ function PES10.getScoutListSummary(slotIdx)
   return used, def.cap, table.concat(preview, ", ")
 end
 
+function PES10.getScoutListEntries(slotIdx)
+  local career = PES10.readU64(PES10.symAddr("ptrCareer"))
+  local def = PES10.SCOUT_LISTS[slotIdx]
+  local entries = {}
+  if career == 0 or not def then return entries end
+  for i = 0, def.cap - 1 do
+    local addr = career + def.base + i * 8
+    local h = PES10.readU64(addr)
+    if h ~= 0 and h ~= PES10.SCOUT_EMPTY_SENTINEL and math.floor(h / 0x100000000) ~= 0 then
+      local lo = h % 0x100000000
+      local p = (lo &lt; 30000) and (career + lo * 0x17C) or 0
+      local nm = (p ~= 0) and (readString(p + 0x38, 34, false) or "?") or "?"
+      local ovr, regPos = (p ~= 0) and PES10.calcPlayerOVR(p) or 0, 0
+      local age = (p ~= 0) and (PES10.readU8(p + 0x1C) &amp; 0x3F) or 0
+      local _, _, club = (p ~= 0) and PES10.decodeClubHandle(PES10.readU32(p + 0x12C)) or 0, 0, ""
+      entries[#entries + 1] = {
+        slotIndex = i, slotAddr = addr, handle = h, playerAddr = p,
+        name = nm, ovr = ovr, pos = regPos, age = age, club = club,
+      }
+    end
+  end
+  return entries
+end
+
+function PES10.removePlayerFromScoutList(slotIdx, targetHandle)
+  local career = PES10.readU64(PES10.symAddr("ptrCareer"))
+  local def = PES10.SCOUT_LISTS[slotIdx]
+  if career == 0 or not def or not targetHandle then return false end
+  for i = 0, def.cap - 1 do
+    local addr = career + def.base + i * 8
+    if PES10.readU64(addr) == targetHandle then
+      writeQword(addr, PES10.SCOUT_EMPTY_SENTINEL)
+      return true
+    end
+  end
+  return false
+end
+
 function PES10.applyEasyNegotiationFlags(p)
   if not p or p &lt;= 0x10000 then return end
   -- 1) Transfer Listed &amp; Loan Listed (playerAddr + 0x14A, bits 1 &amp; 2)
@@ -6661,6 +6772,7 @@ end
 function PES10.rejuvenateAndSyncMarket(yearsDelta)
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return false end
+  PES10.pushPlayerUndo(p, PES10.T("Rejuvenescer", "Rejuvenate"))
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
   local oldAge = PES10.readU8(p + 0x1C) &amp; 0x3F
   local newAge = math.max(16, math.min(45, oldAge + (yearsDelta or -2)))
@@ -7091,6 +7203,7 @@ function PES10.runPlayerMacro(mode)
 
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return false end
+  if mode ~= "instant_subxp_player" then PES10.pushPlayerUndo(p, "Macro:" .. tostring(mode)) end
   local pName = readString(p + 0x38, 36, false) or PES10.T("Atleta", "Player")
 
   if mode == "stats_99" then
@@ -7185,6 +7298,7 @@ function PES10.importPlayerBackupJson()
       local txt = f:read("*a"); f:close()
       local hex = txt:match('"hex_0x17C"%s*:%s*"([0-9A-Fa-f]+)"')
       if hex and #hex == 760 then
+        PES10.pushPlayerUndo(p, "Import JSON")
         local curBytes = readBytes(p, 0x17C, true)
         local newBytes = {}
         for i = 1, 0x17C do newBytes[i] = tonumber(hex:sub((i - 1) * 2 + 1, i * 2), 16) end
@@ -7357,7 +7471,474 @@ function PES10.asyncActionButton(memrec, fn)
 end
 
 -- ============================================================================
--- PES 2021 v10.2 PRO STUDIO — DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
+-- PES 2021 v11.0 ULTIMATE STUDIO — VISUAL INTERACTIVE MODALS (DPI-AWARE)
+-- Zero clunky text prompts: 1-click Position Lab, Team Role, Real-RAM Scouts &amp; Radar 30K
+-- ============================================================================
+function PES10.uiScale()
+  local dpi = (getScreenDPI and getScreenDPI()) or 96
+  if dpi &lt; 96 then dpi = 96 end
+  local sc = dpi / 96.0
+  return function(px) return math.floor(px * sc + 0.5) end
+end
+
+local function makeStudioModal(title, logW, logH)
+  local S = PES10.uiScale()
+  local f = createForm(false)
+  f.Caption = title
+  pcall(function() f.BorderStyle = "bsSingle" end)
+  f.Color = 0x170F0B
+  f.DoNotSaveInTable = true
+  local W, H = S(logW), S(logH)
+  pcall(function() f.ClientWidth = W; f.ClientHeight = H end)
+  if not f.ClientWidth or f.ClientWidth ~= W then f.Width = W; f.Height = H end
+  f.centerScreen()
+  f.OnClose = function() return caFree end
+  return f, S, W, H
+end
+
+local function makeModalLabel(parent, x, y, w, h, txt, ptSize, color, bold)
+  local lbl = createLabel(parent)
+  lbl.Left = x; lbl.Top = y; lbl.Width = w; lbl.Height = h
+  lbl.AutoSize = false
+  lbl.Caption = txt
+  lbl.Font.Name = "Segoe UI"
+  lbl.Font.Size = ptSize or 9
+  lbl.Font.Color = color or 0xFCFAF8
+  pcall(function() lbl.Font.Style = bold and "[fsBold]" or "[]" end)
+  return lbl
+end
+
+local function makeModalBtn(parent, x, y, w, h, txt, onClick)
+  local b = createButton(parent)
+  b.Left = x; b.Top = y; b.Width = w; b.Height = h
+  b.Caption = txt
+  b.Font.Name = "Segoe UI"
+  b.Font.Size = 9
+  b.OnClick = onClick
+  return b
+end
+
+-- MODAL 1: VISUAL POSITION LAB (+1 OVR IN SPECIFIC POSITION &amp; C/B/A APTITUDE)
+function PES10.openPositionLabModal()
+  if not createListBox or not createButton then return PES10.promptTargetPositionOVRPlusOne() end
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local f, S, W, H = makeStudioModal(PES10.T("Laboratório de Posições — ", "Position Lab — ") .. pName, 620, 490)
+
+  local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
+  local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20),
+    PES10.T("Clique em qualquer posição abaixo para subir +1 OVR nela (mantendo DNA) ou mudar o Grau (A / B / C):",
+            "Click any position below to boost +1 OVR in it (keeping DNA) or change Grade (A / B / C):"),
+    8, 0xC4B2A0, false)
+
+  local lb = createListBox(f)
+  lb.Left = S(16); lb.Top = S(64); lb.Width = W - S(32); lb.Height = S(298)
+  lb.Color = 0x241811
+  lb.Font.Name = "Consolas"
+  lb.Font.Size = 10
+  lb.Font.Color = 0xFCFAF8
+
+  local posOrder = {12, 11, 9, 10, 8, 6, 7, 5, 4, 2, 3, 1, 0}
+  local function refreshList(keepIdx)
+    local b = readBytes(p, 0x28, true)
+    if not b or #b &lt; 0x28 then return end
+    local regOVR, regPos = PES10.calcPlayerOVRFromBuf(b)
+    local undoN = PES10.canUndoPlayer(p)
+    hdr.Caption = string.format(
+      PES10.T("%s  •  Principal: %d %s  •  Histórico Undo: %d", "%s  •  Primary: %d %s  •  Undo History: %d"),
+      pName, regOVR, PES10.posShort(regPos), undoN
+    )
+    local prev = keepIdx or lb.ItemIndex
+    lb.Items.clear()
+    for _, pIdx in ipairs(posOrder) do
+      local info = PES10.POS_NAMES[pIdx]
+      local pShort = PES10.posShort(pIdx)
+      local apt = (pIdx == regPos) and 2 or bufGetPosAptitude(b, pIdx)
+      local aptL = (apt == 2 and "A") or (apt == 1 and "B") or "C"
+      local curO = PES10.calcPlayerOVRFromBuf(b, pIdx, false)
+      local potO = PES10.calcPlayerOVRFromBuf(b, pIdx, true)
+      local mark = (pIdx == regPos) and PES10.T(" [PRINCIPAL]", " [PRIMARY]") or ""
+      local gain = (apt &lt; 2) and string.format(" (c/ A: %d -&gt; +1: %d)", potO, math.min(99, potO + 1)) or string.format(" (+1 -&gt; %d)", math.min(99, potO + 1))
+      lb.Items.add(string.format("%-3s | %-18s | OVR %2d [%s]%s%s", pShort, PES10.T(info.pt, info.en), curO, aptL, gain, mark))
+    end
+    if prev and prev &gt;= 0 and prev &lt; #posOrder then lb.ItemIndex = prev else lb.ItemIndex = 0 end
+    if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
+  end
+
+  local function getPickedPos()
+    local idx = lb.ItemIndex
+    if not idx or idx &lt; 0 or idx &gt;= #posOrder then return nil end
+    return posOrder[idx + 1], idx
+  end
+
+  local y1, y2 = S(374), S(416)
+  makeModalBtn(f, S(16),  y1, S(230), S(34), PES10.T("+1 OVR nesta Posição (DNA)", "+1 OVR in Selected Pos (DNA)"), function()
+    local tp, idx = getPickedPos()
+    if tp ~= nil then PES10.stepTargetPositionOVR(tp, 1); refreshList(idx) end
+  end)
+  makeModalBtn(f, S(254), y1, S(106), S(34), PES10.T("Definir Grau A", "Set Grade A"), function()
+    local tp, idx = getPickedPos()
+    if tp ~= nil then PES10.setPosAptitude(p, tp, 2); PES10.toast(pName .. ": " .. PES10.posShort(tp) .. " -&gt; A"); refreshList(idx) end
+  end)
+  makeModalBtn(f, S(368), y1, S(106), S(34), PES10.T("Definir Grau B", "Set Grade B"), function()
+    local tp, idx = getPickedPos()
+    if tp ~= nil then PES10.setPosAptitude(p, tp, 1); PES10.toast(pName .. ": " .. PES10.posShort(tp) .. " -&gt; B"); refreshList(idx) end
+  end)
+  makeModalBtn(f, S(482), y1, S(122), S(34), PES10.T("Definir Grau C", "Set Grade C"), function()
+    local tp, idx = getPickedPos()
+    if tp ~= nil then PES10.setPosAptitude(p, tp, 0); PES10.toast(pName .. ": " .. PES10.posShort(tp) .. " -&gt; C"); refreshList(idx) end
+  end)
+
+  makeModalBtn(f, S(16),  y2, S(190), S(34), PES10.T("Promover Todas B -&gt; A", "Promote All B -&gt; A"), function()
+    local n = PES10.promoteSecondaryPositionsToA(p)
+    PES10.toast(string.format(PES10.T("%d secundária(s) promovida(s) p/ A!", "%d secondary pos promoted to A!"), n))
+    refreshList(lb.ItemIndex)
+  end)
+  makeModalBtn(f, S(214), y2, S(160), S(34), PES10.T("Todas 13 em 'A'", "All 13 to Grade 'A'"), function()
+    PES10.runPlayerMacro("all_positions_a")
+    refreshList(lb.ItemIndex)
+  end)
+  makeModalBtn(f, S(382), y2, S(118), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+    PES10.undoLastPlayerEdit(p)
+    refreshList(lb.ItemIndex)
+  end)
+  makeModalBtn(f, S(508), y2, S(96),  S(34), PES10.T("Fechar", "Close"), function() f.close() end)
+
+  refreshList(0)
+  f.show()
+end
+
+-- MODAL 2: VISUAL TEAM ROLE SELECTOR (22 ROLES + LEVEL 1-3 + QUICK PRESETS)
+function PES10.openTeamRoleModal()
+  if not createListBox or not createButton then return PES10.promptSetTeamRole() end
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local f, S, W, H = makeStudioModal(PES10.T("Função de Equipe (Team Role) — ", "Team Role &amp; Level — ") .. pName, 560, 470)
+
+  local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
+  local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20),
+    PES10.T("Selecione qualquer uma das 22 Funções de Equipe + Nível (1–3) ou use um Preset rápido:",
+            "Select any of the 22 Team Roles + Level (1–3) or click a Quick Preset:"),
+    8, 0xC4B2A0, false)
+
+  local lb = createListBox(f)
+  lb.Left = S(16); lb.Top = S(64); lb.Width = W - S(32); lb.Height = S(268)
+  lb.Color = 0x241811
+  lb.Font.Name = "Segoe UI"
+  lb.Font.Size = 10
+  lb.Font.Color = 0xFCFAF8
+
+  for r = 0, 22 do
+    local info = PES10.TEAM_ROLES[r]
+    lb.Items.add(string.format("[%2d]  %s", r, info and PES10.T(info.pt, info.en) or "-"))
+  end
+
+  local cbLvl = createComboBox(f)
+  cbLvl.Left = S(16); cbLvl.Top = S(344); cbLvl.Width = S(130); cbLvl.Height = S(28)
+  cbLvl.Style = "csDropDownList"
+  cbLvl.Items.add(PES10.T("Nível 1", "Level 1"))
+  cbLvl.Items.add(PES10.T("Nível 2", "Level 2"))
+  cbLvl.Items.add(PES10.T("Nível 3 (Máx)", "Level 3 (Max)"))
+
+  local function refreshRole()
+    local cr, cl = PES10.getTeamRole(p)
+    local rn = PES10.TEAM_ROLES[cr] and PES10.T(PES10.TEAM_ROLES[cr].pt, PES10.TEAM_ROLES[cr].en) or "-"
+    hdr.Caption = string.format(PES10.T("%s  •  Atual: %s (Nível %d)", "%s  •  Current: %s (Level %d)"), pName, rn, cl)
+    lb.ItemIndex = cr
+    cbLvl.ItemIndex = math.max(0, math.min(2, cl - 1))
+    if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
+  end
+
+  local function applyRole(rNum, lNum)
+    PES10.setTeamRole(p, rNum, lNum)
+    local rInfo = PES10.TEAM_ROLES[rNum]
+    local rTxt = rInfo and PES10.T(rInfo.pt, rInfo.en) or tostring(rNum)
+    PES10.toast(string.format(PES10.T("%s agora é '%s' (Nível %d)!", "%s is now '%s' (Level %d)!"), pName, rTxt, lNum))
+    refreshRole()
+  end
+
+  makeModalBtn(f, S(156), S(342), S(200), S(32), PES10.T("Aplicar Função Selecionada", "Apply Selected Role"), function()
+    local idx = lb.ItemIndex
+    if idx and idx &gt;= 0 and idx &lt;= 22 then
+      applyRole(idx, (cbLvl.ItemIndex or 2) + 1)
+    end
+  end)
+  makeModalBtn(f, S(364), S(342), S(90), S(32), PES10.T("Desfazer", "Undo"), function()
+    PES10.undoLastPlayerEdit(p); refreshRole()
+  end)
+  makeModalBtn(f, S(462), S(342), S(82), S(32), PES10.T("Fechar", "Close"), function() f.close() end)
+
+  -- 5 One-Click Quick Presets
+  local yP = S(390)
+  makeModalLabel(f, S(16), yP - S(18), W - S(32), S(16), PES10.T("PRESETS DE 1 CLIQUE (NÍVEL 3 MÁXIMO):", "1-CLICK QUICK PRESETS (LEVEL 3 MAX):"), 8, 0x24BFFB, true)
+  makeModalBtn(f, S(16),  yP, S(100), S(34), PES10.T("Lenda", "Legend"),       function() applyRole(19, 3) end)
+  makeModalBtn(f, S(122), yP, S(100), S(34), PES10.T("Bandeira", "Bandiera"),  function() applyRole(18, 3) end)
+  makeModalBtn(f, S(228), yP, S(100), S(34), PES10.T("Maestro", "Maestro"),    function() applyRole(9, 3) end)
+  makeModalBtn(f, S(334), yP, S(100), S(34), PES10.T("General", "General"),    function() applyRole(7, 3) end)
+  makeModalBtn(f, S(440), yP, S(104), S(34), PES10.T("Superestrela", "Superstar"), function() applyRole(14, 3) end)
+
+  refreshRole()
+  f.show()
+end
+
+-- MODAL 3: VISUAL REAL-RAM SCOUT OBSERVATION HUB (SCOUTS 1, 2, 3 &amp; SHORTLIST)
+function PES10.openScoutListsModal()
+  if not createListBox or not createButton then return PES10.promptAddPlayerToScoutList() end
+  local career = PES10.readU64(PES10.symAddr("ptrCareer"))
+  if career == 0 then
+    PES10.toast(PES10.T("Carregue um save de Master League primeiro!", "Load a Master League save first!"))
+    return
+  end
+
+  local f, S, W, H = makeStudioModal(PES10.T("Central de Olheiros &amp; Observação (RAM Real)", "Scout Observation Hub (Live RAM)"), 660, 500)
+  local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
+  local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20), "", 8, 0x99D334, false)
+
+  local curSlot = 1
+  local curEntries = {}
+
+  local lb = createListBox(f)
+  lb.Left = S(16); lb.Top = S(104); lb.Width = W - S(32); lb.Height = S(268)
+  lb.Color = 0x241811
+  lb.Font.Name = "Consolas"
+  lb.Font.Size = 9
+  lb.Font.Color = 0xFCFAF8
+
+  local tabBtns = {}
+  local function refreshHub()
+    local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
+    if p ~= 0 then
+      local nm = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+      local ovr, rp = PES10.calcPlayerOVR(p)
+      hdr.Caption = string.format(PES10.T("Atleta Selecionado: %s (%d %s)", "Selected Player: %s (%d %s)"), nm, ovr, PES10.posShort(rp))
+    else
+      hdr.Caption = PES10.T("Nenhum atleta selecionado — Use o Radar 30K ou passe o cursor no jogo", "No player selected — Use Radar 30K or hover a player in-game")
+    end
+
+    for s = 1, 4 do
+      local def = PES10.SCOUT_LISTS[s]
+      local u, cap = PES10.getScoutListSummary(s)
+      local tag = (s == curSlot) and "&gt;&gt; " or ""
+      tabBtns[s].Caption = string.format("%s%s (%d/%d)", tag, PES10.T(def.pt, def.en):gsub(" %(Shortlist%)", ""):gsub("Lista de ", ""), u, cap)
+    end
+
+    curEntries = PES10.getScoutListEntries(curSlot)
+    local def = PES10.SCOUT_LISTS[curSlot]
+    sub.Caption = string.format(PES10.T("Exibindo na RAM: %s — %d / %d vagas ocupadas", "Live RAM View: %s — %d / %d slots used"), PES10.T(def.pt, def.en), #curEntries, def.cap)
+    lb.Items.clear()
+    if #curEntries == 0 then
+      lb.Items.add(PES10.T("  [ Lista vazia — Clique em '+ Adicionar Atleta Atual' abaixo ]", "  [ List empty — Click '+ Add Current Player' below ]"))
+    else
+      for idx, e in ipairs(curEntries) do
+        lb.Items.add(string.format("%2d. %-24s | %2d %-3s | %2d %s | %s", idx, e.name, e.ovr, PES10.posShort(e.pos), e.age, PES10.T("a", "y"), e.club))
+      end
+      lb.ItemIndex = 0
+    end
+    if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
+  end
+
+  local tW = S(152)
+  for s = 1, 4 do
+    local sCopy = s
+    tabBtns[s] = makeModalBtn(f, S(16) + (s - 1) * (tW + S(6)), S(64), tW, S(32), "Slot " .. s, function()
+      curSlot = sCopy; refreshHub()
+    end)
+  end
+
+  local y1, y2 = S(384), S(428)
+  makeModalBtn(f, S(16),  y1, S(240), S(34), PES10.T("+ Adicionar Atleta Atual nesta Lista", "+ Add Current Player to This List"), function()
+    if PES10.addPlayerToScoutList(curSlot) then refreshHub() end
+  end)
+  makeModalBtn(f, S(264), y1, S(196), S(34), PES10.T("Carregar Selecionado no Studio", "Load Picked Player to Studio"), function()
+    local idx = lb.ItemIndex
+    if idx and curEntries[idx + 1] and curEntries[idx + 1].playerAddr ~= 0 then
+      local e = curEntries[idx + 1]
+      writeQword(PES10.symAddr("ptrPlayer"), e.playerAddr)
+      PES10.syncAllDynamicPointers()
+      PES10.toast(PES10.T("Carregado do Olheiro: ", "Loaded from Scout: ") .. e.name)
+      refreshHub()
+    end
+  end)
+  makeModalBtn(f, S(468), y1, S(176), S(34), PES10.T("Remover Item da Lista", "Remove Selected Item"), function()
+    local idx = lb.ItemIndex
+    if idx and curEntries[idx + 1] then
+      local e = curEntries[idx + 1]
+      PES10.removePlayerFromScoutList(curSlot, e.handle)
+      PES10.toast(PES10.T("Removido da lista: ", "Removed from list: ") .. e.name)
+      refreshHub()
+    end
+  end)
+
+  makeModalBtn(f, S(16),  y2, S(210), S(34), PES10.T("Negociação Irrecusável (100%)", "Irresistible Deal (100%)"), function()
+    PES10.makeDealIrresistible(); refreshHub()
+  end)
+  makeModalBtn(f, S(234), y2, S(150), S(34), PES10.T("Limpar Esta Lista", "Clear This List"), function()
+    PES10.clearScoutSlots(curSlot); refreshHub()
+  end)
+  makeModalBtn(f, S(392), y2, S(150), S(34), PES10.T("Limpar Olheiros 1–3", "Clear Scouts 1–3"), function()
+    PES10.clearScoutSlots(); refreshHub()
+  end)
+  makeModalBtn(f, S(550), y2, S(94),  S(34), PES10.T("Fechar", "Close"), function() f.close() end)
+
+  refreshHub()
+  f.show()
+end
+
+-- MODAL 4: RADAR 30K — ADVANCED VISUAL SCOUT FINDER (NAME, POS, OVR, AGE, EXPIRING CONTRACT)
+function PES10.openScoutFinderModal()
+  if not createListBox or not createEdit or not createComboBox or not createButton then
+    return PES10.searchCareerPlayerDialog()
+  end
+  PES10.syncAllDynamicPointers()
+  local career = PES10.readU64(PES10.symAddr("ptrCareer"))
+  if career == 0 then
+    PES10.toast(PES10.T("Carregue um save de Master League ou BAL primeiro!", "Load a Master League or BAL save first!"))
+    return
+  end
+
+  local f, S, W, H = makeStudioModal(PES10.T("Radar 30K — Busca Avançada &amp; Caçador de Joias", "Radar 30K — Advanced Scout &amp; Wonderkid Finder"), 740, 540)
+  makeModalLabel(f, S(16), S(10), S(160), S(16), PES10.T("Nome ou Player ID:", "Name or Player ID:"), 8, 0xC4B2A0, true)
+  local edName = createEdit(f)
+  edName.Left = S(16); edName.Top = S(28); edName.Width = S(180); edName.Height = S(26); edName.Text = ""
+
+  makeModalLabel(f, S(204), S(10), S(90), S(16), PES10.T("Posição:", "Position:"), 8, 0xC4B2A0, true)
+  local cbPos = createComboBox(f)
+  cbPos.Left = S(204); cbPos.Top = S(28); cbPos.Width = S(96); cbPos.Height = S(26); cbPos.Style = "csDropDownList"
+  cbPos.Items.add(PES10.T("Todas", "All"))
+  local posOrder = {12, 11, 9, 10, 8, 6, 7, 5, 4, 2, 3, 1, 0}
+  for _, pIdx in ipairs(posOrder) do cbPos.Items.add(PES10.posShort(pIdx)) end
+  cbPos.ItemIndex = 0
+
+  makeModalLabel(f, S(308), S(10), S(68), S(16), PES10.T("OVR Mín:", "Min OVR:"), 8, 0xC4B2A0, true)
+  local edOvr = createEdit(f)
+  edOvr.Left = S(308); edOvr.Top = S(28); edOvr.Width = S(64); edOvr.Height = S(26); edOvr.Text = "75"
+
+  makeModalLabel(f, S(380), S(10), S(74), S(16), PES10.T("Idade Máx:", "Max Age:"), 8, 0xC4B2A0, true)
+  local edAge = createEdit(f)
+  edAge.Left = S(380); edAge.Top = S(28); edAge.Width = S(64); edAge.Height = S(26); edAge.Text = "45"
+
+  makeModalLabel(f, S(452), S(10), S(150), S(16), PES10.T("Status Especial:", "Special Filter:"), 8, 0xC4B2A0, true)
+  local cbSpec = createComboBox(f)
+  cbSpec.Left = S(452); cbSpec.Top = S(28); cbSpec.Width = S(160); cbSpec.Height = S(26); cbSpec.Style = "csDropDownList"
+  cbSpec.Items.add(PES10.T("Todos os Jogadores", "All Players"))
+  cbSpec.Items.add(PES10.T("Contrato &lt;= 1 Ano", "Contract &lt;= 1 Yr"))
+  cbSpec.Items.add(PES10.T("Lista de Transferência", "Transfer Listed"))
+  cbSpec.Items.add(PES10.T("Sem Clube / Livre", "Free Agents"))
+  cbSpec.ItemIndex = 0
+
+  local lblStat = makeModalLabel(f, S(16), S(62), W - S(32), S(18),
+    PES10.T("Dica: Deixe Nome vazio e use OVR Mín 78 + Idade Máx 21 para caçar joias (Wonderkids)!",
+            "Tip: Leave Name blank and set Min OVR 78 + Max Age 21 to scout Wonderkids!"),
+    8, 0xF8BD38, false)
+
+  local lb = createListBox(f)
+  lb.Left = S(16); lb.Top = S(84); lb.Width = W - S(32); lb.Height = S(356)
+  lb.Color = 0x241811
+  lb.Font.Name = "Consolas"
+  lb.Font.Size = 9
+  lb.Font.Color = 0xFCFAF8
+
+  local results = {}
+  local function runSearch()
+    local qRaw = edName.Text or ""
+    local qNorm = PES10.normalizeText(qRaw)
+    local qNum = tonumber(qRaw)
+    local posSel = (cbPos.ItemIndex and cbPos.ItemIndex &gt; 0) and posOrder[cbPos.ItemIndex] or nil
+    local minOvr = tonumber(edOvr.Text) or 0
+    local maxAge = tonumber(edAge.Text) or 99
+    if qRaw ~= "" then minOvr = 0; maxAge = 99 end
+    local specMode = cbSpec.ItemIndex or 0
+    local curYear = PES10.readU16(career + 0x01642A24)
+    if curYear &lt; 2019 or curYear &gt; 2150 then curYear = 2026 end
+
+    local count = PES10.readU32(career + 0x00D0BCE8)
+    if count == 0 or count &gt; 30001 then count = 30000 end
+    results = {}
+    for i = 0, count - 1 do
+      local p = career + (i * 0x17C)
+      local pid = PES10.readU32(p + 0x30)
+      if pid ~= 0 and pid ~= 0xFFFFFFFF then
+        local age = PES10.readU8(p + 0x1C) % 64
+        if age &lt;= maxAge then
+          local passSpec = true
+          if specMode == 1 then
+            local expY = PES10.readU16(p + 0x138)
+            passSpec = (expY &gt;= 2019 and expY &lt;= curYear + 1)
+          elseif specMode == 2 then
+            passSpec = (PES10.getBitsInDword(p + 0x14A, 1, 1) == 1)
+          elseif specMode == 3 then
+            local ch = PES10.readU32(p + 0x12C)
+            passSpec = (ch == 0 or ch == 0xFFFFFFFF)
+          end
+          if passSpec then
+            local name = readString(p + 0x38, 40, false) or ""
+            local passQ = (qRaw == "") or (qNum and pid == qNum) or (name ~= "" and PES10.normalizeText(name):find(qNorm, 1, true))
+            if passQ then
+              local ovr, regPos = PES10.calcPlayerOVR(p)
+              if ovr &gt;= minOvr and (posSel == nil or regPos == posSel) then
+                local _, _, clubDesc = PES10.decodeClubHandle(PES10.readU32(p + 0x12C))
+                local mkt = PES10.formatMoneyFromRaw(PES10.readI32(p + 0x174))
+                results[#results + 1] = { addr = p, id = pid, name = name, age = age, ovr = ovr, pos = regPos, club = clubDesc, mkt = mkt }
+                if #results &gt;= 200 then break end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    table.sort(results, function(a, b)
+      if a.ovr ~= b.ovr then return a.ovr &gt; b.ovr end
+      return a.age &lt; b.age
+    end)
+
+    lb.Items.clear()
+    for _, m in ipairs(results) do
+      lb.Items.add(string.format("OVR %2d %-3s | %-22s | %2d%s | %-11s | %s", m.ovr, PES10.posShort(m.pos), m.name, m.age, PES10.T("a", "y"), m.mkt, m.club))
+    end
+    if #results &gt; 0 then lb.ItemIndex = 0 end
+    lblStat.Caption = string.format(PES10.T("Encontrados %d atleta(s) (ordenados por maior OVR).", "Found %d player(s) (sorted by highest OVR)."), #results)
+  end
+
+  local function loadPicked()
+    local idx = lb.ItemIndex
+    if not idx or not results[idx + 1] then return nil end
+    local m = results[idx + 1]
+    writeQword(PES10.symAddr("ptrPlayer"), m.addr)
+    PES10.syncAllDynamicPointers()
+    if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
+    return m
+  end
+
+  makeModalBtn(f, S(620), S(26), S(104), S(30), PES10.T("Filtrar", "Search"), runSearch)
+
+  local yB = S(452)
+  makeModalBtn(f, S(16),  yB, S(156), S(36), PES10.T("Carregar no Studio", "Load into Studio"), function()
+    local m = loadPicked()
+    if m then PES10.toast(string.format(PES10.T("Carregado: %s (%d %s)", "Loaded: %s (%d %s)"), m.name, m.ovr, PES10.posShort(m.pos))) end
+  end)
+  makeModalBtn(f, S(178), yB, S(104), S(36), PES10.T("+ Olheiro 1", "+ Scout 1"), function()
+    if loadPicked() then PES10.addPlayerToScoutList(1) end
+  end)
+  makeModalBtn(f, S(288), yB, S(104), S(36), PES10.T("+ Olheiro 2", "+ Scout 2"), function()
+    if loadPicked() then PES10.addPlayerToScoutList(2) end
+  end)
+  makeModalBtn(f, S(398), yB, S(104), S(36), PES10.T("+ Olheiro 3", "+ Scout 3"), function()
+    if loadPicked() then PES10.addPlayerToScoutList(3) end
+  end)
+  makeModalBtn(f, S(508), yB, S(124), S(36), PES10.T("Negócio 100%", "100% Deal"), function()
+    if loadPicked() then PES10.makeDealIrresistible() end
+  end)
+  makeModalBtn(f, S(638), yB, S(86),  S(36), PES10.T("Fechar", "Close"), function() f.close() end)
+
+  runSearch()
+  f.show()
+end
+
+-- ============================================================================
+-- PES 2021 v11.0 ULTIMATE STUDIO — DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
 -- Pixel-exact symmetric layout, DPI-aware, stateful active glow &amp; zero clipping
 -- ============================================================================
 function PES10.openDashboard()
@@ -7422,7 +8003,7 @@ function PES10.openDashboard()
   local FOOTER_Y = H - FOOTER_H
 
   local f = createForm(false)
-  f.Caption = "PES 2021 — v10.2 Pro Studio (PT-BR / EN)"
+  f.Caption = "PES 2021 — v11.0 Ultimate Studio (PT-BR / EN)"
   pcall(function() f.BorderStyle = "bsSingle" end)
   f.Color = C_BG
   f.DoubleBuffered = true
@@ -7562,48 +8143,48 @@ function PES10.openDashboard()
         sub_pt="Estende vínculos em +5 anos e remove multas", sub_en="Extends contracts by +5 yrs &amp; removes release fees",
         fn=function() PES10.runSquadCommander("shield_contracts") end },
       { col=1, row=4, accent=C_GREEN,
-        tag_pt="OLHEIRO", tag_en="SCOUT",
-        title_pt="Adicionar aos Olheiros (1, 2, 3)...", title_en="Add to Scout List (1, 2, 3)...",
-        sub_pt="Coloca no Olheiro 1–3 c/ lista transf. e 100% sucesso", sub_en="Assigns player to Scout 1–3 with 100% deal &amp; low fee",
-        fn=function() PES10.promptAddPlayerToScoutList() end },
+        tag_pt="OLHEIROS", tag_en="SCOUT HUB",
+        title_pt="Central de Olheiros (1, 2, 3 &amp; Fav.)", title_en="Scout Observation Hub (1–3 &amp; Fav)",
+        sub_pt="Gerencia na RAM real os 3 Olheiros + Shortlist", sub_en="Live RAM manager for Scouts 1–3 &amp; Shortlist",
+        fn=function() PES10.openScoutListsModal() end },
       { col=2, row=4, accent=C_GOLD,
-        tag_pt="NEGÓCIO", tag_en="DEAL 100%",
-        title_pt="Negociação Irrecusável (100%)", title_en="Irresistible Transfer (100% Deal)",
-        sub_pt="Lista p/ venda, multa mínima e aprova no 1º contato", sub_en="Transfer lists player, min fee &amp; 1st-round acceptance",
-        fn=function() PES10.makeDealIrresistible() end },
+        tag_pt="RADAR 30K", tag_en="RADAR 30K",
+        title_pt="Radar 30K — Caçador de Joias...", title_en="Radar 30K — Wonderkid Finder...",
+        sub_pt="Filtra por OVR, Idade, Posição e Contrato acabando", sub_en="Filter by OVR, Age, Position &amp; Expiring Contracts",
+        fn=function() PES10.openScoutFinderModal() end },
     },
 
     [2] = {
       { col=1, row=1, accent=C_BLUE,
-        tag_pt="BUSCA 30K", tag_en="SEARCH 30K",
-        title_pt="Buscar Jogador por Nome ou ID", title_en="Search Player by Name or ID",
-        sub_pt="Pesquisa com OVR, Posição e Clube ao vivo na RAM", sub_en="Live search across 30k players with OVR &amp; Club",
-        fn=function() PES10.searchCareerPlayerDialog() end },
+        tag_pt="RADAR 30K", tag_en="RADAR 30K",
+        title_pt="Radar 30K — Buscar &amp; Filtrar...", title_en="Radar 30K — Search &amp; Filter...",
+        sub_pt="Busca visual por Nome, ID, Posição, OVR e Idade", sub_en="Visual search by Name, ID, Position, OVR &amp; Age",
+        fn=function() PES10.openScoutFinderModal() end },
       { col=2, row=1, accent=C_GREEN,
         tag_pt="+1 OVR DNA", tag_en="+1 OVR DNA",
         title_pt="Subir +1 Overall (Mantém DNA)", title_en="Boost +1 Overall (Keeps DNA)",
         sub_pt="Cruza atributos proporcionalmente s/ mudar o estilo", sub_en="Scales stats proportionally without altering style",
         fn=function() PES10.stepPlayerOVRProportional(1) end },
       { col=1, row=2, accent=C_LIME,
-        tag_pt="+1 POSIÇÃO", tag_en="+1 POS OVR",
-        title_pt="Subir +1 OVR em Posição...", title_en="Boost +1 OVR in Any Position...",
-        sub_pt="Escolha qualquer posição secundária e suba +1 OVR", sub_en="Pick any secondary position and boost its OVR by +1",
-        fn=function() PES10.promptTargetPositionOVRPlusOne() end },
+        tag_pt="POS LAB", tag_en="POS LAB",
+        title_pt="Laboratório de Posições (+1 / A-B-C)", title_en="Position Lab (+1 Pos OVR / A-B-C)",
+        sub_pt="Suba +1 OVR em qualquer posição ou mude Grau C/B/A", sub_en="Boost +1 OVR in any position or edit Grade C/B/A",
+        fn=function() PES10.openPositionLabModal() end },
       { col=2, row=2, accent=C_GOLD,
         tag_pt="OVR ALVO", tag_en="TARGET OVR",
         title_pt="Definir Overall Exato (c/ DNA)...", title_en="Set Exact Target Overall (DNA)...",
         sub_pt="Escolher qualquer OVR (40–99) mantendo proporções", sub_en="Scale player to any OVR (40–99) keeping DNA ratios",
         fn=function() PES10.promptTargetOVRProportional() end },
-      { col=1, row=3, accent=C_BLUE,
-        tag_pt="AFINIDADE", tag_en="APTITUDE",
-        title_pt="Afinidade de Posição (C/B/A)...", title_en="Position Mastery (C/B/A)...",
-        sub_pt="Mudar grau de posições ou promover B para A", sub_en="Edit individual position grade or promote B to A",
-        fn=function() PES10.promptEditPositionAptitude() end },
-      { col=2, row=3, accent=C_GOLD,
+      { col=1, row=3, accent=C_GOLD,
         tag_pt="TEAM ROLE", tag_en="TEAM ROLE",
-        title_pt="Função de Equipe (Team Role)...", title_en="Change Team Role &amp; Level...",
-        sub_pt="Lenda, Bandeira, Maestro, General (Níveis 1 a 3)", sub_en="Legend, Bandiera, Maestro, General (Levels 1 to 3)",
-        fn=function() PES10.promptSetTeamRole() end },
+        title_pt="Função de Equipe (22 Team Roles)...", title_en="Team Role &amp; Level (22 Roles)...",
+        sub_pt="Seletor visual: Lenda, Bandeira, Maestro, General", sub_en="Visual picker: Legend, Bandiera, Maestro, General",
+        fn=function() PES10.openTeamRoleModal() end },
+      { col=2, row=3, accent=C_CRIMSON,
+        tag_pt="NEGÓCIO", tag_en="DEAL 100%",
+        title_pt="Negociação Irrecusável (100%)", title_en="Irresistible Transfer (100% Deal)",
+        sub_pt="Lista p/ venda, multa € 1k e aceite no 1º contato", sub_en="Transfer lists player, € 1k fee &amp; 1st-round deal",
+        fn=function() PES10.makeDealIrresistible() end },
       { col=1, row=4, accent=C_PURPLE,
         tag_pt="COMPLETO", tag_en="ALL-IN-ONE",
         title_pt="41 Habilidades + 13 Posições 'A'", title_en="41 Skills + All 13 Positions 'A'",
@@ -7844,6 +8425,7 @@ function PES10.openDashboard()
       pHas     = false,
       pOVR     = 0,
       pPos     = "OVR",
+      pUndo    = 0,
       pTop     = PES10.T("Nenhum atleta selecionado no momento", "No player currently selected"),
       pSub     = PES10.T("Clique em 'Buscar Jogador por Nome ou ID' abaixo ou passe o cursor sobre um atleta.", "Click 'Search Player by Name or ID' below or hover any player in-game."),
       trnTop   = PES10.T("MOTOR DE EVOLUÇÃO SUB-XP (EXCLUSIVO SEU CLUBE, BASE &amp; BAL)", "SUB-XP PROGRESSION ENGINE (YOUR CLUB, YOUTH &amp; BAL ONLY)"),
@@ -7905,6 +8487,7 @@ function PES10.openDashboard()
       local rfeeStr = (rfeeRaw &gt; 0) and PES10.formatMoneyFromRaw(rfeeRaw) or PES10.T("Sem Multa", "No Clause")
       t.pOVR = ovr
       t.pPos = PES10.posShort(regPos)
+      t.pUndo = PES10.canUndoPlayer(p)
       local bestHint = ""
       if posRank[1] and posRank[1].ovr &gt; ovr then
         bestHint = string.format("  •  ★ %d %s", posRank[1].ovr, PES10.posShort(posRank[1].pos))
@@ -7961,7 +8544,7 @@ function PES10.openDashboard()
       tel.lang, tostring(currentTab), tostring(hoverId), tostring(flashId),
       tostring(tel.currIdx), tostring(tel.hooksOn),
       tostring(tel.trnMode), tostring(tel.stamMode), tostring(tel.frzMode),
-      tel.hdrSub, tel.mlMain, tostring(tel.pOVR), tel.pTop, tel.pSub, tel.trnMain, tel.mMain, tel.toast
+      tel.hdrSub, tel.mlMain, tostring(tel.pOVR), tostring(tel.pUndo), tel.pTop, tel.pSub, tel.trnMain, tel.mMain, tel.toast
     }, "|")
     if not forceRepaint and sig == lastSig then return end
     lastSig = sig
@@ -8032,7 +8615,7 @@ function PES10.openDashboard()
 
     local maxHdrTextW = hookX - PAD_X - S(16)
     setFont(c, 12, C_TEXT, true)
-    drawTextLeft(c, PAD_X, S(12), C_HDR, "PES 2021  •  v10.2 PRO STUDIO", maxHdrTextW)
+    drawTextLeft(c, PAD_X, S(12), C_HDR, "PES 2021  •  v11.0 ULTIMATE STUDIO", maxHdrTextW)
     setFont(c, 8, tel.attached and C_GREEN or C_SUBTEXT, false)
     drawTextLeft(c, PAD_X, S(41), C_HDR, tel.hdrSub, maxHdrTextW)
 
@@ -8077,11 +8660,14 @@ function PES10.openDashboard()
       drawTextCentered(c, bx, by + S(32), bw, S(18), bCol, tel.pPos)
       addHitbox("hero_ovr_badge", bx, by, bw, bh, function() PES10.showPlayerDNAReport() end)
 
+      local undoTxt = (tel.pUndo &gt; 0)
+        and string.format(PES10.T("Desfazer (%d)", "Undo (%d)"), tel.pUndo)
+        or PES10.T("Desfazer", "Undo")
       local stepDefs = {
-        { id="hero_ovr_dn",  txt="-1 OVR",                         w=S(68), bg=C_CARD,    bd=C_BORDER, fn=function() PES10.stepPlayerOVRProportional(-1) end },
-        { id="hero_ovr_up",  txt="+1 OVR",                         w=S(74), bg=C_HOOK_BG, bd=C_GREEN,  fn=function() PES10.stepPlayerOVRProportional(1) end },
-        { id="hero_ovr_set", txt=PES10.T("OVR Alvo", "Target"),    w=S(80), bg=C_TAB_ACT, bd=C_GOLD,   fn=function() PES10.promptTargetOVRProportional() end },
-        { id="hero_dna_x",   txt=PES10.T("Raio-X", "X-Ray"),       w=S(72), bg=C_CARD,    bd=C_PURPLE, fn=function() PES10.showPlayerDNAReport() end },
+        { id="hero_ovr_dn",  txt="-1 OVR",                     w=S(64), bg=C_CARD,    bd=C_BORDER, fn=function() PES10.stepPlayerOVRProportional(-1) end },
+        { id="hero_ovr_up",  txt="+1 OVR",                     w=S(68), bg=C_HOOK_BG, bd=C_GREEN,  fn=function() PES10.stepPlayerOVRProportional(1) end },
+        { id="hero_undo",    txt=undoTxt,                      w=S(92), bg=(tel.pUndo &gt; 0 and C_TAB_ACT or C_CARD), bd=(tel.pUndo &gt; 0 and C_GOLD or C_BORDER), fn=function() PES10.undoLastPlayerEdit() end },
+        { id="hero_dna_x",   txt=PES10.T("Raio-X", "X-Ray"),   w=S(68), bg=C_CARD,    bd=C_PURPLE, fn=function() PES10.showPlayerDNAReport() end },
       }
       local sGap = S(6)
       local totalStepW = stepDefs[1].w + stepDefs[2].w + stepDefs[3].w + stepDefs[4].w + 3 * sGap
@@ -8311,13 +8897,13 @@ PES10.TOP_FORM_VALUE = 4
 PES10.HOOK_IDS_BY_NUM = { [1]=6, [2]=7, [3]=8, [4]=9, [5]=10, [6]=11 }
 PES10.PLAYER_STAT_BITS = { {0x03,0}, {0x06,5}, {0x05,6}, {0x08,0}, {0x09,6}, {0x0A,5}, {0x08,7}, {0x0C,0}, {0x0E,5}, {0x10,0}, {0x14,7}, {0x18,7}, {0x18,0}, {0x19,6}, {0x15,6}, {0x16,5}, {0x1A,5}, {0x04,0}, {0x0C,7}, {0x0D,6}, {0x04,7}, {0x10,7}, {0x11,6}, {0x12,5}, {0x14,0} }
 PES10.ALL_SKILL_BITS = { {0x24,3}, {0x29,0}, {0x24,4}, {0x24,5}, {0x24,6}, {0x29,1}, {0x24,7}, {0x25,0}, {0x28,3}, {0x25,1}, {0x25,2}, {0x28,2}, {0x29,2}, {0x25,3}, {0x28,4}, {0x28,5}, {0x25,4}, {0x25,5}, {0x25,6}, {0x25,7}, {0x29,3}, {0x26,0}, {0x26,1}, {0x26,2}, {0x26,3}, {0x27,7}, {0x26,4}, {0x26,5}, {0x28,6}, {0x26,6}, {0x26,7}, {0x28,0}, {0x28,1}, {0x27,0}, {0x27,1}, {0x27,2}, {0x28,7}, {0x27,3}, {0x27,4}, {0x27,5}, {0x27,6} }
-PES10.MONEY_DESC_TAGS = { [14]=true, [15]=true, [30]=true, [31]=true, [32]=true, [33]=true, [34]=true, [35]=true, [51]=true, [52]=true, [55]=true, [56]=true, [61]=true, [62]=true, [63]=true, [64]=true }
-PES10.CLUB_HANDLE_IDS = { [79]=true, [80]=true, [98]=true, [99]=true }
-PES10.CLOCK_RECORD_ID = 284
+PES10.MONEY_DESC_TAGS = { [14]=true, [15]=true, [31]=true, [32]=true, [33]=true, [34]=true, [35]=true, [36]=true, [52]=true, [53]=true, [56]=true, [57]=true, [62]=true, [63]=true, [64]=true, [65]=true }
+PES10.CLUB_HANDLE_IDS = { [80]=true, [81]=true, [99]=true, [100]=true }
+PES10.CLOCK_RECORD_ID = 285
 PES10.STATUS_RECORD_ID = 3
-PES10.CUSTOM_RFEE_RECORD_ID = 52
-PES10.COMPUTED_OVR_RECORD_ID = 42
-PES10.SCORE_SYNC_IDS = { [295]="home", [296]="away" }
+PES10.CUSTOM_RFEE_RECORD_ID = 53
+PES10.COMPUTED_OVR_RECORD_ID = 43
+PES10.SCORE_SYNC_IDS = { [296]="home", [297]="away" }
 
 PES10.startBackgroundEngine()
 

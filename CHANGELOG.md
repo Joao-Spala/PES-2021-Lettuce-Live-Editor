@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [11.0.0] — 2026-11-19 — Ultimate Studio
+
+### Added / Adicionado
+- **4 Visual Dark Studio Modals (DPI-Aware, 100% Mouse-Driven)**:
+  - **Radar 30K (Advanced Scout & Wonderkid Finder)**: Filter all 30,000 career players by Name/ID, Position, Min OVR, Max Age, Expiring Contract (≤ 1 Yr), Transfer Listed, or Free Agents, with 1-click *Load into Studio*, *+ Scout 1/2/3*, and *100% Deal*.
+  - **Real-RAM Scout Observation Hub**: Live RAM viewer/manager for Master League **Scouts 1–3** (`30` slots each) and **Shortlist** (`100` slots), supporting add, load-from-scout, individual item removal, and clear.
+  - **Visual Position Lab**: Interactive 13-position table with live OVR, Grade `A` potential OVR, and 1-click *+1 OVR in Selected Position (DNA)*, *Set Grade A/B/C*, *Promote All B → A*, *All 13 to A*, and *Undo*.
+  - **Visual Team Role Picker**: Interactive 22-role list + Level `1–3` selector + 5 one-click Level 3 presets (*Legend*, *Bandiera*, *Maestro*, *General*, *Superstar*).
+- **10-Level Automatic Player Undo Stack**: Automatically snapshots the full `0x17C` player struct before every edit (`+1/-1 OVR`, `+1 Pos OVR`, `Aptitude`, `Team Role`, `Rejuvenate`, `Macros`, `Import JSON`), with a live **`Undo (N)`** button directly in the Studio Hero bar and CE tree.
+
+---
+
 ## [10.2.0] — 2026-11-19
 
 ### Added / Adicionado
