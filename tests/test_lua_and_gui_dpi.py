@@ -833,9 +833,56 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
         clicked_n = int(run_lua_chunk(L, click_test, f"click_all_{expected_lang}_{dpi}"))
         assert clicked_n >= 56, f"Expected >= 56 hitbox clicks across 4 tabs, got {clicked_n}"
 
+    # v11.0 Behavioral QA: Undo Stack, Secondary Position +1 OVR, Team Role & Real-RAM Scout Lists
+    v11_test = """
+    local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
+    assert(p ~= 0, "Mock player must be selected")
+    -- 1. Undo stack test on +1 OVR
+    local ovrBefore = PES10.calcPlayerOVR(p)
+    PES10.stepPlayerOVRProportional(1)
+    assert(PES10.calcPlayerOVR(p) == ovrBefore + 1, "+1 OVR failed")
+    assert(PES10.canUndoPlayer(p) >= 1, "Undo stack did not push snapshot")
+    assert(PES10.undoLastPlayerEdit(p) == true, "Undo failed")
+    assert(PES10.calcPlayerOVR(p) == ovrBefore, "Undo did not restore original OVR")
+
+    -- 2. Secondary position +1 OVR (AMF = 8) + auto Grade A + Undo
+    local origBuf = readBytes(p, 0x28, true)
+    local amfPotBefore = PES10.calcPlayerOVRFromBuf(origBuf, 8, true)
+    local okPos = PES10.stepTargetPositionOVR(8, 1)
+    assert(okPos == true, "stepTargetPositionOVR(8, 1) failed")
+    assert(PES10.getPosAptitude(p, 8) == 2, "Target position not promoted to Grade A")
+    local newBuf = readBytes(p, 0x28, true)
+    assert(PES10.calcPlayerOVRFromBuf(newBuf, 8, false) >= amfPotBefore + 1, "Secondary pos OVR did not increase")
+    assert(PES10.undoLastPlayerEdit(p) == true, "Undo secondary pos failed")
+
+    -- 3. Team Role + Level + Undo
+    assert(PES10.setTeamRole(p, 19, 3) == true)
+    local r, lv = PES10.getTeamRole(p)
+    assert(r == 19 and lv == 3, "Team Role readback mismatch: " .. tostring(r) .. "/" .. tostring(lv))
+    assert(PES10.undoLastPlayerEdit(p) == true)
+
+    -- 4. Real-RAM Scout Observation List 1 (add, verify, remove, clear)
+    PES10.clearScoutSlots(1)
+    local u0 = PES10.getScoutListSummary(1)
+    assert(u0 == 0, "Scout 1 should be empty after clear")
+    assert(PES10.addPlayerToScoutList(1) == true, "addPlayerToScoutList(1) failed")
+    local u1 = PES10.getScoutListSummary(1)
+    assert(u1 == 1, "Scout 1 should have 1 player in RAM, got " .. tostring(u1))
+    -- Duplicate prevention check
+    assert(PES10.addPlayerToScoutList(1) == true)
+    local u1Dup = PES10.getScoutListSummary(1)
+    assert(u1Dup == 1, "Scout 1 should prevent duplicates, got " .. tostring(u1Dup))
+    local pHandle = PES10.readU64(p + 0x2C)
+    assert(PES10.removePlayerFromScoutList(1, pHandle) == true, "removePlayerFromScoutList failed")
+    local u2 = PES10.getScoutListSummary(1)
+    assert(u2 == 0, "Scout 1 should be empty after removal")
+    return "V11_OK"
+    """
+    assert run_lua_chunk(L, v11_test, f"v11_behavioral_{expected_lang}") == "V11_OK"
+
     print(
         f"EDITION QA PASSED [{expected_lang.upper()}]: {ct_path.name} | "
-        f"{btn_count} Lua buttons | 96/120/144 DPI GDI pixel-verified | 0 overlaps | 0 truncations!"
+        f"{btn_count} Lua buttons | 96/120/144 DPI GDI pixel-verified | 0 overlaps | 0 truncations | v11.0 Behavioral OK!"
     )
     lua.lua_close(L)
 

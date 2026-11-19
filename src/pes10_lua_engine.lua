@@ -6,9 +6,18 @@
 -- Validated live on PES2021.exe v1.7.2.0 + Sider 7.3.3
 -- ============================================================================
 
+if PES10 then
+  if PES10.bgTimer then pcall(function() PES10.bgTimer.Enabled = false; PES10.bgTimer.destroy() end) end
+  if PES10.dashboardForm then pcall(function() PES10.dashboardForm.close(); PES10.dashboardForm.destroy() end) end
+  if PES10.openModals then
+    for _, mf in pairs(PES10.openModals) do pcall(function() mf.close(); mf.destroy() end) end
+  end
+end
+
 PES10 = PES10 or {}
 PES10.VERSION = "11.0 Ultimate Studio"
 PES10.PROCESS_NAME = "PES2021.exe"
+PES10.openModals = {}
 PES10.lang = "__DEFAULT_LANG__"
 if PES10.lang ~= "en" and PES10.lang ~= "pt" then
   PES10.lang = "pt"
@@ -2422,7 +2431,11 @@ function PES10.uiScale()
   return function(px) return math.floor(px * sc + 0.5) end
 end
 
-local function makeStudioModal(title, logW, logH)
+local function makeStudioModal(modalKey, title, logW, logH)
+  if modalKey and PES10.openModals and PES10.openModals[modalKey] then
+    pcall(function() PES10.openModals[modalKey].close(); PES10.openModals[modalKey].destroy() end)
+    PES10.openModals[modalKey] = nil
+  end
   local S = PES10.uiScale()
   local f = createForm(false)
   f.Caption = title
@@ -2433,7 +2446,13 @@ local function makeStudioModal(title, logW, logH)
   pcall(function() f.ClientWidth = W; f.ClientHeight = H end)
   if not f.ClientWidth or f.ClientWidth ~= W then f.Width = W; f.Height = H end
   f.centerScreen()
-  f.OnClose = function() return caFree end
+  f.OnClose = function()
+    if modalKey and PES10.openModals and PES10.openModals[modalKey] == f then
+      PES10.openModals[modalKey] = nil
+    end
+    return caFree
+  end
+  if modalKey and PES10.openModals then PES10.openModals[modalKey] = f end
   return f, S, W, H
 end
 
@@ -2465,7 +2484,7 @@ function PES10.openPositionLabModal()
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal(PES10.T("Laboratório de Posições — ", "Position Lab — ") .. pName, 620, 490)
+  local f, S, W, H = makeStudioModal("poslab", PES10.T("Laboratório de Posições — ", "Position Lab — ") .. pName, 620, 490)
 
   local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
   local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20),
@@ -2512,6 +2531,10 @@ function PES10.openPositionLabModal()
     if not idx or idx < 0 or idx >= #posOrder then return nil end
     return posOrder[idx + 1], idx
   end
+  lb.OnDblClick = function()
+    local tp, idx = getPickedPos()
+    if tp ~= nil then PES10.stepTargetPositionOVR(tp, 1); refreshList(idx) end
+  end
 
   local y1, y2 = S(374), S(416)
   makeModalBtn(f, S(16),  y1, S(230), S(34), PES10.T("+1 OVR nesta Posição (DNA)", "+1 OVR in Selected Pos (DNA)"), function()
@@ -2556,7 +2579,7 @@ function PES10.openTeamRoleModal()
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal(PES10.T("Função de Equipe (Team Role) — ", "Team Role & Level — ") .. pName, 560, 470)
+  local f, S, W, H = makeStudioModal("teamrole", PES10.T("Função de Equipe (Team Role) — ", "Team Role & Level — ") .. pName, 560, 470)
 
   local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
   local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20),
@@ -2599,6 +2622,10 @@ function PES10.openTeamRoleModal()
     PES10.toast(string.format(PES10.T("%s agora é '%s' (Nível %d)!", "%s is now '%s' (Level %d)!"), pName, rTxt, lNum))
     refreshRole()
   end
+  lb.OnDblClick = function()
+    local idx = lb.ItemIndex
+    if idx and idx >= 0 and idx <= 22 then applyRole(idx, (cbLvl.ItemIndex or 2) + 1) end
+  end
 
   makeModalBtn(f, S(156), S(342), S(200), S(32), PES10.T("Aplicar Função Selecionada", "Apply Selected Role"), function()
     local idx = lb.ItemIndex
@@ -2633,7 +2660,7 @@ function PES10.openScoutListsModal()
     return
   end
 
-  local f, S, W, H = makeStudioModal(PES10.T("Central de Olheiros & Observação (RAM Real)", "Scout Observation Hub (Live RAM)"), 660, 500)
+  local f, S, W, H = makeStudioModal("scouthub", PES10.T("Central de Olheiros & Observação (RAM Real)", "Scout Observation Hub (Live RAM)"), 660, 500)
   local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
   local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20), "", 8, 0x99D334, false)
 
@@ -2692,7 +2719,7 @@ function PES10.openScoutListsModal()
   makeModalBtn(f, S(16),  y1, S(240), S(34), PES10.T("+ Adicionar Atleta Atual nesta Lista", "+ Add Current Player to This List"), function()
     if PES10.addPlayerToScoutList(curSlot) then refreshHub() end
   end)
-  makeModalBtn(f, S(264), y1, S(196), S(34), PES10.T("Carregar Selecionado no Studio", "Load Picked Player to Studio"), function()
+  local function loadScoutEntry()
     local idx = lb.ItemIndex
     if idx and curEntries[idx + 1] and curEntries[idx + 1].playerAddr ~= 0 then
       local e = curEntries[idx + 1]
@@ -2701,7 +2728,9 @@ function PES10.openScoutListsModal()
       PES10.toast(PES10.T("Carregado do Olheiro: ", "Loaded from Scout: ") .. e.name)
       refreshHub()
     end
-  end)
+  end
+  lb.OnDblClick = loadScoutEntry
+  makeModalBtn(f, S(264), y1, S(196), S(34), PES10.T("Carregar Selecionado no Studio", "Load Picked Player to Studio"), loadScoutEntry)
   makeModalBtn(f, S(468), y1, S(176), S(34), PES10.T("Remover Item da Lista", "Remove Selected Item"), function()
     local idx = lb.ItemIndex
     if idx and curEntries[idx + 1] then
@@ -2739,7 +2768,7 @@ function PES10.openScoutFinderModal()
     return
   end
 
-  local f, S, W, H = makeStudioModal(PES10.T("Radar 30K — Busca Avançada & Caçador de Joias", "Radar 30K — Advanced Scout & Wonderkid Finder"), 740, 540)
+  local f, S, W, H = makeStudioModal("radar30k", PES10.T("Radar 30K — Busca Avançada & Caçador de Joias", "Radar 30K — Advanced Scout & Wonderkid Finder"), 740, 568)
   makeModalLabel(f, S(16), S(10), S(160), S(16), PES10.T("Nome ou Player ID:", "Name or Player ID:"), 8, 0xC4B2A0, true)
   local edName = createEdit(f)
   edName.Left = S(16); edName.Top = S(28); edName.Width = S(180); edName.Height = S(26); edName.Text = ""
@@ -2754,7 +2783,7 @@ function PES10.openScoutFinderModal()
 
   makeModalLabel(f, S(308), S(10), S(68), S(16), PES10.T("OVR Mín:", "Min OVR:"), 8, 0xC4B2A0, true)
   local edOvr = createEdit(f)
-  edOvr.Left = S(308); edOvr.Top = S(28); edOvr.Width = S(64); edOvr.Height = S(26); edOvr.Text = "75"
+  edOvr.Left = S(308); edOvr.Top = S(28); edOvr.Width = S(64); edOvr.Height = S(26); edOvr.Text = "80"
 
   makeModalLabel(f, S(380), S(10), S(74), S(16), PES10.T("Idade Máx:", "Max Age:"), 8, 0xC4B2A0, true)
   local edAge = createEdit(f)
@@ -2769,13 +2798,13 @@ function PES10.openScoutFinderModal()
   cbSpec.Items.add(PES10.T("Sem Clube / Livre", "Free Agents"))
   cbSpec.ItemIndex = 0
 
-  local lblStat = makeModalLabel(f, S(16), S(62), W - S(32), S(18),
-    PES10.T("Dica: Deixe Nome vazio e use OVR Mín 78 + Idade Máx 21 para caçar joias (Wonderkids)!",
-            "Tip: Leave Name blank and set Min OVR 78 + Max Age 21 to scout Wonderkids!"),
+  local lblStat = makeModalLabel(f, S(16), S(98), W - S(32), S(18),
+    PES10.T("Use os Presets rápidos acima ou digite Nome/Filtros e aperte ENTER (Duplo-Clique carrega o atleta):",
+            "Use the Quick Presets above or enter Name/Filters and press ENTER (Double-Click loads player):"),
     8, 0xF8BD38, false)
 
   local lb = createListBox(f)
-  lb.Left = S(16); lb.Top = S(84); lb.Width = W - S(32); lb.Height = S(356)
+  lb.Left = S(16); lb.Top = S(120); lb.Width = W - S(32); lb.Height = S(348)
   lb.Color = 0x241811
   lb.Font.Name = "Consolas"
   lb.Font.Size = 9
@@ -2783,20 +2812,19 @@ function PES10.openScoutFinderModal()
 
   local results = {}
   local function runSearch()
-    local qRaw = edName.Text or ""
+    local qRaw = (edName.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
     local qNorm = PES10.normalizeText(qRaw)
     local qNum = tonumber(qRaw)
     local posSel = (cbPos.ItemIndex and cbPos.ItemIndex > 0) and posOrder[cbPos.ItemIndex] or nil
     local minOvr = tonumber(edOvr.Text) or 0
     local maxAge = tonumber(edAge.Text) or 99
-    if qRaw ~= "" then minOvr = 0; maxAge = 99 end
     local specMode = cbSpec.ItemIndex or 0
     local curYear = PES10.readU16(career + 0x01642A24)
     if curYear < 2019 or curYear > 2150 then curYear = 2026 end
 
     local count = PES10.readU32(career + 0x00D0BCE8)
     if count == 0 or count > 30001 then count = 30000 end
-    results = {}
+    local allMatches = {}
     for i = 0, count - 1 do
       local p = career + (i * 0x17C)
       local pid = PES10.readU32(p + 0x30)
@@ -2819,10 +2847,7 @@ function PES10.openScoutFinderModal()
             if passQ then
               local ovr, regPos = PES10.calcPlayerOVR(p)
               if ovr >= minOvr and (posSel == nil or regPos == posSel) then
-                local _, _, clubDesc = PES10.decodeClubHandle(PES10.readU32(p + 0x12C))
-                local mkt = PES10.formatMoneyFromRaw(PES10.readI32(p + 0x174))
-                results[#results + 1] = { addr = p, id = pid, name = name, age = age, ovr = ovr, pos = regPos, club = clubDesc, mkt = mkt }
-                if #results >= 200 then break end
+                allMatches[#allMatches + 1] = { addr = p, id = pid, name = name, age = age, ovr = ovr, pos = regPos }
               end
             end
           end
@@ -2830,18 +2855,35 @@ function PES10.openScoutFinderModal()
       end
     end
 
-    table.sort(results, function(a, b)
+    table.sort(allMatches, function(a, b)
       if a.ovr ~= b.ovr then return a.ovr > b.ovr end
       return a.age < b.age
     end)
 
+    local totalFound = #allMatches
+    local showLimit = math.min(150, totalFound)
+    results = {}
     lb.Items.clear()
-    for _, m in ipairs(results) do
+    for idx = 1, showLimit do
+      local m = allMatches[idx]
+      local _, _, clubDesc = PES10.decodeClubHandle(PES10.readU32(m.addr + 0x12C))
+      local mkt = PES10.formatMoneyFromRaw(PES10.readI32(m.addr + 0x174))
+      m.club = clubDesc; m.mkt = mkt
+      results[idx] = m
       lb.Items.add(string.format("OVR %2d %-3s | %-22s | %2d%s | %-11s | %s", m.ovr, PES10.posShort(m.pos), m.name, m.age, PES10.T("a", "y"), m.mkt, m.club))
     end
-    if #results > 0 then lb.ItemIndex = 0 end
-    lblStat.Caption = string.format(PES10.T("Encontrados %d atleta(s) (ordenados por maior OVR).", "Found %d player(s) (sorted by highest OVR)."), #results)
+    if showLimit > 0 then lb.ItemIndex = 0 end
+    lblStat.Caption = string.format(
+      PES10.T("Encontrados %d atleta(s) no banco 30K — exibindo Top %d por maior OVR.", "Found %d player(s) across 30K DB — showing Top %d by highest OVR."),
+      totalFound, showLimit
+    )
   end
+
+  local function onEnterSearch(sender, key)
+    if key == 13 then runSearch() end
+    return key
+  end
+  pcall(function() edName.OnKeyDown = onEnterSearch; edOvr.OnKeyDown = onEnterSearch; edAge.OnKeyDown = onEnterSearch end)
 
   local function loadPicked()
     local idx = lb.ItemIndex
@@ -2852,10 +2894,29 @@ function PES10.openScoutFinderModal()
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
     return m
   end
+  lb.OnDblClick = function()
+    local m = loadPicked()
+    if m then PES10.toast(string.format(PES10.T("Carregado: %s (%d %s)", "Loaded: %s (%d %s)"), m.name, m.ovr, PES10.posShort(m.pos))) end
+  end
 
   makeModalBtn(f, S(620), S(26), S(104), S(30), PES10.T("Filtrar", "Search"), runSearch)
 
-  local yB = S(452)
+  -- 4 One-Click Smart Presets
+  local yPre = S(62)
+  makeModalBtn(f, S(16),  yPre, S(168), S(28), PES10.T("Joias Sub-21 (74+)", "Wonderkids U21 (74+)"), function()
+    edName.Text = ""; cbPos.ItemIndex = 0; edOvr.Text = "74"; edAge.Text = "21"; cbSpec.ItemIndex = 0; runSearch()
+  end)
+  makeModalBtn(f, S(190), yPre, S(168), S(28), PES10.T("Craques Mundiais (85+)", "World Stars (85+)"), function()
+    edName.Text = ""; cbPos.ItemIndex = 0; edOvr.Text = "85"; edAge.Text = "45"; cbSpec.ItemIndex = 0; runSearch()
+  end)
+  makeModalBtn(f, S(364), yPre, S(174), S(28), PES10.T("Fim de Contrato (75+)", "Expiring Deals (75+)"), function()
+    edName.Text = ""; cbPos.ItemIndex = 0; edOvr.Text = "75"; edAge.Text = "45"; cbSpec.ItemIndex = 1; runSearch()
+  end)
+  makeModalBtn(f, S(544), yPre, S(180), S(28), PES10.T("Sem Clube / Livres", "Free Agents"), function()
+    edName.Text = ""; cbPos.ItemIndex = 0; edOvr.Text = "70"; edAge.Text = "45"; cbSpec.ItemIndex = 3; runSearch()
+  end)
+
+  local yB = S(480)
   makeModalBtn(f, S(16),  yB, S(156), S(36), PES10.T("Carregar no Studio", "Load into Studio"), function()
     local m = loadPicked()
     if m then PES10.toast(string.format(PES10.T("Carregado: %s (%d %s)", "Loaded: %s (%d %s)"), m.name, m.ovr, PES10.posShort(m.pos))) end
@@ -3605,10 +3666,10 @@ function PES10.openDashboard()
         and string.format(PES10.T("Desfazer (%d)", "Undo (%d)"), tel.pUndo)
         or PES10.T("Desfazer", "Undo")
       local stepDefs = {
-        { id="hero_ovr_dn",  txt="-1 OVR",                     w=S(64), bg=C_CARD,    bd=C_BORDER, fn=function() PES10.stepPlayerOVRProportional(-1) end },
-        { id="hero_ovr_up",  txt="+1 OVR",                     w=S(68), bg=C_HOOK_BG, bd=C_GREEN,  fn=function() PES10.stepPlayerOVRProportional(1) end },
-        { id="hero_undo",    txt=undoTxt,                      w=S(92), bg=(tel.pUndo > 0 and C_TAB_ACT or C_CARD), bd=(tel.pUndo > 0 and C_GOLD or C_BORDER), fn=function() PES10.undoLastPlayerEdit() end },
-        { id="hero_dna_x",   txt=PES10.T("Raio-X", "X-Ray"),   w=S(68), bg=C_CARD,    bd=C_PURPLE, fn=function() PES10.showPlayerDNAReport() end },
+        { id="hero_ovr_dn",  txt="-1 OVR",                     w=S(62),  bg=C_CARD,    bd=C_BORDER, fn=function() PES10.stepPlayerOVRProportional(-1) end },
+        { id="hero_ovr_up",  txt="+1 OVR",                     w=S(66),  bg=C_HOOK_BG, bd=C_GREEN,  fn=function() PES10.stepPlayerOVRProportional(1) end },
+        { id="hero_undo",    txt=undoTxt,                      w=S(102), bg=(tel.pUndo > 0 and C_TAB_ACT or C_CARD), bd=(tel.pUndo > 0 and C_GOLD or C_BORDER), fn=function() PES10.undoLastPlayerEdit() end },
+        { id="hero_dna_x",   txt=PES10.T("Raio-X", "X-Ray"),   w=S(64),  bg=C_CARD,    bd=C_PURPLE, fn=function() PES10.showPlayerDNAReport() end },
       }
       local sGap = S(6)
       local totalStepW = stepDefs[1].w + stepDefs[2].w + stepDefs[3].w + stepDefs[4].w + 3 * sGap
