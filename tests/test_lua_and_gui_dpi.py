@@ -861,6 +861,17 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     assert(r == 19 and lv == 3, "Team Role readback mismatch: " .. tostring(r) .. "/" .. tostring(lv))
     assert(PES10.undoLastPlayerEdit(p) == true)
 
+    -- 3b. Set Registered Position + auto Grade A + Undo
+    local _, origRegPos = PES10.calcPlayerOVR(p)
+    local newReg = (origRegPos == 8) and 12 or 8
+    assert(PES10.setRegisteredPosition(p, newReg) == true)
+    local _, checkRegPos = PES10.calcPlayerOVR(p)
+    assert(checkRegPos == newReg, "setRegisteredPosition failed")
+    assert(PES10.getPosAptitude(p, newReg) == 2, "New registered pos not set to Grade A")
+    assert(PES10.undoLastPlayerEdit(p) == true)
+    local _, restoredRegPos = PES10.calcPlayerOVR(p)
+    assert(restoredRegPos == origRegPos, "Undo did not restore original Registered Position")
+
     -- 4. Real-RAM Scout Observation List 1 (add, verify, remove, clear)
     PES10.clearScoutSlots(1)
     local u0 = PES10.getScoutListSummary(1)

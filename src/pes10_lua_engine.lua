@@ -1031,6 +1031,18 @@ function PES10.setPosAptitude(playerAddr, posIdx, grade, skipUndo)
   return true
 end
 
+function PES10.setRegisteredPosition(playerAddr, newPosIdx)
+  if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return false end
+  if newPosIdx == nil or newPosIdx < 0 or newPosIdx > 12 then return false end
+  PES10.pushPlayerUndo(playerAddr, PES10.T("Posição Principal " .. PES10.posShort(newPosIdx), "Primary Pos " .. PES10.posShort(newPosIdx)))
+  -- Registered Position sits at playerAddr + 0x07, bitstart 4, bitlen 4 (verified in player_schema.json)
+  PES10.setBitsInDword(playerAddr + 0x04, 28, 4, newPosIdx)
+  -- Ensure Grade 'A' on the newly registered position
+  PES10.setPosAptitude(playerAddr, newPosIdx, 2, true)
+  PES10.syncAllDynamicPointers()
+  return true
+end
+
 function PES10.promoteSecondaryPositionsToA(playerAddr)
   if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return 0 end
   PES10.pushPlayerUndo(playerAddr, PES10.T("Promover B→A", "Promote B→A"))
@@ -2537,19 +2549,27 @@ function PES10.openPositionLabModal()
   end
 
   local y1, y2 = S(374), S(416)
-  makeModalBtn(f, S(16),  y1, S(230), S(34), PES10.T("+1 OVR nesta Posição (DNA)", "+1 OVR in Selected Pos (DNA)"), function()
+  makeModalBtn(f, S(16),  y1, S(190), S(34), PES10.T("+1 OVR nesta Posição (DNA)", "+1 OVR in Selected Pos (DNA)"), function()
     local tp, idx = getPickedPos()
     if tp ~= nil then PES10.stepTargetPositionOVR(tp, 1); refreshList(idx) end
   end)
-  makeModalBtn(f, S(254), y1, S(106), S(34), PES10.T("Definir Grau A", "Set Grade A"), function()
+  makeModalBtn(f, S(212), y1, S(142), S(34), PES10.T("Tornar Principal", "Set as Primary"), function()
+    local tp, idx = getPickedPos()
+    if tp ~= nil and PES10.setRegisteredPosition(p, tp) then
+      local newOvr = PES10.calcPlayerOVR(p)
+      PES10.toast(string.format(PES10.T("%s: Posição Principal alterada p/ %s (%d OVR)!", "%s: Primary Position set to %s (%d OVR)!"), pName, PES10.posShort(tp), newOvr))
+      refreshList(idx)
+    end
+  end)
+  makeModalBtn(f, S(360), y1, S(78), S(34), PES10.T("Grau A", "Grade A"), function()
     local tp, idx = getPickedPos()
     if tp ~= nil then PES10.setPosAptitude(p, tp, 2); PES10.toast(pName .. ": " .. PES10.posShort(tp) .. " -> A"); refreshList(idx) end
   end)
-  makeModalBtn(f, S(368), y1, S(106), S(34), PES10.T("Definir Grau B", "Set Grade B"), function()
+  makeModalBtn(f, S(444), y1, S(78), S(34), PES10.T("Grau B", "Grade B"), function()
     local tp, idx = getPickedPos()
     if tp ~= nil then PES10.setPosAptitude(p, tp, 1); PES10.toast(pName .. ": " .. PES10.posShort(tp) .. " -> B"); refreshList(idx) end
   end)
-  makeModalBtn(f, S(482), y1, S(122), S(34), PES10.T("Definir Grau C", "Set Grade C"), function()
+  makeModalBtn(f, S(528), y1, S(76), S(34), PES10.T("Grau C", "Grade C"), function()
     local tp, idx = getPickedPos()
     if tp ~= nil then PES10.setPosAptitude(p, tp, 0); PES10.toast(pName .. ": " .. PES10.posShort(tp) .. " -> C"); refreshList(idx) end
   end)
@@ -2741,16 +2761,19 @@ function PES10.openScoutListsModal()
     end
   end)
 
-  makeModalBtn(f, S(16),  y2, S(210), S(34), PES10.T("Negociação Irrecusável (100%)", "Irresistible Deal (100%)"), function()
+  makeModalBtn(f, S(16),  y2, S(176), S(34), PES10.T("Negócio Irrecusável", "Irresistible Deal"), function()
     PES10.makeDealIrresistible(); refreshHub()
   end)
-  makeModalBtn(f, S(234), y2, S(150), S(34), PES10.T("Limpar Esta Lista", "Clear This List"), function()
+  makeModalBtn(f, S(198), y2, S(116), S(34), PES10.T("Radar 30K...", "Radar 30K..."), function()
+    PES10.openScoutFinderModal()
+  end)
+  makeModalBtn(f, S(320), y2, S(116), S(34), PES10.T("Limpar Lista", "Clear List"), function()
     PES10.clearScoutSlots(curSlot); refreshHub()
   end)
-  makeModalBtn(f, S(392), y2, S(150), S(34), PES10.T("Limpar Olheiros 1–3", "Clear Scouts 1–3"), function()
+  makeModalBtn(f, S(442), y2, S(116), S(34), PES10.T("Limpar 1–3", "Clear 1–3"), function()
     PES10.clearScoutSlots(); refreshHub()
   end)
-  makeModalBtn(f, S(550), y2, S(94),  S(34), PES10.T("Fechar", "Close"), function() f.close() end)
+  makeModalBtn(f, S(564), y2, S(80),  S(34), PES10.T("Fechar", "Close"), function() f.close() end)
 
   refreshHub()
   f.show()
@@ -2829,8 +2852,14 @@ function PES10.openScoutFinderModal()
       local p = career + (i * 0x17C)
       local pid = PES10.readU32(p + 0x30)
       if pid ~= 0 and pid ~= 0xFFFFFFFF then
+        -- Fast 1-byte pre-filters BEFORE reading name or computing full Konami OVR (~10x faster across 30k players!)
         local age = PES10.readU8(p + 0x1C) % 64
-        if age <= maxAge then
+        local regPosFast = (PES10.readU8(p + 0x07) >> 4) & 0x0F
+        local snapOvr = PES10.readU8(p + 0x179)
+        local passFast = (age <= maxAge)
+          and (posSel == nil or regPosFast == posSel)
+          and (qRaw ~= "" or minOvr < 60 or snapOvr == 0 or snapOvr >= (minOvr - 6))
+        if passFast then
           local passSpec = true
           if specMode == 1 then
             local expY = PES10.readU16(p + 0x138)
