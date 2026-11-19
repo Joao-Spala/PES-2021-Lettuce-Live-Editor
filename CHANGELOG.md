@@ -8,7 +8,8 @@ All notable changes to this project are documented in this file.
 - **Position-Targeted +1 OVR Solver**: Boost +1 OVR in any of the 13 positions (including secondary positions) using Konami exact attribute weights for that position, while preserving player DNA. Automatically promotes position to Grade `A`.
 - **Position Familiarity Editor (`C / B / A`)**: Edit grade for individual positions, promote all secondary `B → A` in 1 click, or maximize all 13 positions to `A`.
 - **Team Role & Level Editor**: Set any of the 22 Team Roles (Legend, Bandiera, Maestro, General, Superstar, etc.) with Level 1–3 for Team Spirit, XP and merchandise bonuses.
-- **3 Scout Observation Lists**: Add up to 3 players to observation lists with 100% negotiation success rate, minimum release fee (€ 1,000), automatic transfer listing and loan listing.
+- **Real-RAM 3 Scout Observation Lists & Shortlist (`fcn.140efe53f`)**: Directly writes the 64-bit player handle into Master League's real in-game Scout 1 (`+0x01676054`, 30 slots), Scout 2 (`+0x01676144`, 30 slots), Scout 3 (`+0x01676234`, 30 slots), and Shortlist (`+0x01675D34`, 100 slots), with live RAM occupancy preview, duplicate prevention, and real RAM clear (`0x0000FFFF`), plus Transfer/Loan listing, 100% Affection, recent-arrival unlock, and `€ 1,000` release clause override.
+- **Position-Weighted Secondary OVR Solver**: When boosting `+1 OVR` in a secondary position, blends Konami's exact target-position weight column with the player's own DNA so attribute gains remain surgical and realistic without inflating irrelevant stats.
 - **Irresistible Deal (1-Click)**: Transfer lists the player, sets minimal release fee, maxes affection to 100%, clears cooldown — guarantees 1st round proposal acceptance.
 
 ### Fixed / Corrigido

@@ -4495,11 +4495,14 @@ PES10.TEAM_ROLES = {
   [22] = { pt = "Ousado",                  en = "Risk-Taker" },
 }
 
--- Master League 3 Scout Observation Slots
-PES10.scoutSlots = {
-  [1] = nil,
-  [2] = nil,
-  [3] = nil,
+-- Master League Real RAM Scout Observation Lists (verified via PES2021.exe fcn.140efe53f + live RAM)
+-- Empty slot sentinel in Konami engine (*0x143528f30): 0x000000000000FFFF
+PES10.SCOUT_EMPTY_SENTINEL = 0x0000FFFF
+PES10.SCOUT_LISTS = {
+  [1] = { base = 0x01676054, cap = 30,  pt = "Olheiro 1", en = "Scout 1" },
+  [2] = { base = 0x01676144, cap = 30,  pt = "Olheiro 2", en = "Scout 2" },
+  [3] = { base = 0x01676234, cap = 30,  pt = "Olheiro 3", en = "Scout 3" },
+  [4] = { base = 0x01675D34, cap = 100, pt = "Lista de Favoritos (Shortlist)", en = "Shortlist (Favorites)" },
 }
 
 function PES10.setLang(langCode)
@@ -6066,12 +6069,37 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos)
     for _, f in ipairs(PES10.OUTFIELD_FIDS) do activeFids[#activeFids + 1] = f end
   end
 
+  local posWeightsByFid = nil
+  if isSpecificPos and targetPos ~= regPos and PES10.OVR_DATA then
+    local T = PES10.OVR_DATA
+    local posCode = PES10.POS_REMAP[targetPos] or 0
+    local col = 1
+    for ci, pc in ipairs(T.pos_order) do if pc == posCode then col = ci; break end end
+    local slotByFid = {}
+    for _, pr in ipairs(T.field_to_slot) do slotByFid[pr[1]] = pr[2] end
+    posWeightsByFid = {}
+    for _, fid in ipairs(activeFids) do
+      local sl = slotByFid[fid] or 0
+      local pw = 0
+      for ri, sx in ipairs(T.stat_indices_23) do
+        if sx == sl then pw = T.weights_23x13[ri][col]; break end
+      end
+      posWeightsByFid[fid] = pw
+    end
+  end
+
   local baseStats, weights = {}, {}
   local totalW = 0
   for _, fid in ipairs(activeFids) do
     local sv = bufGetStat(origBuf, fid)
     baseStats[fid] = sv
-    local w = math.max(4, sv - 30)
+    local dnaW = math.max(4, sv - 30)
+    local w = dnaW
+    if posWeightsByFid then
+      local pw = posWeightsByFid[fid] or 0
+      -- Blend Konami target-position weight with player's own DNA so secondary OVR gains stay surgical &amp; realistic
+      w = (pw &gt; 0) and (dnaW * (pw + 4)) or math.max(1, math.floor(dnaW * 0.15))
+    end
     weights[fid] = w
     totalW = totalW + w
   end
@@ -6313,50 +6341,70 @@ function PES10.promptEditPositionAptitude()
   local posOrderDisplay = {12, 11, 9, 10, 8, 6, 7, 5, 4, 2, 3, 1, 0}
   for idx, posIdx in ipairs(posOrderDisplay) do
     local info = PES10.POS_NAMES[posIdx]
-    local apt = PES10.getPosAptitude(p, posIdx)
+    local pShort = PES10.posShort(posIdx)
+    local apt = (posIdx == regPos) and 2 or PES10.getPosAptitude(p, posIdx)
     local aptLetter = (apt == 2 and "A") or (apt == 1 and "B") or "C"
     local tag = (posIdx == regPos) and PES10.T(" [PRINCIPAL]", " [REGISTERED]") or ""
-    table.insert(lines, string.format("[%d] %-3s (%-16s): Grau %s%s", idx, info.short, PES10.T(info.pt, info.en), aptLetter, tag))
+    table.insert(lines, string.format("[%2d] %-3s (%-16s): Grau %s%s", idx, pShort, PES10.T(info.pt, info.en), aptLetter, tag))
   end
   table.insert(lines, "----------------------------------------------------")
-  table.insert(lines, PES10.T("Digite 0 (Promover B→A), 99 (Todas A) ou 1–13 p/ mudar:", "Enter 0 (Upgrade B→A), 99 (All A) or 1–13 to edit:"))
+  table.insert(lines, PES10.T("Digite 0 (Promover B→A), 99 (Todas A), 1–13 ou sigla (ex: MAT, CA):", "Enter 0 (Upgrade B→A), 99 (All A), 1–13 or code (e.g. AMF, CF):"))
 
   local ans = inputQuery(
     PES10.T("Afinidades de Posição — ", "Position Familiarity — ") .. pName,
     table.concat(lines, "\n"),
     "0"
   )
-  if not ans then return end
+  if not ans or ans:match("^%s*$") then return end
   local choice = tonumber(ans)
   if choice == 0 then
     local upCount = PES10.promoteSecondaryPositionsToA(p)
     PES10.toast(string.format(
-      PES10.T("%d posição(ões) secundária(s) de %s promovidas para 'A' (Plena afinidade)!", "%d secondary position(s) of %s upgraded to 'A' (Full Mastery)!"),
+      PES10.T("%d posição(ões) secundária(s) de %s promovidas para 'A'!", "%d secondary position(s) of %s upgraded to 'A'!"),
       upCount, pName
     ))
   elseif choice == 99 then
     PES10.runPlayerMacro("all_positions_a")
     PES10.toast(string.format(PES10.T("Todas as 13 posições de %s definidas como 'A'!", "All 13 positions of %s set to 'A'!"), pName))
-  elseif choice and choice &gt;= 1 and choice &lt;= 13 then
-    local targetPos = posOrderDisplay[choice]
+  else
+    local targetPos = nil
+    if choice and choice &gt;= 1 and choice &lt;= 13 then
+      targetPos = posOrderDisplay[choice]
+    else
+      local code = ans:upper():gsub("%s+", "")
+      for pIdx = 0, 12 do
+        if PES10.POS_SHORT_PT[pIdx] == code or PES10.POS_SHORT_EN[pIdx] == code then
+          targetPos = pIdx; break
+        end
+      end
+    end
+    if targetPos == nil then
+      PES10.toast(PES10.T("Posição inválida: ", "Invalid position: ") .. tostring(ans))
+      return
+    end
     local pInfo = PES10.POS_NAMES[targetPos]
+    local pShort = PES10.posShort(targetPos)
     local curApt = PES10.getPosAptitude(p, targetPos)
     local curL = (curApt == 2 and "A") or (curApt == 1 and "B") or "C"
     local gradeAns = inputQuery(
-      PES10.T("Alterar Grau da Posição ", "Change Position Grade ") .. pInfo.short,
+      PES10.T("Alterar Grau da Posição ", "Change Position Grade ") .. pShort,
       string.format(
         PES10.T("Posição: %s (%s). Grau atual: %s.\nDigite o novo grau desejado (A, B ou C):", "Position: %s (%s). Current grade: %s.\nEnter desired new grade (A, B or C):"),
-        pInfo.short, PES10.T(pInfo.pt, pInfo.en), curL
+        pShort, PES10.T(pInfo.pt, pInfo.en), curL
       ),
       "A"
     )
-    if gradeAns then
+    if gradeAns and not gradeAns:match("^%s*$") then
       local gUpper = gradeAns:upper():match("[ABC]")
+      if not gUpper then
+        PES10.toast(PES10.T("Grau inválido (digite A, B ou C).", "Invalid grade (enter A, B or C)."))
+        return
+      end
       local gVal = (gUpper == "A" and 2) or (gUpper == "B" and 1) or 0
       PES10.setPosAptitude(p, targetPos, gVal)
       PES10.toast(string.format(
         PES10.T("%s: Posição %s definida para Grau '%s' com sucesso!", "%s: Position %s set to Grade '%s' successfully!"),
-        pName, pInfo.short, gUpper or "A"
+        pName, pShort, gUpper
       ))
     end
   end
@@ -6411,51 +6459,116 @@ function PES10.promptSetTeamRole()
   end
 end
 
--- Master League 3 Scout Observation Lists &amp; Negotiation Engine
+-- Master League Real RAM Scout Observation Lists (1, 2, 3 &amp; Shortlist) + Negotiation Engine
+function PES10.getScoutListSummary(slotIdx)
+  local career = PES10.readU64(PES10.symAddr("ptrCareer"))
+  local def = PES10.SCOUT_LISTS[slotIdx]
+  if career == 0 or not def then return 0, (def and def.cap or 30), "" end
+  local used = 0
+  local preview = {}
+  for i = 0, def.cap - 1 do
+    local h = PES10.readU64(career + def.base + i * 8)
+    if h ~= 0 and h ~= PES10.SCOUT_EMPTY_SENTINEL and math.floor(h / 0x100000000) ~= 0 then
+      used = used + 1
+      if #preview &lt; 2 then
+        local lo = h % 0x100000000
+        if lo &lt; 30000 then
+          local p = career + lo * 0x17C
+          local nm = readString(p + 0x38, 22, false)
+          if nm and nm ~= "" then preview[#preview + 1] = nm end
+        end
+      end
+    end
+  end
+  return used, def.cap, table.concat(preview, ", ")
+end
+
+function PES10.applyEasyNegotiationFlags(p)
+  if not p or p &lt;= 0x10000 then return end
+  -- 1) Transfer Listed &amp; Loan Listed (playerAddr + 0x14A, bits 1 &amp; 2)
+  PES10.setBitsInDword(p + 0x14A, 1, 1, 1)
+  PES10.setBitsInDword(p + 0x14A, 2, 1, 1)
+  -- 2) Club Affection 100%
+  PES10.setBitsInDword(p + 0x13C, 18, 7, 100)
+  -- 3) Clear contract renegotiation cooldown &amp; recent arrival lock
+  writeInteger(p + 0x16C, 0x0000FFFF)
+  local joinYear = PES10.readU16(p + 0x168)
+  if joinYear &gt;= 1995 and joinYear &lt;= 2200 then
+    writeSmallInteger(p + 0x168, math.max(2018, joinYear - 2))
+  end
+  -- 4) Nominal Release Clause override (€ 1.000 / R$ 1.000)
+  PES10.setOverrideReleaseFeeForPlayer(p, 10)
+end
+
 function PES10.addPlayerToScoutList(slotIdx)
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return false end
-  slotIdx = math.max(1, math.min(3, slotIdx or 1))
-
+  local career = PES10.readU64(PES10.symAddr("ptrCareer"))
+  if career == 0 then
+    PES10.toast(PES10.T("Carregue um save de Master League primeiro!", "Load a Master League save first!"))
+    return false
+  end
+  slotIdx = math.max(1, math.min(4, slotIdx or 1))
+  local def = PES10.SCOUT_LISTS[slotIdx]
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
   local curOVR, regPos = PES10.calcPlayerOVR(p)
   local pHandle = PES10.readU64(p + 0x2C)
+  if pHandle == 0 or math.floor(pHandle / 0x100000000) == 0 then
+    PES10.toast(PES10.T("Handle de jogador inválido na RAM.", "Invalid player handle in RAM."))
+    return false
+  end
 
-  -- 1) Set Is Transfer Listed = 1 (playerAddr + 0x14A, bit 1)
-  PES10.setBitsInDword(p + 0x14A, 1, 1, 1)
-  -- 2) Set Is Loan Listed = 1 (playerAddr + 0x14A, bit 2)
-  PES10.setBitsInDword(p + 0x14A, 2, 1, 1)
-  -- 3) Set Club Affection to 100%
-  PES10.setBitsInDword(p + 0x13C, 18, 7, 100)
-  -- 4) Clear contract renegotiation cooldown
-  writeInteger(p + 0x16C, 0x0000FFFF)
-  -- 5) Set Release Clause override to nominal fee (€ 1.000 / R$ 1.000)
-  PES10.setOverrideReleaseFeeForPlayer(p, 10)
+  -- Check if already present in target RAM list or find first free slot (0x000000000000FFFF)
+  local freeSlot = -1
+  local alreadyIn = false
+  for i = 0, def.cap - 1 do
+    local addr = career + def.base + i * 8
+    local h = PES10.readU64(addr)
+    if h == pHandle then
+      alreadyIn = true
+      break
+    elseif freeSlot == -1 and (h == 0 or h == PES10.SCOUT_EMPTY_SENTINEL or math.floor(h / 0x100000000) == 0) then
+      freeSlot = i
+    end
+  end
 
-  PES10.scoutSlots[slotIdx] = {
-    slot = slotIdx,
-    playerAddr = p,
-    handle = pHandle,
-    name = pName,
-    ovr = curOVR,
-    pos = regPos,
-    time = os.date("%H:%M:%S")
-  }
+  if not alreadyIn then
+    if freeSlot == -1 then freeSlot = def.cap - 1 end
+    writeQword(career + def.base + freeSlot * 8, pHandle)
+  end
+
+  -- Apply negotiation boosts (Transfer Listed + Affection 100% + Unlock + € 1k Clause)
+  PES10.applyEasyNegotiationFlags(p)
   PES10.syncAllDynamicPointers()
 
+  local listLabel = PES10.T(def.pt, def.en)
   PES10.toast(string.format(
     PES10.T(
-      "%s (%d %s) no Olheiro %d | Lista Transf. + Multa € 1k + 100%% Sucesso!",
-      "%s (%d %s) in Scout %d | Transfer Listed + € 1k Clause + 100%% Deal!"
+      "%s (%d %s) inserido na RAM em %s | Lista Transf. + Multa € 1k + 100%% Sucesso!",
+      "%s (%d %s) written to %s in RAM | Transfer Listed + € 1k Clause + 100%% Deal!"
     ),
-    pName, curOVR, PES10.posShort(regPos), slotIdx
+    pName, curOVR, PES10.posShort(regPos), listLabel
   ))
   return true
 end
 
-function PES10.clearScoutSlots()
-  PES10.scoutSlots = { [1]=nil, [2]=nil, [3]=nil }
-  PES10.toast(PES10.T("Listas de Observação dos 3 Olheiros limpas.", "All 3 Scout Observation Lists cleared."))
+function PES10.clearScoutSlots(onlySlot)
+  local career = PES10.readU64(PES10.symAddr("ptrCareer"))
+  if career == 0 then
+    PES10.toast(PES10.T("Carregue um save de Master League primeiro!", "Load a Master League save first!"))
+    return false
+  end
+  local targets = onlySlot and { onlySlot } or { 1, 2, 3 }
+  for _, sIdx in ipairs(targets) do
+    local def = PES10.SCOUT_LISTS[sIdx]
+    if def then
+      for i = 0, def.cap - 1 do
+        writeQword(career + def.base + i * 8, PES10.SCOUT_EMPTY_SENTINEL)
+      end
+    end
+  end
+  PES10.toast(PES10.T("Listas de Observação dos 3 Olheiros limpas na RAM!", "All 3 Scout Observation Lists cleared in RAM!"))
+  return true
 end
 
 -- Make Deal Irresistible (Immediate transfer proposal acceptance at minimum fee)
@@ -6464,19 +6577,7 @@ function PES10.makeDealIrresistible()
   if p == 0 then return false end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
 
-  -- Transfer listed &amp; Loan listed
-  PES10.setBitsInDword(p + 0x14A, 1, 1, 1)
-  PES10.setBitsInDword(p + 0x14A, 2, 1, 1)
-  -- Club Affection 100%
-  PES10.setBitsInDword(p + 0x13C, 18, 7, 100)
-  -- Clear cooldowns
-  writeInteger(p + 0x16C, 0x0000FFFF)
-  -- Nominal Release Fee (R$ 1.000 / € 1.000)
-  PES10.setOverrideReleaseFeeForPlayer(p, 10)
-  -- Form Arrow Top
-  PES10.setBitsInDword(p + 0x146, 7, 1, 1)
-  PES10.setBitsInDword(p + 0x147, 0, 3, 4)
-
+  PES10.applyEasyNegotiationFlags(p)
   PES10.syncAllDynamicPointers()
   PES10.toast(string.format(
     PES10.T(
@@ -6495,30 +6596,33 @@ function PES10.promptAddPlayerToScoutList()
   local curOVR, regPos = PES10.calcPlayerOVR(p)
 
   local lines = {}
-  table.insert(lines, PES10.T("== DESTINAR AO MENU DE OBSERVAÇÃO / OLHEIROS ==", "== ASSIGN TO SCOUT OBSERVATION LIST =="))
+  table.insert(lines, PES10.T("== MENU DE OBSERVAÇÃO / OLHEIROS (RAM AO VIVO) ==", "== SCOUT OBSERVATION LISTS (LIVE RAM) =="))
   table.insert(lines, string.format(PES10.T("Atleta: %s [%d OVR - %s]", "Player: %s [%d OVR - %s]"), pName, curOVR, PES10.posShort(regPos)))
   table.insert(lines, "----------------------------------------------------")
-  for s = 1, 3 do
-    local sl = PES10.scoutSlots[s]
-    local occupant = sl and string.format("%s (%d OVR - %s) [%s]", sl.name, sl.ovr, PES10.posShort(sl.pos), sl.time) or PES10.T("[Vazio / Disponível]", "[Empty / Available]")
-    table.insert(lines, string.format(PES10.T("[%d] Olheiro %d: %s", "[%d] Scout %d: %s"), s, s, occupant))
+  for s = 1, 4 do
+    local def = PES10.SCOUT_LISTS[s]
+    local used, cap, prev = PES10.getScoutListSummary(s)
+    local occ = (used &gt; 0) and string.format("%d/%d (%s)", used, cap, prev) or PES10.T("0/" .. cap .. " [Vazio]", "0/" .. cap .. " [Empty]")
+    table.insert(lines, string.format("[%d] %s: %s", s, PES10.T(def.pt, def.en), occ))
   end
   table.insert(lines, "----------------------------------------------------")
-  table.insert(lines, PES10.T("0: Limpar todos os 3 Olheiros de Observação", "0: Clear all 3 Scout Observation slots"))
+  table.insert(lines, PES10.T("0: Limpar os 3 Olheiros de Observação (1, 2 e 3)", "0: Clear all 3 Scout Observation Lists (1, 2 &amp; 3)"))
   table.insert(lines, "----------------------------------------------------")
-  table.insert(lines, PES10.T("Digite o número do Olheiro (1, 2 ou 3) para registrar o atleta:", "Enter Scout Number (1, 2 or 3) to assign this player:"))
+  table.insert(lines, PES10.T("Digite 1, 2, 3 (Olheiro), 4 (Favoritos) ou 0 (Limpar):", "Enter 1, 2, 3 (Scout), 4 (Shortlist) or 0 (Clear):"))
 
   local ans = inputQuery(
-    PES10.T("Menu de Observação (Olheiros 1, 2, 3) — ", "Scout Observation Menu (1, 2, 3) — ") .. pName,
+    PES10.T("Menu de Observação (Olheiros 1–3) — ", "Scout Observation Menu (1–3) — ") .. pName,
     table.concat(lines, "\n"),
     "1"
   )
-  if not ans then return end
+  if not ans or ans:match("^%s*$") then return end
   local choice = tonumber(ans)
   if choice == 0 then
     PES10.clearScoutSlots()
-  elseif choice and choice &gt;= 1 and choice &lt;= 3 then
+  elseif choice and choice &gt;= 1 and choice &lt;= 4 then
     PES10.addPlayerToScoutList(choice)
+  else
+    PES10.toast(PES10.T("Opção inválida (digite 0 a 4).", "Invalid option (enter 0 to 4)."))
   end
 end
 
