@@ -845,15 +845,24 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     assert(PES10.undoLastPlayerEdit(p) == true, "Undo failed")
     assert(PES10.calcPlayerOVR(p) == ovrBefore, "Undo did not restore original OVR")
 
-    -- 2. Secondary position +1 OVR (AMF = 8) + auto Grade A + Undo
+    -- 2. Isolated Secondary Position +1 OVR & Match Primary OVR (ZERO Primary OVR Drift!)
     local origBuf = readBytes(p, 0x28, true)
-    local amfPotBefore = PES10.calcPlayerOVRFromBuf(origBuf, 8, true)
-    local okPos = PES10.stepTargetPositionOVR(8, 1)
-    assert(okPos == true, "stepTargetPositionOVR(8, 1) failed")
-    assert(PES10.getPosAptitude(p, 8) == 2, "Target position not promoted to Grade A")
-    local newBuf = readBytes(p, 0x28, true)
-    assert(PES10.calcPlayerOVRFromBuf(newBuf, 8, false) >= amfPotBefore + 1, "Secondary pos OVR did not increase")
+    local origPri, origReg = PES10.calcPlayerOVRFromBuf(origBuf)
+    local secPos = (origReg == 5) and 8 or 5 -- CMF (5) or AMF (8)
+    local secPotBefore = PES10.calcPlayerOVRFromBuf(origBuf, secPos, true)
+    local okIso, oT, nT, oP, nP, diffStr = PES10.stepTargetPositionOVR(secPos, 1)
+    assert(okIso == true, "Isolated +1 secondary pos OVR failed")
+    assert(PES10.getPosAptitude(p, secPos) == 2, "Target position not promoted to Grade A")
+    assert(nT >= secPotBefore + 1, "Secondary pos OVR did not increase")
+    assert(nP == origPri, "Primary OVR drifted! Expected " .. tostring(origPri) .. ", got " .. tostring(nP))
     assert(PES10.undoLastPlayerEdit(p) == true, "Undo secondary pos failed")
+    assert(PES10.calcPlayerOVR(p) == origPri)
+
+    -- 2b. Match Secondary OVR to Primary OVR (equal OVR in two positions!)
+    local okM, moT, mnT, moP, mnP = PES10.matchSecondaryToPrimaryOVR(p, secPos)
+    assert(okM == true and mnT >= origPri, "matchSecondaryToPrimaryOVR did not reach primary OVR")
+    assert(mnP <= origPri + 1, "matchSecondaryToPrimaryOVR drifted primary OVR too much: " .. tostring(mnP))
+    assert(PES10.undoLastPlayerEdit(p) == true, "Undo matchSecondary failed")
 
     -- 3. Team Role + Level + Undo
     assert(PES10.setTeamRole(p, 19, 3) == true)
