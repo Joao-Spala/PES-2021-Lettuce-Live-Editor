@@ -1,11 +1,11 @@
 -- ============================================================================
--- PES 2021 — v10.1 PRO STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
+-- PES 2021 — v10.2 PRO STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
 -- Bilingual Core Engine (PT-BR & EN) + Konami Exact OVR DNA Solver + Canvas GUI
 -- Validated live on PES2021.exe v1.7.2.0 + Sider 7.3.3
 -- ============================================================================
 
 PES10 = PES10 or {}
-PES10.VERSION = "10.1 Pro Studio"
+PES10.VERSION = "10.2 Pro Studio"
 PES10.PROCESS_NAME = "PES2021.exe"
 PES10.lang = "__DEFAULT_LANG__"
 if PES10.lang ~= "en" and PES10.lang ~= "pt" then
@@ -53,6 +53,57 @@ function PES10.posShort(posIdx)
   local tbl = (PES10.lang == "en") and PES10.POS_SHORT_EN or PES10.POS_SHORT_PT
   return tbl[posIdx] or "OVR"
 end
+
+-- Full Position names in PT-BR & EN
+PES10.POS_NAMES = {
+  [0]  = { short = "GK",  pt = "Goleiro",            en = "Goalkeeper" },
+  [1]  = { short = "CB",  pt = "Zagueiro",           en = "Center Back" },
+  [2]  = { short = "LB",  pt = "Lateral Esquerdo",   en = "Left Back" },
+  [3]  = { short = "RB",  pt = "Lateral Direito",    en = "Right Back" },
+  [4]  = { short = "DMF", pt = "Volante",            en = "Defensive Midfielder" },
+  [5]  = { short = "CMF", pt = "Meia Central",       en = "Central Midfielder" },
+  [6]  = { short = "LMF", pt = "Meia Esquerda",      en = "Left Midfielder" },
+  [7]  = { short = "RMF", pt = "Meia Direita",       en = "Right Midfielder" },
+  [8]  = { short = "AMF", pt = "Meia Atacante",      en = "Attacking Midfielder" },
+  [9]  = { short = "LWF", pt = "Ponta Esquerda",     en = "Left Wing Forward" },
+  [10] = { short = "RWF", pt = "Ponta Direita",      en = "Right Wing Forward" },
+  [11] = { short = "SS",  pt = "Segundo Atacante",   en = "Second Striker" },
+  [12] = { short = "CF",  pt = "Centroavante",       en = "Center Forward" },
+}
+
+-- Team Roles (0 to 22) in PT-BR & EN
+PES10.TEAM_ROLES = {
+  [0]  = { pt = "Nenhum (-)",              en = "None (-)" },
+  [1]  = { pt = "Jovem Promessa",          en = "Youth Prospect" },
+  [2]  = { pt = "Pupilo",                  en = "Protégé" },
+  [3]  = { pt = "Jogador de Equipe",       en = "Team Player" },
+  [4]  = { pt = "Armador",                 en = "Playmaker" },
+  [5]  = { pt = "Estrela",                 en = "Star Player" },
+  [6]  = { pt = "Líder",                   en = "Leader" },
+  [7]  = { pt = "General",                 en = "General" },
+  [8]  = { pt = "Criador",                 en = "Creator" },
+  [9]  = { pt = "Maestro",                 en = "Maestro" },
+  [10] = { pt = "Incansável",              en = "Workhorse" },
+  [11] = { pt = "Jogador Inteligente",     en = "Smart Player" },
+  [12] = { pt = "Guerreiro",               en = "Fighter" },
+  [13] = { pt = "Jogador Chave",           en = "Key Player" },
+  [14] = { pt = "Superestrela",            en = "Superstar" },
+  [15] = { pt = "Herói",                   en = "Hero" },
+  [16] = { pt = "Virtuoso",                en = "Virtuoso" },
+  [17] = { pt = "Regente",                 en = "Conductor" },
+  [18] = { pt = "Bandeira",                en = "Bandiera" },
+  [19] = { pt = "Lenda",                   en = "Legend" },
+  [20] = { pt = "Estrela em Ascensão",     en = "Rising Star" },
+  [21] = { pt = "Garoto Rebelde",          en = "Bad Boy" },
+  [22] = { pt = "Ousado",                  en = "Risk-Taker" },
+}
+
+-- Master League 3 Scout Observation Slots
+PES10.scoutSlots = {
+  [1] = nil,
+  [2] = nil,
+  [3] = nil,
+}
 
 function PES10.setLang(langCode)
   if langCode ~= "pt" and langCode ~= "en" then return end
@@ -694,6 +745,14 @@ local function bufGetPosAptitude(b, posIdx)
   return ((b[loc[1] + 1] or 0) >> loc[2]) & 3
 end
 
+local function bufSetPosAptitude(b, posIdx, grade)
+  local loc = PES10.POS_APT_LOC[posIdx]
+  if not loc then return end
+  local cur = b[loc[1] + 1] or 0
+  local mask = 3 << loc[2]
+  b[loc[1] + 1] = (cur & (~mask)) | (((grade or 2) & 3) << loc[2])
+end
+
 -- Exact decompiled Konami OVR (fcn.141e640a0):
 -- When evalPos == nil or evalPos == realRegPos: Registered-Position OVR (base_reg + curve_100 blend).
 -- When evalPos ~= realRegPos and assumeAptA == false: Exact Game Plan Pitch OVR using player's C/B/A aptitude!
@@ -872,18 +931,72 @@ function PES10.showPlayerDNAReport()
   return true
 end
 
+-- Position Familiarity (C=0, B=1, A=2)
+function PES10.getPosAptitude(playerAddr, posIdx)
+  if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return 0 end
+  local loc = PES10.POS_APT_LOC[posIdx]
+  if not loc then return 0 end
+  local b = readBytes(playerAddr + loc[1], 1, false)
+  return (b and ((b >> loc[2]) & 3)) or 0
+end
+
+function PES10.setPosAptitude(playerAddr, posIdx, grade)
+  if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return false end
+  local loc = PES10.POS_APT_LOC[posIdx]
+  if not loc then return false end
+  grade = math.max(0, math.min(2, grade or 2))
+  PES10.setBitsInDword(playerAddr + loc[1], loc[2], 2, grade)
+  PES10.syncAllDynamicPointers()
+  return true
+end
+
+function PES10.promoteSecondaryPositionsToA(playerAddr)
+  if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return 0 end
+  local count = 0
+  for pIdx = 0, 12 do
+    local apt = PES10.getPosAptitude(playerAddr, pIdx)
+    if apt == 1 then -- B (Secondary)
+      PES10.setPosAptitude(playerAddr, pIdx, 2) -- upgrade to A (Full Mastery)
+      count = count + 1
+    end
+  end
+  PES10.syncAllDynamicPointers()
+  return count
+end
+
+-- Team Role (0 to 22) and Level (1 to 3)
+function PES10.getTeamRole(playerAddr)
+  if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return 0, 1 end
+  local role = PES10.getBitsInDword(playerAddr + 0x150, 0, 5)
+  local lvl  = PES10.getBitsInDword(playerAddr + 0x143, 6, 2)
+  return math.max(0, math.min(22, role or 0)), math.max(1, math.min(3, lvl or 1))
+end
+
+function PES10.setTeamRole(playerAddr, role, lvl)
+  if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return false end
+  role = math.max(0, math.min(22, role or 0))
+  lvl  = math.max(1, math.min(3, lvl or 3))
+  PES10.setBitsInDword(playerAddr + 0x150, 0, 5, role)
+  PES10.setBitsInDword(playerAddr + 0x143, 6, 2, lvl)
+  PES10.syncAllDynamicPointers()
+  return true
+end
+
 -- Proportional DNA-Preserving Overall Solver (Hamilton Largest-Remainder + Core DNA Refinement)
-function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR)
+-- Supports both primary registered position (evalPos == nil) and target secondary position!
+function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, evalPos)
   if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then return false, 0, 0 end
   local origBuf = readBytes(playerAddr, 0x28, true)
   if not origBuf or #origBuf < 0x28 then return false, 0, 0 end
 
   targetOVR = math.max(40, math.min(99, math.floor(targetOVR + 0.5)))
-  local curOVR, regPos = PES10.calcPlayerOVRFromBuf(origBuf)
+  local isSpecificPos = (evalPos ~= nil)
+  local curOVR, regPos = PES10.calcPlayerOVRFromBuf(origBuf, evalPos, isSpecificPos)
+  local targetPos = isSpecificPos and evalPos or regPos
   if curOVR == targetOVR then return true, curOVR, curOVR end
 
   local activeFids = {}
-  if regPos == 0 then
+  if targetPos == 0 then
     for _, f in ipairs(PES10.GK_FIDS) do activeFids[#activeFids + 1] = f end
     for _, f in ipairs(PES10.OUTFIELD_FIDS) do
       if bufGetStat(origBuf, f) > 43 then activeFids[#activeFids + 1] = f end
@@ -908,6 +1021,10 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR)
 
   for k = 1, #activeFids * 60 do
     local cand = copyByteBuf(origBuf)
+    if isSpecificPos then
+      bufSetPosAptitude(cand, targetPos, 2)
+    end
+
     local floors, rems = {}, {}
     local sumFl = 0
     for _, fid in ipairs(activeFids) do
@@ -930,10 +1047,11 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR)
       bufSetStat(cand, fid, baseStats[fid] + dir * floors[fid])
     end
 
-    local newOVR = PES10.calcPlayerOVRFromBuf(cand)
+    local newOVR = PES10.calcPlayerOVRFromBuf(cand, evalPos, isSpecificPos)
     bestBuf, bestOVR = cand, newOVR
     if newOVR == targetOVR then
       writeBytes(playerAddr, cand)
+      if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
       PES10.syncAllDynamicPointers()
       return true, curOVR, newOVR
     end
@@ -944,8 +1062,9 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR)
         if bufGetStat(cand, tf) ~= baseStats[tf] then
           local alt = copyByteBuf(cand)
           bufSetStat(alt, tf, bufGetStat(alt, tf) - dir)
-          if PES10.calcPlayerOVRFromBuf(alt) == targetOVR then
+          if PES10.calcPlayerOVRFromBuf(alt, evalPos, isSpecificPos) == targetOVR then
             writeBytes(playerAddr, alt)
+            if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
             PES10.syncAllDynamicPointers()
             return true, curOVR, targetOVR
           end
@@ -953,7 +1072,7 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR)
       end
 
       local T = PES10.OVR_DATA
-      local posCode = PES10.POS_REMAP[regPos] or 0
+      local posCode = PES10.POS_REMAP[targetPos] or 0
       local col = 1
       for ci, pc in ipairs(T.pos_order) do if pc == posCode then col = ci; break end end
       local slotByFid = {}
@@ -971,14 +1090,18 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR)
 
       for hi = #history, math.max(1, #history - 9), -1 do
         local trial = copyByteBuf(history[hi])
+        if isSpecificPos then
+          bufSetPosAptitude(trial, targetPos, 2)
+        end
         for _, item in ipairs(dnaList) do
           local cv = bufGetStat(trial, item.fid)
           local nv = math.max(40, math.min(99, cv + dir))
           if nv ~= cv then
             bufSetStat(trial, item.fid, nv)
-            local to = PES10.calcPlayerOVRFromBuf(trial)
+            local to = PES10.calcPlayerOVRFromBuf(trial, evalPos, isSpecificPos)
             if to == targetOVR then
               writeBytes(playerAddr, trial)
+              if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
               PES10.syncAllDynamicPointers()
               return true, curOVR, targetOVR
             elseif (dir == 1 and to > targetOVR) or (dir == -1 and to < targetOVR) then
@@ -989,6 +1112,7 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR)
       end
 
       writeBytes(playerAddr, cand)
+      if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
       PES10.syncAllDynamicPointers()
       return true, curOVR, newOVR
     end
@@ -997,6 +1121,7 @@ function PES10.scalePlayerToTargetOVR(playerAddr, targetOVR)
   end
 
   writeBytes(playerAddr, bestBuf)
+  if isSpecificPos then PES10.setPosAptitude(playerAddr, targetPos, 2) end
   PES10.syncAllDynamicPointers()
   return true, curOVR, bestOVR
 end
@@ -1022,6 +1147,302 @@ function PES10.stepPlayerOVRProportional(delta)
     ))
   end
   return ok
+end
+
+-- Step +1 OVR in any target position (even secondary!)
+function PES10.stepTargetPositionOVR(targetPos, delta)
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return false end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local origBuf = readBytes(p, 0x28, true)
+  if not origBuf or #origBuf < 0x28 then return false end
+
+  local pInfo = PES10.POS_NAMES[targetPos] or { short="POS", pt="Posição", en="Position" }
+  local curPosOVR = PES10.calcPlayerOVRFromBuf(origBuf, targetPos, true)
+  local newTargetOVR = math.max(40, math.min(99, curPosOVR + (delta or 1)))
+
+  if newTargetOVR == curPosOVR then
+    PES10.toast(string.format(
+      PES10.T("%s já está no limite (%d OVR na pos %s).", "%s is already at the limit (%d OVR in %s)."),
+      pName, curPosOVR, pInfo.short
+    ))
+    return false
+  end
+
+  local ok, oldO, newO = PES10.scalePlayerToTargetOVR(p, newTargetOVR, targetPos)
+  if ok then
+    PES10.toast(string.format(
+      PES10.T(
+        "🎯 %s: Overall em %s (%s) subiu de %d → %d (+%d)!\n✓ Posição promovida para Grau 'A' (100%% de aproveitamento)\n✓ DNA e proporções de atributos preservados!",
+        "🎯 %s: Overall in %s (%s) boosted from %d → %d (+%d)!\n✓ Position set to Grade 'A' (Full Mastery)\n✓ Player DNA & attribute ratios preserved!"
+      ),
+      pName, pInfo.short, PES10.T(pInfo.pt, pInfo.en), oldO, newO, (newO - oldO)
+    ))
+  end
+  return ok
+end
+
+-- Interactive UI for picking any position and boosting +1 OVR
+function PES10.promptTargetPositionOVRPlusOne()
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local origBuf = readBytes(p, 0x28, true)
+  if not origBuf or #origBuf < 0x28 then return end
+
+  local regOVR, regPos = PES10.calcPlayerOVRFromBuf(origBuf)
+  local lines = {}
+  table.insert(lines, PES10.T("== SELECIONE A POSIÇÃO P/ SUBIR +1 DE OVERALL ==", "== SELECT POSITION TO BOOST +1 OVERALL =="))
+  table.insert(lines, PES10.T("Atleta: ", "Player: ") .. pName .. string.format(" [OVR Principal: %d na pos %s]", regOVR, PES10.posShort(regPos)))
+  table.insert(lines, "----------------------------------------------------")
+
+  local posOrderDisplay = {12, 11, 9, 10, 8, 6, 7, 5, 4, 2, 3, 1, 0}
+  for idx, pIdx in ipairs(posOrderDisplay) do
+    local pInfo = PES10.POS_NAMES[pIdx]
+    local apt = bufGetPosAptitude(origBuf, pIdx)
+    local aptLetter = (apt == 2 and "A") or (apt == 1 and "B") or "C"
+    local curPosOVR = PES10.calcPlayerOVRFromBuf(origBuf, pIdx, false)
+    local potPosOVR = PES10.calcPlayerOVRFromBuf(origBuf, pIdx, true)
+    local tag = (pIdx == regPos) and PES10.T(" [Principal]", " [Primary]") or ""
+    local boostNote = (apt < 2) and string.format(" (Apt %s→A: %d→%d)", aptLetter, curPosOVR, potPosOVR + 1) or string.format(" (+1 → %d)", potPosOVR + 1)
+    table.insert(lines, string.format("[%d] %-3s (%-16s) : %d OVR [%s]%s %s", idx, pInfo.short, PES10.T(pInfo.pt, pInfo.en), curPosOVR, aptLetter, tag, boostNote))
+  end
+  table.insert(lines, "----------------------------------------------------")
+  table.insert(lines, PES10.T("Digite o número da posição (1 a 13) que deseja subir +1 OVR:", "Enter position index (1 to 13) to elevate by +1 OVR:"))
+
+  local ans = inputQuery(
+    PES10.T("Subir +1 OVR em Posição Específica — ", "Boost +1 OVR in Specific Position — ") .. pName,
+    table.concat(lines, "\n"),
+    "1"
+  )
+  if not ans then return end
+  local pick = tonumber(ans)
+  if pick and pick >= 1 and pick <= 13 then
+    local targetPos = posOrderDisplay[pick]
+    PES10.stepTargetPositionOVR(targetPos, 1)
+  end
+end
+
+-- Interactive UI for Position Familiarity Editing (C / B / A)
+function PES10.promptEditPositionAptitude()
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local curOVR, regPos = PES10.calcPlayerOVR(p)
+
+  local lines = {}
+  table.insert(lines, PES10.T("== AFINIDADE DE POSIÇÃO: ", "== POSITION MASTERY: ") .. pName .. " (" .. tostring(curOVR) .. " OVR) ==")
+  table.insert(lines, PES10.T("0:  Promover Todas as Secundárias ('B' → 'A')", "0:  Upgrade All Secondary Positions ('B' → 'A')"))
+  table.insert(lines, PES10.T("99: Maximizar TODAS as 13 Posições para 'A'", "99: Maximize ALL 13 Positions to 'A'"))
+  table.insert(lines, "----------------------------------------------------")
+  local posOrderDisplay = {12, 11, 9, 10, 8, 6, 7, 5, 4, 2, 3, 1, 0}
+  for idx, posIdx in ipairs(posOrderDisplay) do
+    local info = PES10.POS_NAMES[posIdx]
+    local apt = PES10.getPosAptitude(p, posIdx)
+    local aptLetter = (apt == 2 and "A") or (apt == 1 and "B") or "C"
+    local tag = (posIdx == regPos) and PES10.T(" [PRINCIPAL]", " [REGISTERED]") or ""
+    table.insert(lines, string.format("[%d] %-3s (%-16s): Grau %s%s", idx, info.short, PES10.T(info.pt, info.en), aptLetter, tag))
+  end
+  table.insert(lines, "----------------------------------------------------")
+  table.insert(lines, PES10.T("Digite 0 (Promover B→A), 99 (Todas A) ou 1–13 p/ mudar:", "Enter 0 (Upgrade B→A), 99 (All A) or 1–13 to edit:"))
+
+  local ans = inputQuery(
+    PES10.T("Afinidades de Posição — ", "Position Familiarity — ") .. pName,
+    table.concat(lines, "\n"),
+    "0"
+  )
+  if not ans then return end
+  local choice = tonumber(ans)
+  if choice == 0 then
+    local upCount = PES10.promoteSecondaryPositionsToA(p)
+    PES10.toast(string.format(
+      PES10.T("%d posição(ões) secundária(s) de %s promovidas para 'A' (Plena afinidade)!", "%d secondary position(s) of %s upgraded to 'A' (Full Mastery)!"),
+      upCount, pName
+    ))
+  elseif choice == 99 then
+    PES10.runPlayerMacro("all_positions_a")
+    PES10.toast(string.format(PES10.T("Todas as 13 posições de %s definidas como 'A'!", "All 13 positions of %s set to 'A'!"), pName))
+  elseif choice and choice >= 1 and choice <= 13 then
+    local targetPos = posOrderDisplay[choice]
+    local pInfo = PES10.POS_NAMES[targetPos]
+    local curApt = PES10.getPosAptitude(p, targetPos)
+    local curL = (curApt == 2 and "A") or (curApt == 1 and "B") or "C"
+    local gradeAns = inputQuery(
+      PES10.T("Alterar Grau da Posição ", "Change Position Grade ") .. pInfo.short,
+      string.format(
+        PES10.T("Posição: %s (%s). Grau atual: %s.\nDigite o novo grau desejado (A, B ou C):", "Position: %s (%s). Current grade: %s.\nEnter desired new grade (A, B or C):"),
+        pInfo.short, PES10.T(pInfo.pt, pInfo.en), curL
+      ),
+      "A"
+    )
+    if gradeAns then
+      local gUpper = gradeAns:upper():match("[ABC]")
+      local gVal = (gUpper == "A" and 2) or (gUpper == "B" and 1) or 0
+      PES10.setPosAptitude(p, targetPos, gVal)
+      PES10.toast(string.format(
+        PES10.T("%s: Posição %s definida para Grau '%s' com sucesso!", "%s: Position %s set to Grade '%s' successfully!"),
+        pName, pInfo.short, gUpper or "A"
+      ))
+    end
+  end
+end
+
+-- Interactive UI for Team Role (0 to 22) and Level (1 to 3)
+function PES10.promptSetTeamRole()
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local curRole, curLvl = PES10.getTeamRole(p)
+  local curRoleName = PES10.TEAM_ROLES[curRole] and PES10.T(PES10.TEAM_ROLES[curRole].pt, PES10.TEAM_ROLES[curRole].en) or "-"
+
+  local lines = {}
+  table.insert(lines, PES10.T("Atleta: ", "Player: ") .. pName)
+  table.insert(lines, string.format(PES10.T("Função Atual: %s (Nível %d)", "Current Role: %s (Level %d)"), curRoleName, curLvl))
+  table.insert(lines, "----------------------------------------------------")
+  table.insert(lines, PES10.T("PRESETS RÁPIDOS (Digite o número correspondente):", "QUICK PRESETS (Enter corresponding role number):"))
+  table.insert(lines, PES10.T("19: Tornar LENDA (Nível 3) — Espírito 99 + Bônus XP & Vendas", "19: Make LEGEND (Level 3) — 99 Team Spirit + XP Boost & Sales"))
+  table.insert(lines, PES10.T("18: Tornar BANDEIRA (Nível 3) — Fidelidade & Bônus em Jogos Cruciais", "18: Make BANDIERA (Level 3) — Loyalty & Clutch Match Boost"))
+  table.insert(lines, PES10.T("9:  Tornar MAESTRO (Nível 3) — Maestria Técnica & Visão p/ o Time", "9:  Make MAESTRO (Level 3) — Technical Mastery & Vision for Squad"))
+  table.insert(lines, PES10.T("7:  Tornar GENERAL (Nível 3) — Liderança Tática & Força Defensiva", "7:  Make GENERAL (Level 3) — Tactical Command & Defensive Grit"))
+  table.insert(lines, PES10.T("14: Tornar SUPERESTRELA (Nível 3) — Grande Impacto & Mercadorias", "14: Make SUPERSTAR (Level 3) — Star Appeal & Merchandise"))
+  table.insert(lines, "----------------------------------------------------")
+  table.insert(lines, PES10.T("Digite o número da Função (0 a 22) desejada:", "Enter desired Role Number (0 to 22):"))
+
+  local ans = inputQuery(
+    PES10.T("Função de Equipe (Team Role) — ", "Team Role & Level — ") .. pName,
+    table.concat(lines, "\n"),
+    "19"
+  )
+  if not ans or ans:match("^%s*$") then return end
+  local roleNum = tonumber(ans)
+  if roleNum and roleNum >= 0 and roleNum <= 22 then
+    local lvlAns = inputQuery(
+      PES10.T("Nível da Função (Level 1–3)", "Role Level (1–3)"),
+      PES10.T("Digite o Nível da Função (1, 2 ou 3):", "Enter Role Level (1, 2 or 3):"),
+      "3"
+    )
+    local lvlNum = tonumber(lvlAns) or 3
+    lvlNum = math.max(1, math.min(3, lvlNum))
+    PES10.setTeamRole(p, roleNum, lvlNum)
+    local rInfo = PES10.TEAM_ROLES[roleNum]
+    local rText = rInfo and PES10.T(rInfo.pt, rInfo.en) or tostring(roleNum)
+    PES10.toast(string.format(
+      PES10.T("👑 %s agora é '%s' (Nível %d)!\nBônus de Espírito de Equipe e Evolução aplicados!", "👑 %s is now '%s' (Level %d)!\nTeam Spirit and Progression boosts applied!"),
+      pName, rText, lvlNum
+    ))
+  end
+end
+
+-- Master League 3 Scout Observation Lists & Negotiation Engine
+function PES10.addPlayerToScoutList(slotIdx)
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return false end
+  slotIdx = math.max(1, math.min(3, slotIdx or 1))
+
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local curOVR, regPos = PES10.calcPlayerOVR(p)
+  local pHandle = PES10.readU64(p)
+
+  -- 1) Set Is Transfer Listed = 1 (playerAddr + 0x14A, bit 1)
+  PES10.setBitsInDword(p + 0x14A, 1, 1, 1)
+  -- 2) Set Is Loan Listed = 1 (playerAddr + 0x14A, bit 2)
+  PES10.setBitsInDword(p + 0x14A, 2, 1, 1)
+  -- 3) Set Club Affection to 100%
+  PES10.setBitsInDword(p + 0x13C, 18, 7, 100)
+  -- 4) Clear contract renegotiation cooldown
+  writeInteger(p + 0x16C, 0x0000FFFF)
+  -- 5) Set Release Clause override to nominal fee (€ 1.000 / R$ 1.000)
+  PES10.setOverrideReleaseFeeForPlayer(p, 10)
+
+  PES10.scoutSlots[slotIdx] = {
+    slot = slotIdx,
+    playerAddr = p,
+    handle = pHandle,
+    name = pName,
+    ovr = curOVR,
+    pos = regPos,
+    time = os.date("%H:%M:%S")
+  }
+  PES10.syncAllDynamicPointers()
+
+  PES10.toast(string.format(
+    PES10.T(
+      "🎯 %s [%d OVR - %s] adicionado ao Olheiro %d!\n✓ Lista de Observação Ativada\n✓ Na Lista de Transferências (Preço Baixo)\n✓ 100%% Sucesso Garantido na Negociação!",
+      "🎯 %s [%d OVR - %s] added to Scout List %d!\n✓ Observation List Activated\n✓ Transfer Listed & Discount Applied\n✓ 100%% Negotiation Success Rate!"
+    ),
+    pName, curOVR, PES10.posShort(regPos), slotIdx
+  ))
+  return true
+end
+
+function PES10.clearScoutSlots()
+  PES10.scoutSlots = { [1]=nil, [2]=nil, [3]=nil }
+  PES10.toast(PES10.T("Listas de Observação dos 3 Olheiros limpas.", "All 3 Scout Observation Lists cleared."))
+end
+
+-- Make Deal Irresistible (Immediate transfer proposal acceptance at minimum fee)
+function PES10.makeDealIrresistible()
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return false end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local curOVR, regPos = PES10.calcPlayerOVR(p)
+
+  -- Transfer listed & Loan listed
+  PES10.setBitsInDword(p + 0x14A, 1, 1, 1)
+  PES10.setBitsInDword(p + 0x14A, 2, 1, 1)
+  -- Club Affection 100%
+  PES10.setBitsInDword(p + 0x13C, 18, 7, 100)
+  -- Clear cooldowns
+  writeInteger(p + 0x16C, 0x0000FFFF)
+  -- Nominal Release Fee (R$ 1.000 / € 1.000)
+  PES10.setOverrideReleaseFeeForPlayer(p, 10)
+  -- Form Arrow Top
+  PES10.setBitsInDword(p + 0x146, 7, 1, 1)
+  PES10.setBitsInDword(p + 0x147, 0, 3, 4)
+
+  PES10.syncAllDynamicPointers()
+  PES10.toast(string.format(
+    PES10.T(
+      "💼 Negociação Irrecusável ativada para %s!\n• Status: Colocado na Lista de Transferência\n• Multa Fixada em € 1.000 / R$ 1.000\n• Afeição 100%% e Sem Trava de Tempo\nProposta será aceita no 1º contato!",
+      "💼 Irresistible Deal activated for %s!\n• Status: Transfer Listed\n• Release Fee: € 1,000 / R$ 1,000\n• 100%% Affection & Cooldown Removed\nProposal will be accepted on 1st round!"
+    ),
+    pName
+  ))
+  return true
+end
+
+function PES10.promptAddPlayerToScoutList()
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local curOVR, regPos = PES10.calcPlayerOVR(p)
+
+  local lines = {}
+  table.insert(lines, PES10.T("== DESTINAR AO MENU DE OBSERVAÇÃO / OLHEIROS ==", "== ASSIGN TO SCOUT OBSERVATION LIST =="))
+  table.insert(lines, string.format(PES10.T("Atleta: %s [%d OVR - %s]", "Player: %s [%d OVR - %s]"), pName, curOVR, PES10.posShort(regPos)))
+  table.insert(lines, "----------------------------------------------------")
+  for s = 1, 3 do
+    local sl = PES10.scoutSlots[s]
+    local occupant = sl and string.format("%s (%d OVR - %s) [%s]", sl.name, sl.ovr, PES10.posShort(sl.pos), sl.time) or PES10.T("[Vazio / Disponível]", "[Empty / Available]")
+    table.insert(lines, string.format(PES10.T("[%d] Olheiro %d: %s", "[%d] Scout %d: %s"), s, s, occupant))
+  end
+  table.insert(lines, "----------------------------------------------------")
+  table.insert(lines, PES10.T("0: Limpar todos os 3 Olheiros de Observação", "0: Clear all 3 Scout Observation slots"))
+  table.insert(lines, "----------------------------------------------------")
+  table.insert(lines, PES10.T("Digite o número do Olheiro (1, 2 ou 3) para registrar o atleta:", "Enter Scout Number (1, 2 or 3) to assign this player:"))
+
+  local ans = inputQuery(
+    PES10.T("Menu de Observação (Olheiros 1, 2, 3) — ", "Scout Observation Menu (1, 2, 3) — ") .. pName,
+    table.concat(lines, "\n"),
+    "1"
+  )
+  if not ans then return end
+  local choice = tonumber(ans)
+  if choice == 0 then
+    PES10.clearScoutSlots()
+  elseif choice and choice >= 1 and choice <= 3 then
+    PES10.addPlayerToScoutList(choice)
+  end
 end
 
 function PES10.promptTargetOVRProportional()
@@ -1820,7 +2241,7 @@ function PES10.openDashboard()
   local FOOTER_Y = H - FOOTER_H
 
   local f = createForm(false)
-  f.Caption = "PES 2021 — v10.1 Pro Studio (PT-BR / EN)"
+  f.Caption = "PES 2021 — v10.2 Pro Studio (PT-BR / EN)"
   pcall(function() f.BorderStyle = "bsSingle" end)
   f.Color = C_BG
   f.DoubleBuffered = true
@@ -1959,16 +2380,16 @@ function PES10.openDashboard()
         title_pt="Blindar Contratos do Elenco", title_en="Shield All Squad Contracts",
         sub_pt="Estende vínculos em +5 anos e remove multas", sub_en="Extends contracts by +5 yrs & removes release fees",
         fn=function() PES10.runSquadCommander("shield_contracts") end },
-      { col=1, row=4, accent=C_PURPLE,
-        tag_pt="AUGE", tag_en="PEAK",
-        title_pt="Ativar Breakthrough no Elenco", title_en="Trigger Squad Breakthrough",
-        sub_pt="Explosão de evolução e zero declínio pós-30 anos", sub_en="Activates growth surge & prevents age 30+ decline",
-        fn=function() PES10.runSquadCommander("eternal_peak_breakthrough") end },
-      { col=2, row=4, accent=C_CRIMSON,
-        tag_pt="+1 OVR DNA", tag_en="+1 OVR DNA",
-        title_pt="Subir +1 Overall no Elenco (DNA)", title_en="Squad +1 Overall (Preserves DNA)",
-        sub_pt="Sobe +1 OVR em cada atleta respeitando seu estilo", sub_en="Boosts every squad player +1 OVR keeping style",
-        fn=function() PES10.runSquadCommander("plus_one_ovr_dna") end },
+      { col=1, row=4, accent=C_GREEN,
+        tag_pt="OLHEIRO 🎯", tag_en="SCOUT 🎯",
+        title_pt="Adicionar aos Olheiros (1, 2, 3)...", title_en="Add to Scout Observation (1, 2, 3)...",
+        sub_pt="Insere atleta no Olheiro 1, 2 ou 3 c/ 100% sucesso & preço baixo", sub_en="Assigns player to Scout 1, 2 or 3 with 100% success & lowest fee",
+        fn=function() PES10.promptAddPlayerToScoutList() end },
+      { col=2, row=4, accent=C_GOLD,
+        tag_pt="NEGÓCIO 💼", tag_en="DEAL 💼",
+        title_pt="Negociação Irrecusável (100% Sucesso)", title_en="Irresistible Transfer (100% Deal)",
+        sub_pt="Lista p/ venda, fixa multa mínima e aprova no 1º contato", sub_en="Transfer lists player, sets minimal fee & guarantees 1st round deal",
+        fn=function() PES10.makeDealIrresistible() end },
     },
 
     [2] = {
@@ -1982,42 +2403,26 @@ function PES10.openDashboard()
         title_pt="Subir +1 Overall (Mantém DNA)", title_en="Boost +1 Overall (Keeps DNA)",
         sub_pt="Cruza atributos proporcionalmente s/ mudar o estilo", sub_en="Scales stats proportionally without altering style",
         fn=function() PES10.stepPlayerOVRProportional(1) end },
-      { col=1, row=2, accent=C_GOLD,
+      { col=1, row=2, accent=C_LIME,
+        tag_pt="+1 POSIÇÃO", tag_en="+1 POS OVR",
+        title_pt="Subir +1 OVR em Posição Específica...", title_en="Boost +1 OVR in Specific Position...",
+        sub_pt="Escolha qualquer posição secundária e suba +1 OVR nela!", sub_en="Pick any secondary position and elevate its OVR +1!",
+        fn=function() PES10.promptTargetPositionOVRPlusOne() end },
+      { col=2, row=2, accent=C_GOLD,
         tag_pt="OVR ALVO", tag_en="TARGET OVR",
         title_pt="Definir Overall Exato (c/ DNA)...", title_en="Set Exact Target Overall (DNA)...",
         sub_pt="Escolher qualquer OVR (40–99) mantendo proporções", sub_en="Scale player to any OVR (40–99) keeping DNA ratios",
         fn=function() PES10.promptTargetOVRProportional() end },
-      { col=2, row=2, accent=C_CRIMSON,
-        tag_pt="ALVO € 1K", tag_en="€ 1K SIGN",
-        title_pt="Contratação Fácil (€ 1.000 Multa)", title_en="Easy Sign Target (€ 1,000 Fee)",
-        sub_pt="Fixa multa € 1.000 + Afeição 100% + destrava data", sub_en="Sets € 1,000 release fee + 100% affection & unlocks",
-        fn=function() PES10.runPlayerMacro("easy_sign_target") end },
-      { col=1, row=3, accent=C_GOLD,
-        tag_pt="MULTA", tag_en="CLAUSE",
-        title_pt="Definir Taxa de Rescisão Exata...", title_en="Set Custom Release Clause...",
-        sub_pt="Crava valor customizado de multa (ex: 50M, 500k, 1B)", sub_en="Lock any exact release fee (e.g. 50M, 500k, 1B)",
-        fn=function()
-          local p = PES10.getSelectedPlayerOrWarn()
-          if p == 0 then return end
-          local c = PES10.getCurrentCurrency()
-          local ans = inputQuery(
-            PES10.T("Fixar Taxa de Rescisão (", "Set Custom Release Fee (") .. c.symbol .. ")",
-            PES10.T("Digite o valor exato da multa (ex: 1000, 80M, 1B):", "Enter exact release fee (e.g. 1000, 80M, 1B):"),
-            "80M"
-          )
-          if ans then
-            local raw = PES10.parseHumanMoneyToRaw(ans)
-            if raw then
-              PES10.setOverrideReleaseFeeForPlayer(p, raw)
-              PES10.toast(PES10.T("Multa fixada em ", "Release fee locked at ") .. PES10.formatMoneyFromRaw(raw) .. "!")
-            end
-          end
-        end },
-      { col=2, row=3, accent=C_BLUE,
-        tag_pt="CONTRATO", tag_en="UNLOCK",
-        title_pt="Destravar Renegociação Imediata", title_en="Unlock Instant Renegotiation",
-        sub_pt="Remove bloqueio de assinatura ou renovação recente", sub_en="Clears recent signing or contract renewal cooldown",
-        fn=function() PES10.runPlayerMacro("unlock_renegotiation") end },
+      { col=1, row=3, accent=C_BLUE,
+        tag_pt="AFINIDADE", tag_en="APTITUDE",
+        title_pt="Afinidade de Posição (C / B / A)...", title_en="Position Mastery (C / B / A)...",
+        sub_pt="Mudar grau de posições individuais ou promover B p/ A", sub_en="Edit individual position grade or promote B to A",
+        fn=function() PES10.promptEditPositionAptitude() end },
+      { col=2, row=3, accent=C_GOLD,
+        tag_pt="ROLE 👑", tag_en="ROLE 👑",
+        title_pt="Função de Equipe (Team Role)...", title_en="Change Team Role & Level...",
+        sub_pt="Escolha entre Lenda, Maestro, Bandeira, General (Níveis 1-3)", sub_en="Choose Legend, Maestro, Bandiera, General (Levels 1-3)",
+        fn=function() PES10.promptSetTeamRole() end },
       { col=1, row=4, accent=C_PURPLE,
         tag_pt="COMPLETO", tag_en="ALL-IN-ONE",
         title_pt="41 Habilidades + 13 Posições 'A'", title_en="41 Skills + All 13 Positions 'A'",

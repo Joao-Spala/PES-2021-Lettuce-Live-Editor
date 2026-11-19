@@ -1336,11 +1336,25 @@ PES10.SCORE_SYNC_IDS = {score_map_lua}
     )
 
     ET.SubElement(root, "UserdefinedSymbols")
+    # Use a unique placeholder for LuaScript so we can inject raw Lua
+    # (without XML entity escaping) after ET serialisation.
+    _LUA_PLACEHOLDER = "___LUA_PLACEHOLDER___"
     lua_el = ET.SubElement(root, "LuaScript")
-    lua_el.text = final_lua
+    lua_el.text = _LUA_PLACEHOLDER
 
     ET.indent(root, space="  ")
     xml_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    # Replace the placeholder with the raw Lua wrapped in CDATA so that
+    # operators like >, <, & are preserved verbatim for CE's Lua parser.
+    # Lua code must not contain the literal sequence "]]>" — escape it.
+    safe_lua = final_lua.replace("]]>", "]] >")
+    xml_text = xml_bytes.decode("utf-8")
+    xml_text = xml_text.replace(
+        f"<LuaScript>{_LUA_PLACEHOLDER}</LuaScript>",
+        f"<LuaScript>\n{safe_lua}\n</LuaScript>",
+    )
+    xml_bytes = xml_text.encode("utf-8")
 
     output_ct.parent.mkdir(parents=True, exist_ok=True)
     with open(output_ct, "wb") as f_out:
