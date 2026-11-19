@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## [10.2.0] — 2026-11-19
+
+### Added / Adicionado
+- **Position-Targeted +1 OVR Solver**: Boost +1 OVR in any of the 13 positions (including secondary positions) using Konami exact attribute weights for that position, while preserving player DNA. Automatically promotes position to Grade `A`.
+- **Position Familiarity Editor (`C / B / A`)**: Edit grade for individual positions, promote all secondary `B → A` in 1 click, or maximize all 13 positions to `A`.
+- **Team Role & Level Editor**: Set any of the 22 Team Roles (Legend, Bandiera, Maestro, General, Superstar, etc.) with Level 1–3 for Team Spirit, XP and merchandise bonuses.
+- **3 Scout Observation Lists**: Add up to 3 players to observation lists with 100% negotiation success rate, minimum release fee (€ 1,000), automatic transfer listing and loan listing.
+- **Irresistible Deal (1-Click)**: Transfer lists the player, sets minimal release fee, maxes affection to 100%, clears cooldown — guarantees 1st round proposal acceptance.
+
+### Fixed / Corrigido
+- **Scout Player Handle Offset**: Fixed `addPlayerToScoutList` to read the 64-bit player handle at `playerAddr + 0x2C`.
+- **Win32 GDI Toast & Card Tag Polish**: Removed multi-line `\n` breaks and 4-byte emoji glyphs from single-line Canvas GUI footer toasts and card tag chips for crisp ClearType rendering across `100%`, `125%`, and `150%` DPI.
+- **Version String Consistency**: Updated all internal references, GUI headers, dialogs, tests, and build outputs to `v10.2`.
+
+---
+
 ## [10.1.0] — 2026-11-18
 
 ### Added / Adicionado

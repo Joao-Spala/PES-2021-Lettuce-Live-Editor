@@ -12,8 +12,8 @@ import zlib
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 LUA_DLL = os.environ.get("CE_LUA_DLL", r"C:\Program Files\Cheat Engine 7.2\lua53-64.dll")
-CT_PT = REPO_ROOT / "dist" / "PES 2021 - v10.1 Pro Overhaul (PT-BR).CT"
-CT_EN = REPO_ROOT / "dist" / "PES 2021 - v10.1 Pro Overhaul (EN).CT"
+CT_PT = REPO_ROOT / "dist" / "PES 2021 - v10.2 Pro Overhaul (PT-BR).CT"
+CT_EN = REPO_ROOT / "dist" / "PES 2021 - v10.2 Pro Overhaul (EN).CT"
 
 # ============================================================================
 # WIN32 GDI DIB SECTION + CLEARTYPE SEGOE UI CANVAS BACKEND

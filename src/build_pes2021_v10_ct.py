@@ -9,8 +9,8 @@ REPO_ROOT = SRC_DIR.parent
 DATA_DIR = SRC_DIR / "data"
 DIST_DIR = REPO_ROOT / "dist"
 
-OUTPUT_PT = DIST_DIR / "PES 2021 - v10.1 Pro Overhaul (PT-BR).CT"
-OUTPUT_EN = DIST_DIR / "PES 2021 - v10.1 Pro Overhaul (EN).CT"
+OUTPUT_PT = DIST_DIR / "PES 2021 - v10.2 Pro Overhaul (PT-BR).CT"
+OUTPUT_EN = DIST_DIR / "PES 2021 - v10.2 Pro Overhaul (EN).CT"
 
 with open(DATA_DIR / "player_schema.json", "r", encoding="utf-8") as f:
     legacy = json.load(f)
@@ -155,7 +155,7 @@ EN_PLAYER_LABELS = {
 # ============================================================================
 # VERIFIED x64 AUTO ASSEMBLER SCRIPTS (PES2021.exe v1.7.2.0 + Sider 7.3.3)
 # ============================================================================
-ASM_HOOK_1_PLAYER = """{ PES 2021 v10.1 Pro — Hook 1: Automatic Player Capture (Edit / Squad / Transfer) }
+ASM_HOOK_1_PLAYER = """{ PES 2021 v10.2 Pro — Hook 1: Automatic Player Capture (Edit / Squad / Transfer) }
 [ENABLE]
 aobscanmodule(INJECT_ptrPlayer,PES2021.exe,CB B8 02 00 00 00 0F 1F 40 00 66 0F 1F 84 00 00 00 00 00 0F 10 02 0F 11 01)
 alloc(newmem_p1,$1000,INJECT_ptrPlayer)
@@ -214,7 +214,7 @@ unregistersymbol(INJECT_ptrPlayerTwo)
 dealloc(newmem_p2)
 """
 
-ASM_HOOK_2_RELEASE_FEE = """{ PES 2021 v10.1 Pro — Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
+ASM_HOOK_2_RELEASE_FEE = """{ PES 2021 v10.2 Pro — Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
 [ENABLE]
 aobscanmodule(INJECT_ReleaseFeeGetter,PES2021.exe,0F 29 74 24 40 48 8B DA 48 8B F1 0F 29 7C 24 30 48 8B 09)
 alloc(newmem_rfee,$1000,INJECT_ReleaseFeeGetter)
@@ -281,7 +281,7 @@ unregistersymbol(INJECT_ReleaseFeeGetter)
 dealloc(newmem_rfee)
 """
 
-ASM_HOOK_3_TRAINING_MULT = """{ PES 2021 v10.1 Pro — Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
+ASM_HOOK_3_TRAINING_MULT = """{ PES 2021 v10.2 Pro — Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
 [ENABLE]
 aobscanmodule(INJECT_TrainingXpAdder,PES2021.exe,45 8B C8 83 FA 6C 0F 8D 1E 01 00 00)
 alloc(newmem_txp,$1000,INJECT_TrainingXpAdder)
@@ -342,7 +342,7 @@ unregistersymbol(INJECT_TrainingXpAdder)
 dealloc(newmem_txp)
 """
 
-ASM_HOOK_4_BAL_CAP = """{ PES 2021 v10.1 Pro — Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
+ASM_HOOK_4_BAL_CAP = """{ PES 2021 v10.2 Pro — Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
 [ENABLE]
 aobscanmodule(INJECT_BALFocusCap,PES2021.exe,0F BE 41 0A 2B C2 83 F8 15 77 09 48 63 C3)
 INJECT_BALFocusCap+08:
@@ -355,7 +355,7 @@ INJECT_BALFocusCap+08:
 unregistersymbol(INJECT_BALFocusCap)
 """
 
-ASM_HOOK_5_MATCH_HUD_CLOCK = """{ PES 2021 v10.1 Pro — Hook 5: Sider-Safe Match HUD, Live Score, Penalties & FNV-Safe Clock }
+ASM_HOOK_5_MATCH_HUD_CLOCK = """{ PES 2021 v10.2 Pro — Hook 5: Sider-Safe Match HUD, Live Score, Penalties & FNV-Safe Clock }
 [ENABLE]
 aobscanmodule(INJECT_MatchHud,PES2021.exe,49 8B F8 44 0F B6 E2 88 55 B7)
 alloc(newmem_mhud,$1000,INJECT_MatchHud)
@@ -428,7 +428,7 @@ unregistersymbol(INJECT_MatchClockTap)
 dealloc(newmem_mclk)
 """
 
-ASM_HOOK_6_STAMINA = """{ PES 2021 v10.1 Pro — Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
+ASM_HOOK_6_STAMINA = """{ PES 2021 v10.2 Pro — Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
 [ENABLE]
 aobscanmodule(INJECT_SelectiveStamina,PES2021.exe,6B 45 10 64 48 8B 5C 24 50)
 alloc(newmem_stam,$1000,INJECT_SelectiveStamina)
@@ -828,18 +828,18 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     COL_CRIMSON = "2828C6"
 
     # =========================================================================
-    # SECTION 1: [ 1. CENTRAL STUDIO v10.1 ] (Expanded by default!)
+    # SECTION 1: [ 1. CENTRAL STUDIO v10.2 ] (Expanded by default!)
     # =========================================================================
     sec_central = builder.group(
         top_entries,
-        L("[ 1. CENTRAL STUDIO v10.1 ] Painel Gráfico, Telemetria, Moeda & Hooks", "[ 1. CENTRAL STUDIO v10.1 ] Studio GUI, Telemetry, Currency & Hooks"),
+        L("[ 1. CENTRAL STUDIO v10.2 ] Painel Gráfico, Telemetria, Moeda & Hooks", "[ 1. CENTRAL STUDIO v10.2 ] Studio GUI, Telemetry, Currency & Hooks"),
         COL_AMBER,
         hide_children=False,
     )
 
     builder.add_script(
         sec_central,
-        L("[ ★ ABRIR PAINEL STUDIO ] Interface Gráfica Pro v10.1 (PT-BR / EN)", "[ ★ OPEN PRO STUDIO GUI ] Graphical Dashboard v10.1 (EN / PT-BR)"),
+        L("[ ★ ABRIR PAINEL STUDIO ] Interface Gráfica Pro v10.2 (PT-BR / EN)", "[ ★ OPEN PRO STUDIO GUI ] Graphical Dashboard v10.2 (EN / PT-BR)"),
         make_lua_button_script("PES10.openDashboard()"),
         color=COL_BLUE,
     )
@@ -923,6 +923,16 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     builder.add_script(grp_squad, L("[ ELENCO ] Ativar Breakthrough (Auge) + Zero Declínio 30+", "[ SQUAD ] Trigger Squad Breakthrough + Zero 30+ Decline"), make_lua_button_script("PES10.runSquadCommander('eternal_peak_breakthrough')"), color=COL_PURPLE)
     builder.add_script(grp_squad, L("[ ★ ELENCO +1 OVR DNA ] Subir +1 Overall em Todo o Elenco (Mantém Estilo!)", "[ ★ SQUAD +1 OVR DNA ] Boost +1 Overall Across Squad (Preserves Style!)"), make_lua_button_script("PES10.runSquadCommander('plus_one_ovr_dna')"), color=COL_CRIMSON)
 
+    grp_ml_scout = builder.group(
+        sec_ml,
+        L("Negociações & Olheiros — 3 Listas de Observação (100% Sucesso)", "Negotiations & Scouts — 3 Observation Lists (100% Deal)"),
+        COL_AMBER,
+        hide_children=False,
+    )
+    builder.add_script(grp_ml_scout, L("[ OLHEIROS 1–3 ] Adicionar Jogador Selecionado ao Menu de Observação...", "[ SCOUTS 1–3 ] Assign Selected Player to Observation List..."), make_lua_button_script("PES10.promptAddPlayerToScoutList()"), color=COL_GREEN)
+    builder.add_script(grp_ml_scout, L("[ NEGÓCIO 100% ] Negociação Irrecusável (Lista Transf. + Multa € 1k + 1º Contato)", "[ 100% DEAL ] Irresistible Deal (Transfer Listed + € 1k Fee + 1st Round)"), make_lua_button_script("PES10.makeDealIrresistible()"), color=COL_CRIMSON)
+    builder.add_script(grp_ml_scout, L("[ LIMPAR ] Limpar as 3 Listas de Observação dos Olheiros", "[ CLEAR ] Clear All 3 Scout Observation Lists"), make_lua_button_script("PES10.clearScoutSlots()"), color=COL_BLUE)
+
     grp_ml_ledger = builder.group(sec_ml, L("Receitas Comerciais & Balanço da Temporada", "Commercial Revenue & Season Ledger"), COL_GREEN)
     builder.add_record(grp_ml_ledger, L("Receita do Clube de Sócios / Torcedores", "Fan Club Revenue"), "4 Bytes", "ptrCareer", ["016ECC20"], signed=True, is_money=True)
     builder.add_record(grp_ml_ledger, L("Receita de Merchandising / Produtos", "Merchandising Revenue"), "4 Bytes", "ptrCareer", ["016ECC24"], signed=True, is_money=True)
@@ -941,7 +951,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     # =========================================================================
     sec_player = builder.group(
         top_entries,
-        L("[ 3. JOGADOR, OVERALL DNA & CONTRATOS ] Edit Player v10.1 Pro (150+ Campos)", "[ 3. PLAYER, OVERALL DNA & CONTRACTS ] Edit Player v10.1 Pro (150+ Fields)"),
+        L("[ 3. JOGADOR, OVERALL DNA & CONTRATOS ] Edit Player v10.2 Pro (150+ Campos)", "[ 3. PLAYER, OVERALL DNA & CONTRACTS ] Edit Player v10.2 Pro (150+ Fields)"),
         COL_TEAL,
     )
 
@@ -971,6 +981,24 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
         sec_player,
         L("[ -1 OVR DNA ] Reduzir -1 Overall Proporcionalmente (Sem Mudar Estilo de Jogo)", "[ -1 OVR DNA ] Lower -1 Overall Proportionally (Preserves Playing Style)"),
         make_lua_button_script("PES10.stepPlayerOVRProportional(-1)"),
+        color=COL_AMBER,
+    )
+    builder.add_script(
+        sec_player,
+        L("[ ★ +1 OVR POSIÇÃO ] Subir +1 Overall em Qualquer Posição Específica (Mantém DNA)...", "[ ★ +1 POS OVR ] Boost +1 Overall in Any Specific Position (Preserves DNA)..."),
+        make_lua_button_script("PES10.promptTargetPositionOVRPlusOne()"),
+        color=COL_GREEN,
+    )
+    builder.add_script(
+        sec_player,
+        L("[ AFINIDADE C/B/A ] Editar Grau de Posição ou Promover Secundárias B → A...", "[ POSITION C/B/A ] Edit Position Mastery Grade or Promote Secondary B → A..."),
+        make_lua_button_script("PES10.promptEditPositionAptitude()"),
+        color=COL_BLUE,
+    )
+    builder.add_script(
+        sec_player,
+        L("[ TEAM ROLE ] Alterar Função de Equipe (Lenda / Bandeira / Maestro / General)...", "[ TEAM ROLE ] Change Team Role & Level (Legend / Bandiera / Maestro / General)..."),
+        make_lua_button_script("PES10.promptSetTeamRole()"),
         color=COL_AMBER,
     )
     builder.add_script(
@@ -1078,9 +1106,15 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
 
     # 3.5..3.8 Positions, 25 Attributes, Playing Style + 41 Skills, COM Styles & Team Role
     grp_p_pos = builder.group(sec_player, L("5. Posição de Origem & 13 Posições Jogáveis (C / B / A)", "5. Registered Position & 13 Playable Positions (C / B / A)"), COL_TEAL)
+    builder.add_script(grp_p_pos, L("[ 1-CLIQUE ] Promover Todas as Secundárias ('B' → 'A')", "[ 1-CLICK ] Promote All Secondary Positions ('B' → 'A')"), make_lua_button_script("local p=PES10.getSelectedPlayerOrWarn(); if p~=0 then local n=PES10.promoteSecondaryPositionsToA(p); PES10.toast(string.format(PES10.T('%d secundária(s) promovida(s) p/ A!','%d secondary position(s) promoted to A!'), n)) end"), color=COL_GREEN)
+    builder.add_script(grp_p_pos, L("[ +1 OVR POSIÇÃO ] Subir +1 OVR em Posição Específica...", "[ +1 POS OVR ] Boost +1 OVR in Specific Position..."), make_lua_button_script("PES10.promptTargetPositionOVRPlusOne()"), color=COL_BLUE)
     grp_p_attr = builder.group(sec_player, L("6. Todos os 25 Atributos Técnicos, Físicos, Defensivos & GK (40–99)", "6. All 25 Technical, Physical, Defensive & GK Attributes (40–99)"), COL_TEAL)
     grp_p_skills = builder.group(sec_player, L("7. Estilo de Jogo & Todas as 41 Habilidades (Player Skills)", "7. Playing Style & All 41 Player Skills"), COL_TEAL)
     grp_p_com = builder.group(sec_player, L("8. Estilos IA COM & Papel no Time (Team Role)", "8. COM AI Playing Styles & Team Role"), COL_TEAL)
+    builder.add_script(grp_p_com, L("[ PRESET ] Tornar LENDA (Nível 3)", "[ PRESET ] Make LEGEND (Level 3)"), make_lua_button_script("local p=PES10.getSelectedPlayerOrWarn(); if p~=0 then PES10.setTeamRole(p,19,3); PES10.toast(PES10.T('Team Role definido: Lenda (Nv.3)!','Team Role set: Legend (Lv.3)!')) end"), color=COL_AMBER)
+    builder.add_script(grp_p_com, L("[ PRESET ] Tornar BANDEIRA (Nível 3)", "[ PRESET ] Make BANDIERA (Level 3)"), make_lua_button_script("local p=PES10.getSelectedPlayerOrWarn(); if p~=0 then PES10.setTeamRole(p,18,3); PES10.toast(PES10.T('Team Role definido: Bandeira (Nv.3)!','Team Role set: Bandiera (Lv.3)!')) end"), color=COL_GREEN)
+    builder.add_script(grp_p_com, L("[ PRESET ] Tornar MAESTRO (Nível 3)", "[ PRESET ] Make MAESTRO (Level 3)"), make_lua_button_script("local p=PES10.getSelectedPlayerOrWarn(); if p~=0 then PES10.setTeamRole(p,9,3); PES10.toast(PES10.T('Team Role definido: Maestro (Nv.3)!','Team Role set: Maestro (Lv.3)!')) end"), color=COL_BLUE)
+    builder.add_script(grp_p_com, L("[ PRESET ] Tornar GENERAL (Nível 3)", "[ PRESET ] Make GENERAL (Level 3)"), make_lua_button_script("local p=PES10.getSelectedPlayerOrWarn(); if p~=0 then PES10.setTeamRole(p,7,3); PES10.toast(PES10.T('Team Role definido: General (Nv.3)!','Team Role set: General (Lv.3)!')) end"), color=COL_PURPLE)
 
     POS_DESCS = {
         "CF - Center Forward", "SS - Second Striker", "LWF - Left Wing Forward", "RWF - Right Wing Forward",
@@ -1336,25 +1370,11 @@ PES10.SCORE_SYNC_IDS = {score_map_lua}
     )
 
     ET.SubElement(root, "UserdefinedSymbols")
-    # Use a unique placeholder for LuaScript so we can inject raw Lua
-    # (without XML entity escaping) after ET serialisation.
-    _LUA_PLACEHOLDER = "___LUA_PLACEHOLDER___"
     lua_el = ET.SubElement(root, "LuaScript")
-    lua_el.text = _LUA_PLACEHOLDER
+    lua_el.text = final_lua
 
     ET.indent(root, space="  ")
     xml_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
-
-    # Replace the placeholder with the raw Lua wrapped in CDATA so that
-    # operators like >, <, & are preserved verbatim for CE's Lua parser.
-    # Lua code must not contain the literal sequence "]]>" — escape it.
-    safe_lua = final_lua.replace("]]>", "]] >")
-    xml_text = xml_bytes.decode("utf-8")
-    xml_text = xml_text.replace(
-        f"<LuaScript>{_LUA_PLACEHOLDER}</LuaScript>",
-        f"<LuaScript>\n{safe_lua}\n</LuaScript>",
-    )
-    xml_bytes = xml_text.encode("utf-8")
 
     output_ct.parent.mkdir(parents=True, exist_ok=True)
     with open(output_ct, "wb") as f_out:
