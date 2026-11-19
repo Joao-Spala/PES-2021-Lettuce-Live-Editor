@@ -17,6 +17,7 @@ end
 PES10.attachedPid = 0
 PES10.autoArmedPid = 0
 PES10.autoArmHooks = true
+PES10.isInitializing = false
 PES10.stateBase = 0
 PES10.addrCareerOwner = 0
 PES10.addrMatchMgr = 0
@@ -529,63 +530,79 @@ function PES10.scanUniqueModuleAOB(aobStr)
 end
 
 function PES10.initProcessState()
+  if PES10.isInitializing then return false end
   if not PES10.isAttached() then return false end
   local pid = getOpenedProcessID()
   if PES10.attachedPid == pid and PES10.stateBase ~= 0 then
     return true
   end
 
-  local exeBase = getAddressSafe(PES10.PROCESS_NAME)
-  if not exeBase or exeBase == 0 then return false end
+  PES10.isInitializing = true
+  local okRun, resRun = pcall(function()
+    local exeBase = getAddressSafe(PES10.PROCESS_NAME)
+    if not exeBase or exeBase == 0 then return false end
 
-  local existing = getAddressSafe("pes10State")
-  if existing and existing > 0 then
-    PES10.stateBase = existing
-  else
-    local mem = allocateMemory(0x1000, exeBase)
-    if not mem or mem == 0 then mem = allocateMemory(0x1000) end
-    if not mem or mem == 0 then return false end
-    local zeros = {}
-    for i = 1, 0x1000 do zeros[i] = 0 end
-    writeBytes(mem, zeros)
-    PES10.safeRegisterSymbol("pes10State", mem)
-    PES10.stateBase = mem
-  end
-
-  for sym, off in pairs(PES10.SYM_OFFSETS) do
-    PES10.safeRegisterSymbol(sym, PES10.stateBase + off)
-  end
-  writeInteger(PES10.stateBase + PES10.SYM_OFFSETS.cfgCurrency, PES10.currencyIndex or 0)
-
-  local callSite = PES10.scanUniqueModuleAOB("E8 ?? ?? ?? ?? 48 8B 48 48 48 8D 81 E0 CB 6E 01")
-  if callSite ~= 0 then
-    local relCall = PES10.readI32(callSite + 1)
-    local fnGetter = callSite + 5 + relCall
-    if PES10.readU8(fnGetter) == 0x48 and PES10.readU8(fnGetter + 1) == 0x8B and PES10.readU8(fnGetter + 2) == 0x05 then
-      local disp = PES10.readI32(fnGetter + 3)
-      PES10.addrCareerOwner = fnGetter + 7 + disp
-      PES10.safeRegisterSymbol("addrCareerOwner", PES10.addrCareerOwner)
+    local existing = getAddressSafe("pes10State")
+    if existing and existing > 0 then
+      PES10.stateBase = existing
+    else
+      local mem = allocateMemory(0x1000, exeBase)
+      if not mem or mem == 0 then mem = allocateMemory(0x1000) end
+      if not mem or mem == 0 then return false end
+      local zeros = {}
+      for i = 1, 0x1000 do zeros[i] = 0 end
+      writeBytes(mem, zeros)
+      PES10.safeRegisterSymbol("pes10State", mem)
+      PES10.stateBase = mem
     end
-  end
-  if PES10.addrCareerOwner == 0 then
-    PES10.addrCareerOwner = exeBase + 0x3714240
-    PES10.safeRegisterSymbol("addrCareerOwner", PES10.addrCareerOwner)
-  end
 
-  local matchSite = PES10.scanUniqueModuleAOB("48 8B 05 ?? ?? ?? ?? 4C 8B E2 45 33 FF 48 8B B0 70 02 00 00")
-  if matchSite ~= 0 then
-    local disp = PES10.readI32(matchSite + 3)
-    PES10.addrMatchMgr = matchSite + 7 + disp
-    PES10.safeRegisterSymbol("addrMatchMgr", PES10.addrMatchMgr)
-  else
-    PES10.addrMatchMgr = exeBase + 0x3702208
-    PES10.safeRegisterSymbol("addrMatchMgr", PES10.addrMatchMgr)
-  end
+    for sym, off in pairs(PES10.SYM_OFFSETS) do
+      PES10.safeRegisterSymbol(sym, PES10.stateBase + off)
+    end
+    writeInteger(PES10.stateBase + PES10.SYM_OFFSETS.cfgCurrency, PES10.currencyIndex or 0)
 
-  PES10.attachedPid = pid
-  PES10.syncAllDynamicPointers()
-  PES10.scheduleAutoArmHooks()
-  return true
+    -- Fast-path for standard PES2021.exe v1.7.2.0 (avoids blocking ms.waitTillDone() on main UI thread!)
+    local fastCareer = exeBase + 0x3714240
+    local fastMatch  = exeBase + 0x3702208
+    if PES10.readU64(fastCareer) > 0x10000 then
+      PES10.addrCareerOwner = fastCareer
+      PES10.safeRegisterSymbol("addrCareerOwner", PES10.addrCareerOwner)
+      PES10.addrMatchMgr = fastMatch
+      PES10.safeRegisterSymbol("addrMatchMgr", PES10.addrMatchMgr)
+    else
+      local callSite = PES10.scanUniqueModuleAOB("E8 ?? ?? ?? ?? 48 8B 48 48 48 8D 81 E0 CB 6E 01")
+      if callSite ~= 0 then
+        local relCall = PES10.readI32(callSite + 1)
+        local fnGetter = callSite + 5 + relCall
+        if PES10.readU8(fnGetter) == 0x48 and PES10.readU8(fnGetter + 1) == 0x8B and PES10.readU8(fnGetter + 2) == 0x05 then
+          local disp = PES10.readI32(fnGetter + 3)
+          PES10.addrCareerOwner = fnGetter + 7 + disp
+          PES10.safeRegisterSymbol("addrCareerOwner", PES10.addrCareerOwner)
+        end
+      end
+      if PES10.addrCareerOwner == 0 then
+        PES10.addrCareerOwner = fastCareer
+        PES10.safeRegisterSymbol("addrCareerOwner", PES10.addrCareerOwner)
+      end
+
+      local matchSite = PES10.scanUniqueModuleAOB("48 8B 05 ?? ?? ?? ?? 4C 8B E2 45 33 FF 48 8B B0 70 02 00 00")
+      if matchSite ~= 0 then
+        local disp = PES10.readI32(matchSite + 3)
+        PES10.addrMatchMgr = matchSite + 7 + disp
+        PES10.safeRegisterSymbol("addrMatchMgr", PES10.addrMatchMgr)
+      else
+        PES10.addrMatchMgr = fastMatch
+        PES10.safeRegisterSymbol("addrMatchMgr", PES10.addrMatchMgr)
+      end
+    end
+
+    PES10.attachedPid = pid
+    PES10.syncAllDynamicPointers()
+    PES10.scheduleAutoArmHooks()
+    return true
+  end)
+  PES10.isInitializing = false
+  return okRun and resRun or false
 end
 
 -- ============================================================================
@@ -3788,18 +3805,18 @@ end
 -- AUTO-ATTACH & 300ms NON-BLOCKING TELEMETRY ENGINE
 -- ============================================================================
 function PES10.startBackgroundEngine()
-  PES10.bindTableHooks()
-  if PES10.isAttached() then
-    PES10.initProcessState()
-  end
-
+  -- Destroy any previous timer FIRST before any initialization to prevent re-entrant C stack overflow!
   if PES10.bgTimer then
-    pcall(function() PES10.bgTimer.destroy() end)
+    pcall(function() PES10.bgTimer.Enabled = false; PES10.bgTimer.destroy() end)
+    PES10.bgTimer = nil
   end
+  PES10.isInitializing = false
+  pcall(PES10.bindTableHooks)
 
   PES10.bgTimer = createTimer(MainForm, true)
   PES10.bgTimer.Interval = 300
   PES10.bgTimer.OnTimer = function()
+    if PES10.isInitializing then return end
     if not PES10.isAttached() then
       local pid = getProcessIDFromProcessName(PES10.PROCESS_NAME)
       if pid and pid > 0 then
