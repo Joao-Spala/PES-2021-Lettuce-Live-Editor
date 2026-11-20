@@ -9111,7 +9111,7 @@ function PES10.openBioConditionModal()
   if p == 0 then return end
   local pName = readString(p + 0x38, 46, false) or PES10.T("Atleta", "Player")
   local pShirt = readString(p + 0x75, 46, false) or ""
-  local f, S, W, H, hdrBar = makeStudioModal("bio", PES10.T("Perfil, Físico &amp; Condição - ", "Profile, Physical &amp; Condition - ") .. pName, 620, 560, M_BLUE, 56)
+  local f, S, W, H, hdrBar = makeStudioModal("bio", PES10.T("Perfil, Físico &amp; Condição - ", "Profile, Physical &amp; Condition - ") .. pName, 620, 598, M_BLUE, 56)
 
   local hdr = makeModalLabel(hdrBar, S(16), S(10), W - S(32), S(20), pName, 11, M_TEXT, true)
   makeModalLabel(hdrBar, S(16), S(32), W - S(32), S(16), PES10.T("Nome, camisa, físico, pés, regularidade, seta, auge e backup JSON", "Name, shirt name, physical, feet, form, arrow, peak &amp; JSON backup"), 8, M_SUBTEXT, false)
@@ -9152,6 +9152,17 @@ function PES10.openBioConditionModal()
     PES10.T("4: Azul (Excelente / Topo)", "4: Blue Up (Top Form)"),
   }, math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3))))
 
+  local natList = PES10.NATIONALITIES or { {144, "Brazil"} }
+  local natLabels = {}
+  local curNatId = PES10.readU16(p + 0x144)
+  local initNatIdx = 0
+  for i, nt in ipairs(natList) do
+    natLabels[i] = string.format("%s (ID %d)", nt[2], nt[1])
+    if nt[1] == curNatId then initNatIdx = i - 1 end
+  end
+  makeModalLabel(f, S(16), S(346), S(168), S(18), PES10.T("Nacionalidade (221):", "Nationality (221):"), 9, M_SUBTEXT, false)
+  local cbNat = makeDarkCombo(f, S(188), S(340), S(412), S(30), natLabels, initNatIdx)
+
   local function reloadBioFields()
     local nm = readString(p + 0x38, 46, false) or pName
     edName.Text  = nm
@@ -9168,6 +9179,10 @@ function PES10.openBioConditionModal()
     edInjD.Text  = tostring(PES10.readU8(p + 0x148))
     cbFoot.setIndex(PES10.getBitsInDword(p + 0x03, 7, 1))
     cbArr.setIndex(math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3))))
+    local nId = PES10.readU16(p + 0x144)
+    for i, nt in ipairs(natList) do
+      if nt[1] == nId then cbNat.setIndex(i - 1); break end
+    end
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
   end
 
@@ -9195,12 +9210,14 @@ function PES10.openBioConditionModal()
     PES10.setBitsInDword(p + 0x03, 7, 1, cbFoot.getIndex() or 0)
     PES10.setBitsInDword(p + 0x147, 0, 3, arrIdx or 4)
     PES10.setBitsInDword(p + 0x146, 7, 1, (arrIdx == 4) and 1 or 0)
+    local selNat = natList[(cbNat.getIndex() or 0) + 1]
+    if selNat and selNat[1] then writeSmallInteger(p + 0x144, selNat[1]) end
     PES10.syncAllDynamicPointers()
     PES10.toast(PES10.T("Perfil atualizado: ", "Profile updated: ") .. (newNm ~= "" and newNm or pName))
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
   end
 
-  local y1, y2 = S(364), S(410)
+  local y1, y2 = S(402), S(448)
   makeModalBtn(f, S(16),  y1, S(288), S(36), PES10.T("Aplicar Todas as Alterações", "Apply All Changes"), applyBio, "primary")
   makeModalBtn(f, S(312), y1, S(288), S(36), PES10.T("Auge (Breakthrough) + Anti-Declínio", "Breakthrough + Anti-Decline 30+"), function()
     PES10.applyPlayerEternalPeak(p)
@@ -10527,6 +10544,7 @@ PES10.ALL_SKILL_BITS = { {0x24,3}, {0x29,0}, {0x24,4}, {0x24,5}, {0x24,6}, {0x29
 PES10.ALL_SKILL_ITEMS = { {0x24,3,"Pedalada Simples (Scissors Feint)","Scissors Feint"}, {0x29,0,"Toque Duplo (Double Touch)","Double Touch"}, {0x24,4,"Elástico (Flip Flap)","Flip Flap"}, {0x24,5,"Roleta / Giro de Marselha (Marseille Turn)","Marseille Turn"}, {0x24,6,"Chapéu / Sombreiro (Sombrero)","Sombrero"}, {0x29,1,"Corte de Letra (Cross Over Turn)","Cross Over Turn"}, {0x24,7,"Puxada e Giro (Cut Behind &amp; Turn)","Cut Behind &amp; Turn"}, {0x25,0,"Toque Escocês (Scotch Move)","Scotch Move"}, {0x28,3,"Domínio Pisando na Bola (Step On Control)","Step On Skill Control"}, {0x25,1,"Cabeceio Preciso (Heading)","Heading (Player Skill)"}, {0x25,2,"Chute Colocado de Longe (Long Range Drive)","Long Range Drive"}, {0x28,2,"Cavadinha Precisa (Chip Shot Control)","Chip Shot Control"}, {0x29,2,"Chute de Longa Distância (Long Range Shooting)","Long Range Shooting"}, {0x25,3,"Folha Seca (Knuckle Shot)","Knuckle Shot"}, {0x28,4,"Chute com Queda Rápida (Dipping Shot)","Dipping Shot"}, {0x28,5,"Chute Ascendente (Rising Shots)","Rising Shots"}, {0x25,4,"Finalização Acrobática (Acrobatic Finishing)","Acrobatic Finishing"}, {0x25,5,"Toque de Calcanhar (Heel Trick)","Heel Trick"}, {0x25,6,"Chute de Primeira (First-time Shot)","First-time Shot"}, {0x25,7,"Passe de Primeira (One-touch Pass)","One-touch Pass"}, {0x29,3,"Passe em Profundidade (Through Passing)","Through Passing"}, {0x26,0,"Passe na Medida (Weighted Pass)","Weighted Pass"}, {0x26,1,"Cruzamento Preciso (Pinpoint Crossing)","Pinpoint Crossing"}, {0x26,2,"Trivela (Outside Curler)","Outside Curler"}, {0x26,3,"Letra (Rabona)","Rabona"}, {0x27,7,"Passe Sem Olhar (No Look Pass)","No Look Pass"}, {0x26,4,"Lançamento Tenso (Low Lofted Pass)","Low Lofted Pass"}, {0x26,5,"Reposição Baixa de Goleiro (GK Low Punt)","GK Low Punt"}, {0x28,6,"Reposição Alta de Goleiro (GK High Punt)","GK High Punt"}, {0x26,6,"Lateral Longo (Long Throw)","Long Throw"}, {0x26,7,"Arremesso Longo do Goleiro (GK Long Throw)","GK Long Throw"}, {0x28,0,"Especialista em Pênaltis (Penalty Specialist)","Penalty Specialist"}, {0x28,1,"Pegador de Pênaltis (GK Penalty Saver)","GK Penalty Saver"}, {0x27,0,"Malícia / Cavar Falta (Gamesmanship)","Gamesmanship"}, {0x27,1,"Marcação Individual (Man Marking)","Man Marking"}, {0x27,2,"Voltar para Marcar (Track Back)","Track Back"}, {0x28,7,"Interceptação (Interception)","Interception"}, {0x27,3,"Corte Acrobático (Acrobatic Clear)","Acrobatic Clear"}, {0x27,4,"Liderança / Capitão (Captaincy)","Captaincy"}, {0x27,5,"Super Substituto / Talismã (Super-Sub)","Super-Sub"}, {0x27,6,"Espírito Guerreiro (Fighting Spirit)","Fighting Spirit"} }
 PES10.ALL_COM_ITEMS = { {0x1B,7,"[IA COM] Driblador (Trickster)","[COM AI] Trickster"}, {0x1F,7,"[IA COM] Arrancada em Zigue-Zague (Mazing Run)","[COM AI] Mazing Run"}, {0x23,6,"[IA COM] Bala Veloz (Speeding Bullet)","[COM AI] Speeding Bullet"}, {0x23,7,"[IA COM] Corrida Incisiva (Incisive Run)","[COM AI] Incisive Run"}, {0x24,0,"[IA COM] Especialista em Bola Longa (Long Ball Expert)","[COM AI] Long Ball Expert"}, {0x24,1,"[IA COM] Cruzamento Antecipado (Early Cross)","[COM AI] Early Cross"}, {0x24,2,"[IA COM] Chutador de Longe (Long Ranger)","[COM AI] Long Ranger"} }
 PES10.PLAYING_STYLE_NAMES = { [0]="-", [1]="Goal Poacher", [2]="Dummy Runner", [3]="Fox in the Box", [4]="Profilic Winger", [5]="Classic No. 10", [6]="Hole Player", [7]="Box-to-Box", [8]="Anchor Man", [9]="The Destroyer", [10]="Extra Frontman", [11]="Offensive Full-back", [12]="Defensive Full-back", [13]="Target Man", [14]="Creative Playmaker", [15]="Build Up", [16]="Offensive Goalkeeper", [17]="Defensive Goalkeeper", [18]="Roaming Flank", [19]="Cross Specialist", [20]="Orchestrator", [21]="Full-back Finisher" }
+PES10.NATIONALITIES = { {0,"'None'"}, {1,"'Afghanistan'"}, {2,"'Bahrain'"}, {3,"'Bangladesh'"}, {4,"'Bhutan'"}, {5,"'Brunei'"}, {6,"'Cambodia'"}, {7,"'China'"}, {8,"'Hong Kong'"}, {9,"'India'"}, {10,"'Indonesia'"}, {11,"'Iran'"}, {12,"'Iraq'"}, {13,"'Japan'"}, {14,"'Jordan'"}, {15,"'North Korea'"}, {16,"'South Korea'"}, {17,"'Kuwait'"}, {18,"'Laos'"}, {19,"'Lebanon'"}, {20,"'Macao'"}, {21,"'Malaysia'"}, {22,"'Maldives'"}, {23,"'Mongolia'"}, {24,"'Myanmar'"}, {25,"'Nepal'"}, {26,"'Oman'"}, {27,"'Pakistan'"}, {28,"'Palestine'"}, {29,"'Philippines'"}, {30,"'Qatar'"}, {31,"'Saudi Arabia'"}, {32,"'Singapore'"}, {33,"'Sri Lanka'"}, {34,"'Syria'"}, {36,"'Thailand'"}, {37,"'Uae'"}, {38,"'Vietnam'"}, {39,"'Yemen'"}, {40,"'Kyrgyz Republic'"}, {41,"'Tajikistan'"}, {42,"'Turkmenistan'"}, {43,"'East Timor'"}, {44,"'Algeria'"}, {45,"'Angola'"}, {46,"'Benin'"}, {47,"'Botswana'"}, {48,"'Burkina Faso'"}, {49,"'Burundi'"}, {50,"'Cameroon'"}, {51,"'Cape Verde'"}, {52,"'Central African Rep.'"}, {53,"'Chad'"}, {54,"'The Comoros'"}, {55,"'Congo Dr'"}, {56,"'Côte d'Ivoire'"}, {57,"'Djibouti'"}, {58,"'Egypt'"}, {59,"'Equatorial Guinea'"}, {60,"'Eritrea'"}, {61,"'Ethiopia'"}, {62,"'Gabon'"}, {63,"'Republic of the Gambia'"}, {64,"'Ghana'"}, {65,"'Guinea'"}, {66,"'Guinea-Bissau'"}, {67,"'Kenya'"}, {68,"'Lesotho'"}, {69,"'Liberia'"}, {70,"'Libya'"}, {71,"'Madagascar'"}, {72,"'Malawi'"}, {73,"'Mali'"}, {74,"'Mauritania'"}, {75,"'Mauritius'"}, {76,"'Morocco'"}, {77,"'Mozambique'"}, {78,"'Namibia'"}, {79,"'Niger'"}, {80,"'Nigeria'"}, {81,"'Rwanda'"}, {82,"'Sao Tomé and Principe'"}, {83,"'Senegal'"}, {84,"'Seychelles'"}, {85,"'Sierra Leone'"}, {86,"'Somalia'"}, {87,"'South Africa'"}, {88,"'Sudan'"}, {89,"'Swaziland'"}, {90,"'Tanzania'"}, {91,"'Togo'"}, {92,"'Tunisia'"}, {93,"'Uganda'"}, {94,"'Zambia'"}, {95,"'Zimbabwe'"}, {98,"'Congo'"}, {100,"'Réunion'"}, {103,"'Anguilla'"}, {104,"'Antiqua and Barbuda'"}, {105,"'Aruba'"}, {106,"'The Bahamas'"}, {107,"'Barbados'"}, {108,"'Belize'"}, {109,"'Bermuda'"}, {110,"'Canada'"}, {111,"'Cayman Islands'"}, {112,"'Costa Rica'"}, {113,"'Cuba'"}, {114,"'Dominica'"}, {115,"'Dominican Republic'"}, {116,"'El Salvador'"}, {117,"'Grenada'"}, {118,"'Guadeloupe'"}, {119,"'Guatemala'"}, {120,"'Haiti'"}, {121,"'Honduras'"}, {122,"'Jamaica'"}, {123,"'Martinique'"}, {124,"'Mexico'"}, {125,"'Montserrat'"}, {126,"'Netherlands Antilles'"}, {127,"'Nicaragua'"}, {128,"'Panama'"}, {129,"'Puerto Rico'"}, {130,"'Saint Kitts and Nevis'"}, {131,"'Saint Lucia'"}, {132,"'St Vincent and Grenadines'"}, {133,"'Trinidad and Tobago'"}, {134,"'Turks and Caicos Is.'"}, {135,"'United States'"}, {136,"'British Virgin Islands'"}, {137,"'U.S. Virgin Islands'"}, {138,"'French Guiana'"}, {139,"'Suriname'"}, {140,"'Curaçao'"}, {144,"'Argentina'"}, {145,"'Bolivia'"}, {146,"'Brazil'"}, {147,"'Chile'"}, {148,"'Colombia'"}, {149,"'Ecuador'"}, {150,"'Paraguay'"}, {151,"'Peru'"}, {152,"'Uruguay'"}, {153,"'Venezuela'"}, {159,"'Gyuana'"}, {161,"'American Samoa'"}, {162,"'Australia'"}, {163,"'Cook Islands'"}, {164,"'Fiji'"}, {165,"'New Caledonia'"}, {166,"'New Zealand'"}, {167,"'Papua New Guinea'"}, {168,"'Samoa'"}, {169,"'Solomon Islands'"}, {170,"'Tahiti'"}, {171,"'Tonga'"}, {172,"'Vanuatu'"}, {176,"'Guam'"}, {184,"'Palau'"}, {189,"'Israel'"}, {190,"'Turkey'"}, {191,"'Albania'"}, {192,"'Andorra'"}, {193,"'Armenia'"}, {194,"'Austria'"}, {195,"'Azerbaijan'"}, {196,"'Belarus'"}, {197,"'Belgium'"}, {198,"'Bosnia and Herzegovina'"}, {199,"'Bulgaria'"}, {200,"'Croatia'"}, {201,"'Cyprus'"}, {202,"'Czech Republic'"}, {203,"'Denmark'"}, {204,"'England'"}, {205,"'Estonia'"}, {206,"'Faroe Islands'"}, {207,"'Finland'"}, {208,"'France'"}, {209,"'Georgia'"}, {210,"'Germany'"}, {211,"'Greece'"}, {212,"'Hungary'"}, {213,"'Iceland'"}, {214,"'Ireland'"}, {215,"'Italy'"}, {216,"'Kazakhstan'"}, {217,"'Latvia'"}, {218,"'Liechtenstein'"}, {219,"'Lithuania'"}, {220,"'Luxembourg'"}, {221,"'Macedonia'"}, {222,"'Malta'"}, {223,"'Moldova'"}, {224,"'Netherlands'"}, {225,"'Northern Ireland'"}, {226,"'Norway'"}, {227,"'Poland'"}, {228,"'Portugal'"}, {229,"'Romania'"}, {230,"'Russia'"}, {231,"'San Marino'"}, {232,"'Scotland'"}, {234,"'Slovakia'"}, {235,"'Slovenia'"}, {236,"'Spain'"}, {237,"'Sweden'"}, {238,"'Switzerland'"}, {239,"'Ukraine'"}, {240,"'Uzbekistan'"}, {241,"'Wales'"}, {245,"'Gibraltar'"}, {250,"'Monaco'"}, {260,"'Others'"}, {298,"'Taiwan'"}, {303,"'Serbia'"}, {304,"'Montenegro'"}, {310,"'Sint Maarten'"}, {311,"'Kosovo'"}, {312,"'South Sudan'"} }
 PES10.MONEY_DESC_TAGS = { [13]=true, [14]=true, [30]=true, [31]=true, [32]=true, [33]=true, [34]=true, [35]=true, [51]=true, [52]=true, [55]=true, [56]=true, [61]=true, [62]=true, [63]=true, [64]=true }
 PES10.CLUB_HANDLE_IDS = { [79]=true, [80]=true, [98]=true, [99]=true }
 PES10.CLOCK_RECORD_ID = 284

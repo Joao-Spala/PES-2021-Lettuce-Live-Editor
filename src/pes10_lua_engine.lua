@@ -3994,7 +3994,7 @@ function PES10.openBioConditionModal()
   if p == 0 then return end
   local pName = readString(p + 0x38, 46, false) or PES10.T("Atleta", "Player")
   local pShirt = readString(p + 0x75, 46, false) or ""
-  local f, S, W, H, hdrBar = makeStudioModal("bio", PES10.T("Perfil, Físico & Condição - ", "Profile, Physical & Condition - ") .. pName, 620, 560, M_BLUE, 56)
+  local f, S, W, H, hdrBar = makeStudioModal("bio", PES10.T("Perfil, Físico & Condição - ", "Profile, Physical & Condition - ") .. pName, 620, 598, M_BLUE, 56)
 
   local hdr = makeModalLabel(hdrBar, S(16), S(10), W - S(32), S(20), pName, 11, M_TEXT, true)
   makeModalLabel(hdrBar, S(16), S(32), W - S(32), S(16), PES10.T("Nome, camisa, físico, pés, regularidade, seta, auge e backup JSON", "Name, shirt name, physical, feet, form, arrow, peak & JSON backup"), 8, M_SUBTEXT, false)
@@ -4035,6 +4035,17 @@ function PES10.openBioConditionModal()
     PES10.T("4: Azul (Excelente / Topo)", "4: Blue Up (Top Form)"),
   }, math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3))))
 
+  local natList = PES10.NATIONALITIES or { {144, "Brazil"} }
+  local natLabels = {}
+  local curNatId = PES10.readU16(p + 0x144)
+  local initNatIdx = 0
+  for i, nt in ipairs(natList) do
+    natLabels[i] = string.format("%s (ID %d)", nt[2], nt[1])
+    if nt[1] == curNatId then initNatIdx = i - 1 end
+  end
+  makeModalLabel(f, S(16), S(346), S(168), S(18), PES10.T("Nacionalidade (221):", "Nationality (221):"), 9, M_SUBTEXT, false)
+  local cbNat = makeDarkCombo(f, S(188), S(340), S(412), S(30), natLabels, initNatIdx)
+
   local function reloadBioFields()
     local nm = readString(p + 0x38, 46, false) or pName
     edName.Text  = nm
@@ -4051,6 +4062,10 @@ function PES10.openBioConditionModal()
     edInjD.Text  = tostring(PES10.readU8(p + 0x148))
     cbFoot.setIndex(PES10.getBitsInDword(p + 0x03, 7, 1))
     cbArr.setIndex(math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3))))
+    local nId = PES10.readU16(p + 0x144)
+    for i, nt in ipairs(natList) do
+      if nt[1] == nId then cbNat.setIndex(i - 1); break end
+    end
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
   end
 
@@ -4078,12 +4093,14 @@ function PES10.openBioConditionModal()
     PES10.setBitsInDword(p + 0x03, 7, 1, cbFoot.getIndex() or 0)
     PES10.setBitsInDword(p + 0x147, 0, 3, arrIdx or 4)
     PES10.setBitsInDword(p + 0x146, 7, 1, (arrIdx == 4) and 1 or 0)
+    local selNat = natList[(cbNat.getIndex() or 0) + 1]
+    if selNat and selNat[1] then writeSmallInteger(p + 0x144, selNat[1]) end
     PES10.syncAllDynamicPointers()
     PES10.toast(PES10.T("Perfil atualizado: ", "Profile updated: ") .. (newNm ~= "" and newNm or pName))
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
   end
 
-  local y1, y2 = S(364), S(410)
+  local y1, y2 = S(402), S(448)
   makeModalBtn(f, S(16),  y1, S(288), S(36), PES10.T("Aplicar Todas as Alterações", "Apply All Changes"), applyBio, "primary")
   makeModalBtn(f, S(312), y1, S(288), S(36), PES10.T("Auge (Breakthrough) + Anti-Declínio", "Breakthrough + Anti-Decline 30+"), function()
     PES10.applyPlayerEternalPeak(p)

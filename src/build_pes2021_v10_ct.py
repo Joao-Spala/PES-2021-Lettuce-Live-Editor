@@ -1418,6 +1418,12 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
             k, v = line.split(":", 1)
             ps_pairs.append(f'[{int(k)}]={json.dumps(v.strip(), ensure_ascii=False)}')
     playing_styles_lua = "{ " + ", ".join(ps_pairs) + " }"
+    nat_pairs = []
+    for line in DROPDOWNS.get("Nationality", "").splitlines():
+        if ":" in line:
+            k, v = line.split(":", 1)
+            nat_pairs.append(f'{{{int(k)},{json.dumps(v.strip(), ensure_ascii=False)}}}')
+    nationalities_lua = "{ " + ", ".join(nat_pairs) + " }"
     hook_map_lua = "{ " + ", ".join(f"[{idx+1}]={hid}" for idx, hid in enumerate(builder.hook_ids)) + " }"
 
     lua_config_injection = f"""
@@ -1428,6 +1434,7 @@ PES10.ALL_SKILL_BITS = {skills_bits_lua}
 PES10.ALL_SKILL_ITEMS = {skills_items_lua}
 PES10.ALL_COM_ITEMS = {com_items_lua}
 PES10.PLAYING_STYLE_NAMES = {playing_styles_lua}
+PES10.NATIONALITIES = {nationalities_lua}
 PES10.MONEY_DESC_TAGS = {money_map_lua}
 PES10.CLUB_HANDLE_IDS = {club_map_lua}
 PES10.CLOCK_RECORD_ID = {builder.clock_id}
