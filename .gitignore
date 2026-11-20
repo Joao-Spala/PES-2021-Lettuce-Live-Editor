@@ -1,5 +1,8 @@
 # Ambiente Python local e caches
 .venv/
+app/.venv/
+app/build_tmp/
+dist/*.exe
 __pycache__/
 *.py[cod]
 *.egg-info/

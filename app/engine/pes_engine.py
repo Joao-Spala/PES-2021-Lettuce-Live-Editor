@@ -1,0 +1,1373 @@
+"""
+PES 2021 Ultimate Studio - Standalone Game Engine (Master League / BAL / Match / Player).
+100% pure Python + Win32Memory + native x64 HookManager. Zero Cheat Engine required.
+"""
+
+import json
+import math
+import struct
+import threading
+import time
+import unicodedata
+from typing import Any, Dict, List, Optional, Tuple
+
+from .win32_mem import Win32Memory
+from .hooks import HookManager
+from .pes_data import (
+    OVR_DATA,
+    BMPES_TEAMS,
+    BMPES_COMPS,
+    POSITIONS,
+    TEAM_ROLES,
+    SCOUT_LISTS,
+    SCOUT_EMPTY_SENTINEL,
+    FID_LOC,
+    OUTFIELD_FIDS,
+    GK_FIDS,
+    POS_REMAP,
+    POS_APT_LOC,
+    STAT_DEFS,
+    PLAYER_SKILLS,
+    COM_AI_STYLES,
+    NATIONALITIES,
+    PLAYING_STYLES,
+)
+
+PLAYER_RECORD_SIZE = 0x17C
+UNDO_MAX_DEPTH = 10
+
+
+def _norm_text(s: str) -> str:
+    if not s:
+        return ""
+    nfd = unicodedata.normalize("NFD", s)
+    return "".join(c for c in nfd if unicodedata.category(c) != "Mn").lower()
+
+
+def _get_bits_buf(buf: bytes, off: int, bit_start: int, bit_len: int) -> int:
+    if off + 4 <= len(buf):
+        v = struct.unpack_from("<I", buf, off)[0]
+    else:
+        chunk = buf[off : off + 4].ljust(4, b"\x00")
+        v = struct.unpack("<I", chunk)[0]
+    return (v >> bit_start) & ((1 << bit_len) - 1)
+
+
+def _set_bits_buf(buf: bytearray, off: int, bit_start: int, bit_len: int, val: int) -> None:
+    if off + 4 <= len(buf):
+        v = struct.unpack_from("<I", buf, off)[0]
+        mask = ((1 << bit_len) - 1) << bit_start
+        v = (v & ~mask) | ((int(val) << bit_start) & mask)
+        struct.pack_into("<I", buf, off, v)
+    else:
+        chunk = bytearray(buf[off : off + 4].ljust(4, b"\x00"))
+        v = struct.unpack("<I", chunk)[0]
+        mask = ((1 << bit_len) - 1) << bit_start
+        v = (v & ~mask) | ((int(val) << bit_start) & mask)
+        packed = struct.pack("<I", v)
+        for i in range(min(4, len(buf) - off)):
+            buf[off + i] = packed[i]
+
+
+def get_fid_from_buf(buf: bytes, fid: int) -> int:
+    off, bs = FID_LOC[fid]
+    return _get_bits_buf(buf, off, bs, 7)
+
+
+def set_fid_in_buf(buf: bytearray, fid: int, val: int) -> None:
+    off, bs = FID_LOC[fid]
+    v = max(40, min(99, int(val)))
+    _set_bits_buf(buf, off, bs, 7, v)
+
+
+def get_apt_from_buf(buf: bytes, pos_idx: int) -> int:
+    off, bs = POS_APT_LOC[pos_idx]
+    return _get_bits_buf(buf, off, bs, 2)
+
+
+def set_apt_in_buf(buf: bytearray, pos_idx: int, grade: int) -> None:
+    off, bs = POS_APT_LOC[pos_idx]
+    _set_bits_buf(buf, off, bs, 2, max(0, min(2, int(grade))))
+
+
+def calc_ovr_from_buf(
+    buf: bytes, eval_pos: Optional[int] = None, assume_apt_a: bool = False
+) -> Tuple[int, int]:
+    """Exact Konami OVR formula (fcn.1414e7a50 + fcn.141e640a0). Returns (ovr, reg_pos)."""
+    if not buf or len(buf) < 0x28:
+        return 40, 0
+    real_reg_pos = (struct.unpack_from("<I", buf, 0x04)[0] >> 28) & 0x0F
+    if real_reg_pos > 12:
+        real_reg_pos = 12
+    target_pos = real_reg_pos if eval_pos is None else int(eval_pos)
+    if target_pos < 0 or target_pos > 12:
+        target_pos = real_reg_pos
+
+    reg_code = POS_REMAP.get(real_reg_pos, 0)
+    target_code = POS_REMAP.get(target_pos, 0)
+
+    arr = [-1] * 44
+    arr[0] = reg_code
+
+    for pair in OVR_DATA["field_to_slot"]:
+        fid, slot = int(pair[0]), int(pair[1])
+        if slot < 41:
+            if fid in FID_LOC:
+                arr[slot] = get_fid_from_buf(buf, fid)
+            elif fid == 32:
+                arr[slot] = (struct.unpack_from("<I", buf, 0x20)[0] >> 20) & 3
+
+    col = 0
+    for ci, pc in enumerate(OVR_DATA["pos_order"]):
+        if pc == target_code:
+            col = ci
+            break
+
+    weights_23x13 = OVR_DATA["weights_23x13"]
+    acc = 0
+    for r, sidx in enumerate(OVR_DATA["stat_indices_23"]):
+        if sidx == 0x21:
+            avg_gk1 = (arr[33] + arr[37]) >> 1
+            v = 1 if avg_gk1 < 25 else (avg_gk1 - 25)
+        elif sidx == 0x22:
+            avg_gk2 = (arr[38] + arr[40] + arr[39]) // 3
+            v = 1 if avg_gk2 < 25 else (avg_gk2 - 25)
+        else:
+            v = arr[sidx]
+            if sidx != 0x24:
+                v = 1 if v < 25 else (v - 25)
+        acc += weights_23x13[r][col] * v
+
+    u1 = (acc + 50) // 100
+    if target_code == reg_code:
+        u1 += OVR_DATA["base_reg"][col]
+        if target_code != 12:
+            s6 = 0
+            for sidx in OVR_DATA["avg_indices_22"]:
+                if sidx == 0x21:
+                    s6 += (arr[37] + arr[33]) >> 1
+                elif sidx == 0x22:
+                    s6 += (arr[38] + arr[40] + arr[39]) // 3
+                else:
+                    s6 += arr[sidx]
+            u3 = ((s6 * 100) // 22) + 50
+            if u3 < 10000:
+                c_idx = u3 // 100
+                curve = OVR_DATA["curve_100"]
+                cval = curve[c_idx] if 0 <= c_idx < len(curve) else 70
+            else:
+                cval = 70
+            u1 = (cval * 40 + 50 + u1 * 60) // 100
+    else:
+        apt = 2 if assume_apt_a else get_apt_from_buf(buf, target_pos)
+        if apt >= 2:
+            u1 += OVR_DATA["base_apt_a"][col]
+        elif apt == 1:
+            u1 += OVR_DATA["base_apt_b"][col]
+
+    return max(40, min(109, int(u1))), real_reg_pos
+
+
+def parse_human_money_to_raw(text: str) -> Optional[int]:
+    """Parse '25M', '500k', '1.5B', '2.712.400', etc. into Konami raw int (Euros / 100)."""
+    if text is None:
+        return None
+    s = str(text).strip().upper()
+    for sym in ("€", "R$", "$", "£", "EUR", "BRL", "USD", "GBP", " "):
+        s = s.replace(sym, "")
+    if not s:
+        return None
+    mult = 1.0
+    if s.endswith("B"):
+        mult = 1_000_000_000.0
+        s = s[:-1]
+    elif s.endswith("M"):
+        mult = 1_000_000.0
+        s = s[:-1]
+    elif s.endswith("K"):
+        mult = 1_000.0
+        s = s[:-1]
+    if mult > 1.0:
+        s = s.replace(",", ".")
+    else:
+        # Remove thousands separators
+        if s.count(".") > 1 or (s.count(".") == 1 and len(s.split(".")[1]) == 3):
+            s = s.replace(".", "")
+        if s.count(",") > 1 or (s.count(",") == 1 and len(s.split(",")[1]) == 3):
+            s = s.replace(",", "")
+        s = s.replace(",", ".")
+    try:
+        euros = float(s) * mult
+        return max(0, min(2_147_483_647, int(round(euros / 100.0))))
+    except ValueError:
+        return None
+
+
+class PESEngine:
+    """Thread-safe standalone PES 2021 Master League / BAL / Match / Player Engine."""
+
+    def __init__(self) -> None:
+        self.lock = threading.RLock()
+        self.mem = Win32Memory()
+        self.hooks = HookManager(self.mem)
+        self.addr_career_owner: int = 0
+        self.addr_match_mgr: int = 0
+        self.undo_stack: Dict[int, List[Dict[str, Any]]] = {}
+        self._squad_cache: Optional[Dict[str, Any]] = None
+        self._wage_cache_time: float = 0.0
+        self._wage_cache_career: int = 0
+        self._wage_cache_sum: int = 0
+        self._last_pid: int = 0
+        self._manual_player_addr: int = 0
+        self._last_hook_player: int = 0
+
+    # ------------------------------------------------------------------
+    # ATTACH, INIT & LIFECYCLE
+    # ------------------------------------------------------------------
+    def ensure_attached(self) -> bool:
+        with self.lock:
+            if self.mem.attached and self.mem.pid == self._last_pid and self.hooks.state_base:
+                return True
+            if not self.mem.attach():
+                self._reset_session()
+                return False
+            if self.mem.pid != self._last_pid:
+                self._reset_session()
+                self._last_pid = self.mem.pid
+            if not self.hooks.init_state():
+                return False
+            self._discover_singletons()
+            self.hooks.enable_hook_1_player()
+            self.sync_pointers()
+            return True
+
+    def _reset_session(self) -> None:
+        self.addr_career_owner = 0
+        self.addr_match_mgr = 0
+        self._squad_cache = None
+        self._wage_cache_career = 0
+        self._wage_cache_time = 0.0
+        self._manual_player_addr = 0
+        self._last_hook_player = 0
+        self.undo_stack.clear()
+
+    def shutdown(self) -> None:
+        with self.lock:
+            self.hooks.disable_all()
+            self.mem.detach()
+
+    def _discover_singletons(self) -> None:
+        base = self.mem.module_base
+        fast_career = base + 0x3714240
+        fast_match = base + 0x3702208
+        if self.mem.read_u64(fast_career) > 0x10000:
+            self.addr_career_owner = fast_career
+            self.addr_match_mgr = fast_match
+            return
+        # Fallback AOB scan for Football Life / patched EXEs
+        call_site = self.mem.aob_scan_region(
+            base + 0x1000,
+            base + 0x2540000,
+            "E8 ?? ?? ?? ?? 48 8B 48 48 48 8D 81 E0 CB 6E 01",
+        )
+        if call_site:
+            rel_call = self.mem.read_i32(call_site + 1)
+            fn_getter = call_site + 5 + rel_call
+            hdr = self.mem.read_bytes(fn_getter, 7)
+            if hdr and hdr[0] == 0x48 and hdr[1] == 0x8B and hdr[2] == 0x05:
+                disp = struct.unpack_from("<i", hdr, 3)[0]
+                self.addr_career_owner = fn_getter + 7 + disp
+        if not self.addr_career_owner:
+            self.addr_career_owner = fast_career
+
+        match_site = self.mem.aob_scan_region(
+            base + 0x1000,
+            base + 0x2540000,
+            "48 8B 05 ?? ?? ?? ?? 4C 8B E2 45 33 FF 48 8B B0 70 02 00 00",
+        )
+        if match_site:
+            disp = self.mem.read_i32(match_site + 3)
+            self.addr_match_mgr = match_site + 7 + disp
+        else:
+            self.addr_match_mgr = fast_match
+
+    def sync_pointers(self) -> Tuple[int, int, int]:
+        """Refresh career, match_mgr, match_state, and return (career, player_addr, match_state)."""
+        if not self.mem.attached or not self.hooks.state_base:
+            return 0, 0, 0
+        career = 0
+        if self.addr_career_owner:
+            owner = self.mem.read_u64(self.addr_career_owner)
+            if owner > 0x10000:
+                career = self.mem.read_u64(owner + 0x48)
+        self.mem.write_u64(self.hooks.sym_addr("ptrCareer"), career)
+
+        match_mgr = 0
+        match_state = 0
+        if self.addr_match_mgr:
+            match_mgr = self.mem.read_u64(self.addr_match_mgr)
+            if match_mgr > 0x10000:
+                match_state = self.mem.read_u64(match_mgr + 0x270)
+        self.mem.write_u64(self.hooks.sym_addr("ptrMatchMgr"), match_mgr)
+        self.mem.write_u64(self.hooks.sym_addr("ptrMatchState"), match_state)
+
+        # BAL Focus lock
+        if career > 0x10000:
+            if self.mem.read_u32(self.hooks.sym_addr("cfgLockBALFocusPoints")) == 1:
+                self.hooks.enable_hook_4_bal_cap()
+                self.mem.write_u8(career + 0x016ECBEA, 99)
+
+        # Track in-game player changes vs manual app selection
+        hook_p = self.mem.read_u64(self.hooks.sym_addr("ptrPlayer"))
+        if hook_p > 0x10000 and hook_p != self._last_hook_player:
+            self._last_hook_player = hook_p
+            self._manual_player_addr = hook_p
+
+        active_p = self._manual_player_addr if self._manual_player_addr > 0x10000 else hook_p
+        return career, active_p, match_state
+
+    def select_player(self, addr: int) -> bool:
+        with self.lock:
+            if not self.ensure_attached() or addr <= 0x10000:
+                return False
+            self._manual_player_addr = int(addr)
+            self._last_hook_player = int(addr)
+            self.mem.write_u64(self.hooks.sym_addr("ptrPlayer"), int(addr))
+            return True
+
+    # ------------------------------------------------------------------
+    # UNDO STACK (10-level full 0x17C snapshot per player)
+    # ------------------------------------------------------------------
+    def push_undo(self, p_addr: int, label: str) -> None:
+        snap = self.mem.read_bytes(p_addr, PLAYER_RECORD_SIZE)
+        if not snap or len(snap) < PLAYER_RECORD_SIZE:
+            return
+        st = self.undo_stack.setdefault(p_addr, [])
+        st.append({"bytes": snap, "label": label, "time": time.strftime("%H:%M:%S")})
+        if len(st) > UNDO_MAX_DEPTH:
+            st.pop(0)
+
+    def undo_last(self, p_addr: Optional[int] = None) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "msg": "Jogo não conectado"}
+            _, cur_p, _ = self.sync_pointers()
+            p = p_addr or cur_p
+            st = self.undo_stack.get(p)
+            if not st:
+                return {"ok": False, "msg": "Nenhuma alteração para desfazer"}
+            entry = st.pop()
+            self.mem.write_bytes(p, entry["bytes"])
+            return {"ok": True, "label": entry["label"], "remaining": len(st)}
+
+    # ------------------------------------------------------------------
+    # CAREER, CLUB & EXACT FINANCES
+    # ------------------------------------------------------------------
+    def decode_club_handle(self, raw_u32: int, career: int = 0) -> Tuple[int, str]:
+        if raw_u32 == 0 or raw_u32 == 0xFFFFFFFF:
+            return 0, "Sem Clube / Livre"
+        slot = raw_u32 % 16384
+        team_id = raw_u32 // 16384
+        c = career or self.mem.read_u64(self.hooks.sym_addr("ptrCareer"))
+        if c > 0x10000 and slot < 1200:
+            club_entry = c + 0xADF4BC + (slot * 0x690)
+            entry_h = self.mem.read_u32(club_entry)
+            if entry_h == raw_u32 or (entry_h % 16384) == slot:
+                live_name = self.mem.read_str(club_entry + 0x04, 64)
+                abbr = self.mem.read_str(club_entry + 0x4A, 6)
+                if live_name:
+                    return team_id, (f"{live_name} [{abbr}]" if abbr else live_name)
+        name = BMPES_TEAMS.get(team_id) or f"Club #{team_id}"
+        return team_id, name
+
+    def get_user_club_handle(self, career: int) -> int:
+        if not career:
+            return 0
+        uc = self.mem.read_u32(career + 0x01642A2C)
+        if uc and uc != 0xFFFFFFFF:
+            return uc
+        h0 = self.mem.read_u64(career + 0x016EE854)
+        if (h0 >> 32) != 0:
+            lo = h0 & 0xFFFFFFFF
+            if lo < 30000:
+                c0 = self.mem.read_u32(career + lo * PLAYER_RECORD_SIZE + 0x12C)
+                if c0 and c0 != 0xFFFFFFFF:
+                    return c0
+        bal_h = self.mem.read_u64(career + 0x01819540)
+        if (bal_h >> 32) != 0:
+            lo = bal_h & 0xFFFFFFFF
+            if lo < 30000:
+                c1 = self.mem.read_u32(career + lo * PLAYER_RECORD_SIZE + 0x12C)
+                if c1 and c1 != 0xFFFFFFFF:
+                    return c1
+        return 0
+
+    def get_user_squad_addresses(self, career: int, force_rescan: bool = False) -> List[int]:
+        uc = self.get_user_club_handle(career)
+        if not uc:
+            return []
+        now = time.monotonic()
+        sc = self._squad_cache
+        need = (
+            force_rescan
+            or not sc
+            or sc["career"] != career
+            or sc["uc"] != uc
+            or (now - sc["time"]) > 30.0
+        )
+        if not need and sc:
+            for a in sc["addrs"]:
+                if self.mem.read_u32(a + 0x12C) != uc:
+                    need = True
+                    break
+        if need:
+            count = self.mem.read_u32(career + 0x00D0BCE8)
+            if count == 0 or count > 30001:
+                count = 30000
+            # Bulk read in 4MB chunks for ultra-fast (<25ms) 30k scan!
+            total_bytes = count * PLAYER_RECORD_SIZE
+            raw = self.mem.read_bytes(career, total_bytes)
+            addrs: List[int] = []
+            if raw:
+                for i in range(count):
+                    off = i * PLAYER_RECORD_SIZE
+                    club_h = struct.unpack_from("<I", raw, off + 0x12C)[0]
+                    if club_h == uc:
+                        pid = struct.unpack_from("<I", raw, off + 0x30)[0]
+                        if pid != 0 and pid != 0xFFFFFFFF:
+                            addrs.append(career + off)
+            sc = {"career": career, "uc": uc, "time": now, "addrs": addrs}
+            self._squad_cache = sc
+        return sc["addrs"] if sc else []
+
+    def get_available_salary_budget(
+        self, career: int, force_refresh: bool = False
+    ) -> Tuple[int, int, int]:
+        """Exact Konami 0x14156D170 formula: Gross (0x016ECC08) - Active Squad Wages - Pending Overrides."""
+        if not career:
+            return 0, 0, 0
+        gross = self.mem.read_i32(career + 0x016ECC08)
+        now = time.monotonic()
+        if (
+            not force_refresh
+            and self._wage_cache_career == career
+            and (now - self._wage_cache_time) < 2.0
+        ):
+            return gross - self._wage_cache_sum, gross, self._wage_cache_sum
+
+        overrides: Dict[int, int] = {}
+        ov_sum = 0
+        ov_raw = self.mem.read_bytes(career + 0x016F0764, 34 * 12)
+        if ov_raw:
+            for i in range(34):
+                ph, ov = struct.unpack_from("<Qi", ov_raw, i * 12)
+                if ph != 0 and (ph & 0xFFFF) != 0xFFFF and (ph >> 32) != 0:
+                    overrides[ph] = ov
+                    ov_sum += ov
+
+        addrs = self.get_user_squad_addresses(career, force_rescan=force_refresh)
+        sum_sal = 0
+        seen = set()
+        for p in addrs:
+            ph = self.mem.read_u64(p + 0x2C)
+            if ph not in seen:
+                seen.add(ph)
+                if not overrides.get(ph):
+                    sum_sal += self.mem.read_i32(p + 0x15C)
+        sum_sal += ov_sum
+        self._wage_cache_career = career
+        self._wage_cache_time = now
+        self._wage_cache_sum = sum_sal
+        return gross - sum_sal, gross, sum_sal
+
+    def get_finances(self) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            career, _, _ = self.sync_pointers()
+            if not career:
+                return {"ok": False, "msg": "Abra uma Master League"}
+            trf = self.mem.read_i32(career + 0x016ECBF4)
+            avail, gross, wages = self.get_available_salary_budget(career, force_refresh=True)
+            return {
+                "ok": True,
+                "transfer_raw": trf,
+                "salary_avail_raw": avail,
+                "salary_gross_raw": gross,
+                "squad_wages_raw": wages,
+            }
+
+    def set_finances(self, transfer_str: Optional[str], salary_avail_str: Optional[str]) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            career, _, _ = self.sync_pointers()
+            if not career:
+                return {"ok": False, "msg": "Abra uma Master League"}
+            if transfer_str is not None and str(transfer_str).strip() != "":
+                t_raw = parse_human_money_to_raw(transfer_str)
+                if t_raw is not None:
+                    self.mem.write_i32(career + 0x016ECBF4, t_raw)
+            if salary_avail_str is not None and str(salary_avail_str).strip() != "":
+                w_raw = parse_human_money_to_raw(salary_avail_str)
+                if w_raw is not None:
+                    _, _, wages = self.get_available_salary_budget(career, force_refresh=True)
+                    new_gross = max(0, min(2_147_483_647, w_raw + wages))
+                    self.mem.write_i32(career + 0x016ECC08, new_gross)
+            return self.get_finances()
+
+    def add_finance_delta(self, kind: str, raw_delta: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            career, _, _ = self.sync_pointers()
+            if not career:
+                return {"ok": False}
+            off = 0x016ECBF4 if kind == "transfer" else 0x016ECC08
+            cur = self.mem.read_i32(career + off)
+            nv = max(0, min(2_147_483_647, cur + int(raw_delta)))
+            self.mem.write_i32(career + off, nv)
+            return self.get_finances()
+
+    # ------------------------------------------------------------------
+    # LIVE STATUS SNAPSHOT (Polled every 500ms by UI)
+    # ------------------------------------------------------------------
+    def get_status(self) -> Dict[str, Any]:
+        with self.lock:
+            attached = self.ensure_attached()
+            if not attached:
+                return {
+                    "attached": False,
+                    "exe": "",
+                    "pid": 0,
+                    "mode": "Aguardando jogo",
+                    "club": "",
+                    "career": 0,
+                    "player": None,
+                    "finances": None,
+                    "hooks": {},
+                    "training_mode": 0,
+                    "stamina_mode": 0,
+                    "bal_focus": 0,
+                    "bal_lock": False,
+                }
+            career, p_addr, match_state = self.sync_pointers()
+            mode = "Menu / Exibição"
+            club_name = ""
+            finances = None
+            bal_focus = 0
+            if career > 0x10000:
+                bal_h = self.mem.read_u64(career + 0x01819540)
+                if (bal_h >> 32) != 0:
+                    mode = "Rumo ao Estrelato (BAL)"
+                else:
+                    mode = "Master League"
+                uc = self.get_user_club_handle(career)
+                if uc:
+                    _, club_name = self.decode_club_handle(uc)
+                trf = self.mem.read_i32(career + 0x016ECBF4)
+                avail, _, wages = self.get_available_salary_budget(career, force_refresh=False)
+                finances = {
+                    "transfer_raw": trf,
+                    "salary_avail_raw": avail,
+                    "squad_wages_raw": wages,
+                }
+                bal_focus = self.mem.read_u8(career + 0x016ECBEA)
+
+            player_summary = None
+            if p_addr > 0x10000:
+                buf = self.mem.read_bytes(p_addr, PLAYER_RECORD_SIZE)
+                if buf and len(buf) == PLAYER_RECORD_SIZE:
+                    ovr, reg_pos = calc_ovr_from_buf(buf)
+                    name = buf[0x38:0x66].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
+                    age = buf[0x1C] & 0x3F
+                    stam = _get_bits_buf(buf, 0x146, 0, 7)
+                    arrow = min(4, _get_bits_buf(buf, 0x147, 0, 3))
+                    inj = buf[0x148]
+                    club_h = struct.unpack_from("<I", buf, 0x12C)[0]
+                    _, p_club = self.decode_club_handle(club_h)
+                    player_summary = {
+                        "addr": p_addr,
+                        "name": name or "?",
+                        "ovr": ovr,
+                        "pos": reg_pos,
+                        "age": age,
+                        "stamina": stam,
+                        "arrow": arrow,
+                        "injury": inj,
+                        "club": p_club,
+                        "undo_count": len(self.undo_stack.get(p_addr, [])),
+                    }
+
+            return {
+                "attached": True,
+                "exe": self.mem.exe_name,
+                "pid": self.mem.pid,
+                "mode": mode,
+                "club": club_name,
+                "career": career,
+                "in_match": match_state > 0x10000,
+                "player": player_summary,
+                "finances": finances,
+                "hooks": dict(self.hooks.active_hooks),
+                "training_mode": self.mem.read_u32(self.hooks.sym_addr("cfgTrainingMultMode")),
+                "stamina_mode": self.mem.read_u32(self.hooks.sym_addr("cfgStaminaMode")),
+                "freeze_clock": self.mem.read_u32(self.hooks.sym_addr("cfgFreezeClock")) == 1,
+                "bal_focus": bal_focus,
+                "bal_lock": self.mem.read_u32(self.hooks.sym_addr("cfgLockBALFocusPoints")) == 1,
+            }
+
+    # ------------------------------------------------------------------
+    # FULL PLAYER DETAILS & EDITING
+    # ------------------------------------------------------------------
+    def get_player_details(self, addr: Optional[int] = None) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "msg": "Jogo não conectado"}
+            _, cur_p, _ = self.sync_pointers()
+            p = addr or cur_p
+            if not p or p <= 0x10000:
+                return {"ok": False, "msg": "Selecione um jogador no jogo"}
+            buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+            if not buf or len(buf) < PLAYER_RECORD_SIZE:
+                return {"ok": False, "msg": "Falha ao ler jogador"}
+
+            ovr, reg_pos = calc_ovr_from_buf(buf)
+            name = buf[0x38:0x66].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
+            shirt = buf[0x75:0x87].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
+            pid = struct.unpack_from("<I", buf, 0x30)[0]
+            club_h = struct.unpack_from("<I", buf, 0x12C)[0]
+            _, club_name = self.decode_club_handle(club_h)
+            nat_id = struct.unpack_from("<H", buf, 0x144)[0] & 0x1FF
+            age = buf[0x1C] & 0x3F
+            height = buf[0x00]
+            weight = buf[0x01]
+            foot = (buf[0x03] >> 7) & 1
+            playing_style = _get_bits_buf(buf, 0x1D, 3, 5)
+            wf_usage = _get_bits_buf(buf, 0x23, 0, 2) + 1
+            wf_acc = _get_bits_buf(buf, 0x22, 4, 2) + 1
+            form_cons = _get_bits_buf(buf, 0x17, 4, 3) + 1
+            inj_res = _get_bits_buf(buf, 0x22, 6, 2) + 1
+            stamina = _get_bits_buf(buf, 0x146, 0, 7)
+            arrow = min(4, _get_bits_buf(buf, 0x147, 0, 3))
+            injury = buf[0x148]
+            contract_yr = struct.unpack_from("<H", buf, 0x138)[0]
+            salary_raw = struct.unpack_from("<i", buf, 0x15C)[0]
+            market_raw = struct.unpack_from("<i", buf, 0x174)[0]
+            team_role = _get_bits_buf(buf, 0x150, 0, 5)
+            team_role_lvl = _get_bits_buf(buf, 0x143, 6, 2)
+
+            stats = {str(s["fid"]): get_fid_from_buf(buf, s["fid"]) for s in STAT_DEFS}
+
+            positions = []
+            for pos_idx in range(13):
+                p_ovr, _ = calc_ovr_from_buf(buf, pos_idx, False)
+                apt = get_apt_from_buf(buf, pos_idx)
+                positions.append(
+                    {
+                        "id": pos_idx,
+                        "ovr": p_ovr,
+                        "apt": apt,
+                        "is_reg": pos_idx == reg_pos,
+                    }
+                )
+
+            skills = {}
+            for sk in PLAYER_SKILLS:
+                skills[sk["key"]] = _get_bits_buf(buf, sk["offset"], sk["bit"], 1) == 1
+
+            com_ai = {}
+            for ai in COM_AI_STYLES:
+                com_ai[ai["key"]] = _get_bits_buf(buf, ai["offset"], ai["bit"], 1) == 1
+
+            return {
+                "ok": True,
+                "addr": p,
+                "pid": pid,
+                "name": name,
+                "shirt": shirt,
+                "club": club_name,
+                "ovr": ovr,
+                "reg_pos": reg_pos,
+                "nationality": nat_id,
+                "age": age,
+                "height": height,
+                "weight": weight,
+                "foot": foot,
+                "playing_style": playing_style,
+                "wf_usage": wf_usage,
+                "wf_acc": wf_acc,
+                "form_cons": form_cons,
+                "inj_res": inj_res,
+                "stamina": stamina,
+                "arrow": arrow,
+                "injury": injury,
+                "contract_yr": contract_yr,
+                "salary_raw": salary_raw,
+                "market_raw": market_raw,
+                "team_role": team_role,
+                "team_role_lvl": team_role_lvl,
+                "stats": stats,
+                "positions": positions,
+                "skills": skills,
+                "com_ai": com_ai,
+                "undo_count": len(self.undo_stack.get(p, [])),
+            }
+
+    def set_player_quick_condition(
+        self, stamina: Optional[int] = None, arrow: Optional[int] = None, heal: bool = False
+    ) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False}
+            self.push_undo(p, "Condição")
+            if stamina is not None:
+                self.mem.set_bits(p + 0x146, 0, 7, max(0, min(100, int(stamina))))
+            if arrow is not None:
+                a = max(0, min(4, int(arrow)))
+                self.mem.set_bits(p + 0x147, 0, 3, a)
+                self.mem.set_bits(p + 0x146, 7, 1, 1 if a == 4 else 0)
+            if heal:
+                self.mem.write_u8(p + 0x148, 0)
+            return self.get_player_details(p)
+
+    def update_player_bio(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False}
+            self.push_undo(p, "Bio")
+            if "name" in payload and payload["name"] is not None:
+                self.mem.write_str(p + 0x38, str(payload["name"]), 46)
+            if "shirt" in payload and payload["shirt"] is not None:
+                self.mem.write_str(p + 0x75, str(payload["shirt"]).upper(), 18)
+            if "nationality" in payload:
+                cur = self.mem.read_u16(p + 0x144)
+                nv = (cur & ~0x1FF) | (int(payload["nationality"]) & 0x1FF)
+                self.mem.write_u16(p + 0x144, nv)
+            if "age" in payload:
+                self.mem.set_bits(p + 0x1C, 0, 6, max(15, min(50, int(payload["age"]))))
+            if "height" in payload:
+                self.mem.write_u8(p + 0x00, max(145, min(215, int(payload["height"]))))
+            if "weight" in payload:
+                self.mem.write_u8(p + 0x01, max(45, min(125, int(payload["weight"]))))
+            if "foot" in payload:
+                self.mem.set_bits(p + 0x03, 7, 1, 1 if int(payload["foot"]) else 0)
+            if "contract_yr" in payload:
+                self.mem.write_u16(p + 0x138, max(2019, min(2150, int(payload["contract_yr"]))))
+            if "salary_str" in payload and str(payload["salary_str"]).strip() != "":
+                sr = parse_human_money_to_raw(str(payload["salary_str"]))
+                if sr is not None:
+                    self.mem.write_i32(p + 0x15C, sr)
+            if "wf_usage" in payload:
+                self.mem.set_bits(p + 0x23, 0, 2, max(0, min(3, int(payload["wf_usage"]) - 1)))
+            if "wf_acc" in payload:
+                self.mem.set_bits(p + 0x22, 4, 2, max(0, min(3, int(payload["wf_acc"]) - 1)))
+            if "form_cons" in payload:
+                self.mem.set_bits(p + 0x17, 4, 3, max(0, min(7, int(payload["form_cons"]) - 1)))
+            if "inj_res" in payload:
+                self.mem.set_bits(p + 0x22, 6, 2, max(0, min(2, int(payload["inj_res"]) - 1)))
+            if "injury" in payload:
+                self.mem.write_u8(p + 0x148, max(0, min(255, int(payload["injury"]))))
+            return self.get_player_details(p)
+
+    def set_player_stat(self, fid: int, val: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p or int(fid) not in FID_LOC:
+                return {"ok": False}
+            self.push_undo(p, f"Stat {fid}")
+            off, bs = FID_LOC[int(fid)]
+            self.mem.set_bits(p + off, bs, 7, max(40, min(99, int(val))))
+            return self.get_player_details(p)
+
+    def set_player_stats_batch(self, stats_map: Dict[str, int]) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False}
+            buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+            if not buf:
+                return {"ok": False}
+            self.push_undo(p, "Atributos")
+            ba = bytearray(buf)
+            for k, v in stats_map.items():
+                fid = int(k)
+                if fid in FID_LOC:
+                    set_fid_in_buf(ba, fid, int(v))
+            self.mem.write_bytes(p, bytes(ba[:0x28]))
+            return self.get_player_details(p)
+
+    def set_player_skill(self, skill_key: str, enabled: bool) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False}
+            for item in PLAYER_SKILLS + COM_AI_STYLES:
+                if item["key"] == skill_key:
+                    self.push_undo(p, skill_key)
+                    self.mem.set_bits(p + item["offset"], item["bit"], 1, 1 if enabled else 0)
+                    return self.get_player_details(p)
+            return {"ok": False}
+
+    def set_playing_style(self, style_id: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False}
+            self.push_undo(p, "Estilo")
+            self.mem.set_bits(p + 0x1D, 3, 5, max(0, min(21, int(style_id))))
+            return self.get_player_details(p)
+
+    def set_team_role(self, role_id: int, level: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False}
+            self.push_undo(p, "Função Equipe")
+            self.mem.set_bits(p + 0x150, 0, 5, max(0, min(22, int(role_id))))
+            self.mem.set_bits(p + 0x143, 6, 2, max(0, min(3, int(level))))
+            return self.get_player_details(p)
+
+    # ------------------------------------------------------------------
+    # POSITION LAB (Strict 1-by-1 stepping & Zero Primary OVR Drift!)
+    # ------------------------------------------------------------------
+    def set_position_aptitude(self, pos_idx: int, grade: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p or pos_idx < 0 or pos_idx > 12:
+                return {"ok": False}
+            self.push_undo(p, f"Grau Pos {pos_idx}")
+            off, bs = POS_APT_LOC[pos_idx]
+            self.mem.set_bits(p + off, bs, 2, max(0, min(2, int(grade))))
+            return self.get_player_details(p)
+
+    def set_registered_position(self, pos_idx: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p or pos_idx < 0 or pos_idx > 12:
+                return {"ok": False}
+            self.push_undo(p, "Pos Principal")
+            self.mem.set_bits(p + 0x07, 4, 4, pos_idx)
+            off, bs = POS_APT_LOC[pos_idx]
+            self.mem.set_bits(p + off, bs, 2, 2)
+            return self.get_player_details(p)
+
+    def _get_pos_weights(self, pos_idx: int) -> Dict[int, float]:
+        target_code = POS_REMAP.get(pos_idx, 0)
+        col = 0
+        for ci, pc in enumerate(OVR_DATA["pos_order"]):
+            if pc == target_code:
+                col = ci
+                break
+        stat_indices = OVR_DATA["stat_indices_23"]
+        weights_23x13 = OVR_DATA["weights_23x13"]
+        slot_to_fid = {int(pair[1]): int(pair[0]) for pair in OVR_DATA["field_to_slot"]}
+        out: Dict[int, float] = {}
+        for row_i, s_idx in enumerate(stat_indices):
+            fid = slot_to_fid.get(s_idx)
+            if fid is not None:
+                out[fid] = float(weights_23x13[row_i][col])
+        return out
+
+    def _scale_primary_ovr(self, p: int, target_ovr: int) -> Tuple[bool, str]:
+        buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+        if not buf:
+            return False, "Falha ao ler jogador"
+        cur_ovr, reg_pos = calc_ovr_from_buf(buf)
+        target = max(40, min(99, int(target_ovr)))
+        if cur_ovr == target:
+            return True, f"Já está em {cur_ovr}"
+        self.push_undo(p, f"OVR {cur_ovr}->{target}")
+        ba = bytearray(buf)
+        step = 1 if target > cur_ovr else -1
+        fids = GK_FIDS if reg_pos == 0 else OUTFIELD_FIDS
+        w_map = self._get_pos_weights(reg_pos)
+        ranked = sorted(fids, key=lambda f: w_map.get(f, 0.0), reverse=True)
+
+        for _ in range(800):
+            now_ovr, _ = calc_ovr_from_buf(bytes(ba), reg_pos, False)
+            if (step > 0 and now_ovr >= target) or (step < 0 and now_ovr <= target):
+                break
+            changed = False
+            for fid in ranked:
+                cur_v = get_fid_from_buf(bytes(ba), fid)
+                nv = cur_v + step
+                if 40 <= nv <= 99:
+                    set_fid_in_buf(ba, fid, nv)
+                    changed = True
+                    now_ovr, _ = calc_ovr_from_buf(bytes(ba), reg_pos, False)
+                    if (step > 0 and now_ovr >= target) or (step < 0 and now_ovr <= target):
+                        break
+            if not changed:
+                break
+        self.mem.write_bytes(p, bytes(ba[:0x28]))
+        final_ovr, _ = calc_ovr_from_buf(bytes(ba), reg_pos, False)
+        return True, f"OVR Principal: {cur_ovr} -> {final_ovr}"
+
+    def _boost_secondary_isolated(self, p: int, target_pos: int, target_ovr: int) -> Tuple[bool, str]:
+        buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+        if not buf:
+            return False, "Falha ao ler jogador"
+        orig_pri, reg_pos = calc_ovr_from_buf(buf)
+        if target_pos == reg_pos:
+            return self._scale_primary_ovr(p, target_ovr)
+
+        orig_sec, _ = calc_ovr_from_buf(buf, target_pos, False)
+        target = max(40, min(99, int(target_ovr)))
+        if orig_sec == target:
+            return True, f"Já está em {orig_sec}"
+
+        direction = 1 if target > orig_sec else -1
+        w_pri = self._get_pos_weights(reg_pos)
+        w_sec = self._get_pos_weights(target_pos)
+        fids = GK_FIDS if target_pos == 0 else OUTFIELD_FIDS
+
+        # Rank stats by highest secondary weight / lowest primary weight ratio
+        def score_fid(f: int) -> float:
+            ws = w_sec.get(f, 0.0)
+            wp = w_pri.get(f, 0.0)
+            return ws / (wp + 0.005)
+
+        ranked = sorted([f for f in fids if w_sec.get(f, 0.0) > 0.0], key=score_fid, reverse=True)
+        if not ranked:
+            ranked = list(fids)
+
+        ba = bytearray(buf)
+        best_ba = bytearray(buf)
+        best_sec = orig_sec
+
+        for _ in range(900):
+            cur_sec, _ = calc_ovr_from_buf(bytes(ba), target_pos, False)
+            if cur_sec == target:
+                break
+            moved = False
+            for fid in ranked:
+                cur_v = get_fid_from_buf(bytes(ba), fid)
+                nv = cur_v + direction
+                if not (40 <= nv <= 99):
+                    continue
+                set_fid_in_buf(ba, fid, nv)
+                test_pri, _ = calc_ovr_from_buf(bytes(ba), reg_pos, False)
+                test_sec, _ = calc_ovr_from_buf(bytes(ba), target_pos, False)
+                overshoot = (direction > 0 and test_sec > target) or (direction < 0 and test_sec < target)
+                if test_pri == orig_pri and not overshoot:
+                    moved = True
+                    if (direction > 0 and test_sec > best_sec) or (direction < 0 and test_sec < best_sec):
+                        best_sec = test_sec
+                        best_ba = bytearray(ba)
+                    if test_sec == target:
+                        break
+                else:
+                    set_fid_in_buf(ba, fid, cur_v)
+            if not moved:
+                break
+
+        if best_sec == orig_sec:
+            apt = get_apt_from_buf(buf, target_pos)
+            hint = " (suba o Grau para B ou A para liberar mais OVR)" if (direction > 0 and apt < 2) else ""
+            return False, f"Limite isolado atingido ({orig_sec} OVR, principal mantido em {orig_pri}){hint}"
+
+        self.push_undo(p, f"Pos {target_pos} {orig_sec}->{best_sec}")
+        self.mem.write_bytes(p, bytes(best_ba[:0x28]))
+        apt = get_apt_from_buf(bytes(best_ba), target_pos)
+        extra = ""
+        if best_sec != target:
+            hint = " - suba o Grau para A para ir além" if (direction > 0 and apt < 2) else ""
+            extra = f" (teto isolado sem alterar principal {orig_pri}{hint})"
+        return True, f"Posição ajustada: {orig_sec} -> {best_sec}{extra}"
+
+    def step_position_ovr(self, pos_idx: int, delta: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "msg": "Jogo não conectado"}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False, "msg": "Selecione um jogador"}
+            buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+            if not buf:
+                return {"ok": False, "msg": "Falha ao ler jogador"}
+            cur_ovr, _ = calc_ovr_from_buf(buf, pos_idx, False)
+            ok, msg = self._boost_secondary_isolated(p, pos_idx, cur_ovr + int(delta))
+            res = self.get_player_details(p)
+            res["action_ok"] = ok
+            res["msg"] = msg
+            return res
+
+    def match_position_to_primary(self, pos_idx: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "msg": "Jogo não conectado"}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False, "msg": "Selecione um jogador"}
+            buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+            if not buf:
+                return {"ok": False, "msg": "Falha ao ler jogador"}
+            pri_ovr, _ = calc_ovr_from_buf(buf)
+            ok, msg = self._boost_secondary_isolated(p, pos_idx, pri_ovr)
+            res = self.get_player_details(p)
+            res["action_ok"] = ok
+            res["msg"] = msg
+            return res
+
+    # ------------------------------------------------------------------
+    # SQUAD ROSTER & SQUAD COMMANDER
+    # ------------------------------------------------------------------
+    def get_squad_roster(self) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "players": []}
+            career, _, _ = self.sync_pointers()
+            if not career:
+                return {"ok": False, "players": [], "msg": "Abra uma Master League"}
+            cur_year = self.mem.read_u16(career + 0x01642A24)
+            if cur_year < 2019 or cur_year > 2150:
+                cur_year = 2026
+            addrs = self.get_user_squad_addresses(career, force_rescan=True)
+            players = []
+            for p in addrs:
+                buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+                if not buf:
+                    continue
+                ovr, reg_pos = calc_ovr_from_buf(buf)
+                name = buf[0x38:0x66].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
+                age = buf[0x1C] & 0x3F
+                exp_y = struct.unpack_from("<H", buf, 0x138)[0]
+                sal_raw = struct.unpack_from("<i", buf, 0x15C)[0]
+                stam = _get_bits_buf(buf, 0x146, 0, 7)
+                arrow = min(4, _get_bits_buf(buf, 0x147, 0, 3))
+                inj = buf[0x148]
+                players.append(
+                    {
+                        "addr": p,
+                        "name": name or "?",
+                        "ovr": ovr,
+                        "pos": reg_pos,
+                        "age": age,
+                        "exp_y": exp_y if 2019 <= exp_y <= 2150 else 0,
+                        "is_expiring": 2019 <= exp_y <= cur_year + 1,
+                        "salary_raw": sal_raw,
+                        "stamina": stam,
+                        "arrow": arrow,
+                        "injury": inj,
+                    }
+                )
+            players.sort(key=lambda x: (-x["ovr"], x["name"]))
+            uc = self.get_user_club_handle(career)
+            _, club_name = self.decode_club_handle(uc)
+            return {"ok": True, "club": club_name, "cur_year": cur_year, "players": players}
+
+    def run_squad_commander(self, mode: str) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "msg": "Jogo não conectado"}
+            career, _, _ = self.sync_pointers()
+            if not career:
+                return {"ok": False, "msg": "Abra uma Master League"}
+            cur_year = self.mem.read_u16(career + 0x01642A24)
+            if cur_year < 2019 or cur_year > 2150:
+                cur_year = 2026
+            addrs = self.get_user_squad_addresses(career, force_rescan=True)
+            for p in addrs:
+                if mode == "stamina":
+                    self.mem.set_bits(p + 0x146, 0, 7, 100)
+                elif mode == "arrow":
+                    self.mem.set_bits(p + 0x147, 0, 3, 4)
+                    self.mem.set_bits(p + 0x146, 7, 1, 1)
+                elif mode == "heal":
+                    self.mem.write_u8(p + 0x148, 0)
+                elif mode == "contract":
+                    self.mem.write_u16(p + 0x138, cur_year + 5)
+                elif mode == "ovr1":
+                    buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+                    if buf:
+                        cur_ovr, _ = calc_ovr_from_buf(buf)
+                        self._scale_primary_ovr(p, min(99, cur_ovr + 1))
+            return {"ok": True, "count": len(addrs)}
+
+    # ------------------------------------------------------------------
+    # GLOBAL 30K+ PLAYER SEARCH (Bulk RAM read -> instant filtering!)
+    # ------------------------------------------------------------------
+    def search_players(
+        self,
+        query: str = "",
+        pos_filter: int = -1,
+        min_ovr: int = 0,
+        max_age: int = 99,
+        free_only: bool = False,
+        limit: int = 120,
+    ) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "players": []}
+            career, _, _ = self.sync_pointers()
+            if not career:
+                return {"ok": False, "players": [], "msg": "Abra uma Master League ou BAL"}
+            count = self.mem.read_u32(career + 0x00D0BCE8)
+            if count == 0 or count > 30001:
+                count = 30000
+            raw = self.mem.read_bytes(career, count * PLAYER_RECORD_SIZE)
+            if not raw:
+                return {"ok": False, "players": []}
+
+            q_norm = _norm_text(query)
+            results = []
+            for i in range(count):
+                off = i * PLAYER_RECORD_SIZE
+                pid = struct.unpack_from("<I", raw, off + 0x30)[0]
+                if pid == 0 or pid == 0xFFFFFFFF:
+                    continue
+                age = raw[off + 0x1C] & 0x3F
+                if age > max_age:
+                    continue
+                reg_pos = (raw[off + 0x07] >> 4) & 0x0F
+                if pos_filter >= 0 and reg_pos != pos_filter:
+                    continue
+                club_h = struct.unpack_from("<I", raw, off + 0x12C)[0]
+                if free_only and club_h != 0 and club_h != 0xFFFFFFFF:
+                    continue
+                name_b = raw[off + 0x38 : off + 0x66].split(b"\x00", 1)[0]
+                if not name_b:
+                    continue
+                name = name_b.decode("utf-8", errors="replace").strip()
+                if q_norm and q_norm not in _norm_text(name):
+                    continue
+                rec = raw[off : off + 0x28]
+                ovr, _ = calc_ovr_from_buf(rec)
+                if ovr < min_ovr:
+                    continue
+                _, club_name = self.decode_club_handle(club_h)
+                sal_raw = struct.unpack_from("<i", raw, off + 0x15C)[0]
+                exp_y = struct.unpack_from("<H", raw, off + 0x138)[0]
+                results.append(
+                    {
+                        "addr": career + off,
+                        "name": name,
+                        "ovr": ovr,
+                        "pos": reg_pos,
+                        "age": age,
+                        "club": club_name,
+                        "salary_raw": sal_raw,
+                        "exp_y": exp_y if 2019 <= exp_y <= 2150 else 0,
+                    }
+                )
+            results.sort(key=lambda x: (-x["ovr"], x["name"]))
+            return {"ok": True, "total": len(results), "players": results[:limit]}
+
+    # ------------------------------------------------------------------
+    # PURE NATIVE SCOUT LISTS & SHORTLIST (0 side effects!)
+    # ------------------------------------------------------------------
+    def get_scout_lists(self) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "lists": []}
+            career, _, _ = self.sync_pointers()
+            if not career:
+                return {"ok": False, "lists": []}
+            count = self.mem.read_u32(career + 0x00D0BCE8)
+            if count == 0 or count > 30001:
+                count = 30000
+            out_lists = []
+            for sl in SCOUT_LISTS:
+                entries = []
+                raw = self.mem.read_bytes(career + sl["base"], sl["cap"] * 8)
+                if raw:
+                    for idx in range(sl["cap"]):
+                        h = struct.unpack_from("<Q", raw, idx * 8)[0]
+                        if h != 0 and (h & 0xFFFF) != SCOUT_EMPTY_SENTINEL and (h >> 32) != 0:
+                            lo = h & 0xFFFFFFFF
+                            p_addr = 0
+                            if lo < count and self.mem.read_u64(career + lo * PLAYER_RECORD_SIZE + 0x2C) == h:
+                                p_addr = career + lo * PLAYER_RECORD_SIZE
+                            if p_addr:
+                                buf = self.mem.read_bytes(p_addr, PLAYER_RECORD_SIZE)
+                                if buf:
+                                    ovr, reg_pos = calc_ovr_from_buf(buf)
+                                    name = buf[0x38:0x66].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
+                                    age = buf[0x1C] & 0x3F
+                                    club_h = struct.unpack_from("<I", buf, 0x12C)[0]
+                                    _, cname = self.decode_club_handle(club_h)
+                                    entries.append(
+                                        {
+                                            "slot_idx": idx,
+                                            "handle": str(h),
+                                            "addr": p_addr,
+                                            "name": name,
+                                            "ovr": ovr,
+                                            "pos": reg_pos,
+                                            "age": age,
+                                            "club": cname,
+                                        }
+                                    )
+                out_lists.append(
+                    {
+                        "slot": sl["slot"],
+                        "pt": sl["pt"],
+                        "en": sl["en"],
+                        "cap": sl["cap"],
+                        "entries": entries,
+                    }
+                )
+            return {"ok": True, "lists": out_lists}
+
+    def add_to_scout_list(self, slot_num: int, player_addr: Optional[int] = None) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "msg": "Jogo não conectado"}
+            career, cur_p, _ = self.sync_pointers()
+            p = player_addr or cur_p
+            if not career or not p:
+                return {"ok": False, "msg": "Selecione um jogador na Master League"}
+            sl = next((x for x in SCOUT_LISTS if x["slot"] == int(slot_num)), None)
+            if not sl:
+                return {"ok": False, "msg": "Lista inválida"}
+            p_handle = self.mem.read_u64(p + 0x2C)
+            if not p_handle or (p_handle >> 32) == 0:
+                return {"ok": False, "msg": "Handle do jogador inválido"}
+            # Check duplicate and find first empty slot
+            free_idx = -1
+            for i in range(sl["cap"]):
+                cur_h = self.mem.read_u64(career + sl["base"] + i * 8)
+                if cur_h == p_handle:
+                    return {"ok": True, "msg": "Jogador já está nesta lista"}
+                if free_idx == -1 and (cur_h == 0 or (cur_h & 0xFFFF) == SCOUT_EMPTY_SENTINEL):
+                    free_idx = i
+            if free_idx == -1:
+                return {"ok": False, "msg": "Lista cheia"}
+            self.mem.write_u64(career + sl["base"] + free_idx * 8, p_handle)
+            return {"ok": True, "msg": f"Adicionado em {sl['pt']}"}
+
+    def remove_from_scout_list(self, slot_num: int, handle_str: str) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            career, _, _ = self.sync_pointers()
+            sl = next((x for x in SCOUT_LISTS if x["slot"] == int(slot_num)), None)
+            if not career or not sl:
+                return {"ok": False}
+            target_h = int(handle_str)
+            for i in range(sl["cap"]):
+                addr = career + sl["base"] + i * 8
+                if self.mem.read_u64(addr) == target_h:
+                    self.mem.write_u64(addr, SCOUT_EMPTY_SENTINEL)
+                    return {"ok": True}
+            return {"ok": False}
+
+    # ------------------------------------------------------------------
+    # TRAINING, BAL & MATCH HOOK CONTROLS
+    # ------------------------------------------------------------------
+    def set_training_mode(self, mode: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            m = max(0, min(5, int(mode)))
+            if m > 0:
+                self.hooks.enable_hook_3_training()
+            self.mem.write_u32(self.hooks.sym_addr("cfgTrainingMultMode"), m)
+            return {"ok": True, "mode": m, "hook_active": self.hooks.active_hooks.get(3, False)}
+
+    def set_stamina_mode(self, mode: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            m = max(0, min(5, int(mode)))
+            if m > 0:
+                self.hooks.enable_hook_6_stamina()
+            self.mem.write_u32(self.hooks.sym_addr("cfgStaminaMode"), m)
+            return {"ok": True, "mode": m, "hook_active": self.hooks.active_hooks.get(6, False)}
+
+    def set_bal_focus(self, points: int, lock_enabled: bool) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            career, _, _ = self.sync_pointers()
+            if not career:
+                return {"ok": False, "msg": "Abra uma carreira BAL"}
+            pts = max(0, min(99, int(points)))
+            if pts > 21 or lock_enabled:
+                self.hooks.enable_hook_4_bal_cap()
+            self.mem.write_u8(career + 0x016ECBEA, pts)
+            self.mem.write_u32(self.hooks.sym_addr("cfgLockBALFocusPoints"), 1 if lock_enabled else 0)
+            return {"ok": True, "points": pts, "lock": lock_enabled}
+
+    def set_freeze_clock(self, freeze: bool) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            if freeze:
+                self.hooks.enable_hook_5_match()
+                _, _, ms = self.sync_pointers()
+                if ms > 0x10000:
+                    prot = self.mem.read_f32(self.hooks.sym_addr("valProtectedMatchTicks"))
+                    off_t = self.mem.read_f32(ms + 0x1168 + 0x0C)
+                    self.mem.write_f32(self.hooks.sym_addr("valFrozenTotalTicks"), prot + off_t)
+            self.mem.write_u32(self.hooks.sym_addr("cfgFreezeClock"), 1 if freeze else 0)
+            return {"ok": True, "freeze": freeze}
+
+    # ------------------------------------------------------------------
+    # JSON BACKUP EXPORT / IMPORT
+    # ------------------------------------------------------------------
+    def export_player_json(self) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False, "msg": "Selecione um jogador"}
+            buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+            if not buf:
+                return {"ok": False}
+            name = buf[0x38:0x66].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
+            ovr, _ = calc_ovr_from_buf(buf)
+            return {
+                "ok": True,
+                "name": name,
+                "ovr": ovr,
+                "json": json.dumps({"version": "12.0", "name": name, "hex": buf.hex()}, indent=2),
+            }
+
+    def import_player_json(self, json_str: str) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False, "msg": "Selecione um jogador"}
+            try:
+                data = json.loads(json_str)
+                raw = bytes.fromhex(data["hex"])
+                if len(raw) != PLAYER_RECORD_SIZE:
+                    return {"ok": False, "msg": "Tamanho de backup inválido"}
+                cur = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+                if not cur:
+                    return {"ok": False}
+                self.push_undo(p, "Import JSON")
+                merged = bytearray(raw)
+                # Preserve live RAM handles/IDs (0x2C..0x37 and 0x12C..0x133 and 0x160..0x167)
+                merged[0x2C:0x38] = cur[0x2C:0x38]
+                merged[0x12C:0x134] = cur[0x12C:0x134]
+                merged[0x160:0x168] = cur[0x160:0x168]
+                self.mem.write_bytes(p, bytes(merged))
+                return self.get_player_details(p)
+            except Exception as exc:
+                return {"ok": False, "msg": f"JSON inválido: {exc}"}

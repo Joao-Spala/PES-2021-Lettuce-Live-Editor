@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PES 2021 Ultimate Studio</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">21</div>
+        <div>
+          <div class="brand-title">PES 2021 Studio</div>
+          <div class="brand-sub">v12.0 Standalone</div>
+        </div>
+      </div>
+
+      <div class="nav-section-label" data-i18n="nav_career">CARREIRA</div>
+      <button class="nav-btn active" data-view="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        <span data-i18n="nav_overview">Visão Geral</span>
+      </button>
+      <button class="nav-btn" data-view="squad">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span data-i18n="nav_squad">Meu Elenco</span>
+      </button>
+      <button class="nav-btn" data-view="finances">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span data-i18n="nav_finances">Finanças</span>
+      </button>
+
+      <div class="nav-section-label" data-i18n="nav_player_sec">ATLETA</div>
+      <button class="nav-btn" data-view="player">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span data-i18n="nav_player">Jogador Atual</span>
+      </button>
+      <button class="nav-btn" data-view="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span data-i18n="nav_search">Buscar Jogador</span>
+      </button>
+      <button class="nav-btn" data-view="scouts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span data-i18n="nav_scouts">Olheiros & Favoritos</span>
+      </button>
+
+      <div class="nav-section-label" data-i18n="nav_engine_sec">JOGO & HOOKS</div>
+      <button class="nav-btn" data-view="match">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span data-i18n="nav_match">Partida, Treino & BAL</span>
+      </button>
+
+      <div class="sidebar-footer">
+        <div id="side-mode-text">Aguardando PES 2021...</div>
+        <div id="side-club-text" style="color: var(--text); font-weight: 600;"></div>
+      </div>
+    </aside>
+
+    <!-- Persistent Top Header -->
+    <header class="topbar">
+      <div class="active-player-pill" id="top-player-pill" title="Abrir editor do jogador atual">
+        <span class="ovr-badge ovr-low" id="top-p-ovr">--</span>
+        <span class="pos-chip pos-mid" id="top-p-pos">---</span>
+        <div style="display:flex; flex-direction:column; line-height:1.2;">
+          <span id="top-p-name" style="font-weight:700; font-size:12.5px;">Nenhum atleta selecionado</span>
+          <span id="top-p-meta" style="font-size:11px; color:var(--subtext);">Destaque um jogador no jogo ou na lista</span>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <button class="btn btn-sm" id="btn-undo" title="Desfazer última edição do atleta">
+          <span data-i18n="btn_undo">Desfazer</span> <span id="undo-badge">(0)</span>
+        </button>
+        <button class="btn btn-sm" id="btn-lang">PT-BR</button>
+        <div class="conn-pill" id="conn-pill" title="Clique para reconectar ao PES 2021 / Football Life">
+          <span class="conn-dot"></span>
+          <span id="conn-text">Desconectado</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      <!-- 1. DASHBOARD -->
+      <section class="view-panel active" id="view-dashboard">
+        <div class="page-header">
+          <div>
+            <div class="page-title" data-i18n="dash_title">Visão Geral do Studio</div>
+            <div class="page-sub" data-i18n="dash_sub">Controle em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.</div>
+          </div>
+          <button class="btn btn-primary" id="btn-dash-refresh" data-i18n="btn_refresh">Atualizar</button>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <div class="stat-label" data-i18n="lbl_club_mode">Modo & Clube</div>
+            <div class="stat-metric" id="dash-club">---</div>
+            <div style="font-size:12px; color:var(--subtext);" id="dash-mode">Aguardando jogo...</div>
+          </div>
+          <div class="card">
+            <div class="stat-label" data-i18n="lbl_transfer_budget">Orçamento de Transferências</div>
+            <div class="stat-metric" style="color:var(--green);" id="dash-transfer">€ 0</div>
+            <div style="display:flex; gap:6px; margin-top:4px;">
+              <button class="btn btn-xs btn-green" onclick="quickFinance('transfer', 100000)">+10M</button>
+              <button class="btn btn-xs btn-green" onclick="quickFinance('transfer', 500000)">+50M</button>
+              <button class="btn btn-xs" onclick="switchView('finances')" data-i18n="btn_edit">Editar</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="stat-label" data-i18n="lbl_salary_avail">Salários Disponíveis</div>
+            <div class="stat-metric" style="color:var(--gold);" id="dash-salary">€ 0</div>
+            <div style="display:flex; gap:6px; margin-top:4px;">
+              <button class="btn btn-xs btn-gold" onclick="quickFinance('salary', 100000)">+10M</button>
+              <button class="btn btn-xs btn-gold" onclick="quickFinance('salary', 500000)">+50M</button>
+              <button class="btn btn-xs" onclick="switchView('finances')" data-i18n="btn_edit">Editar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span data-i18n="dash_squad_cmd">Comandante do Elenco (Ações em Massa)</span>
+            <span style="font-size:11px; color:var(--subtext);" data-i18n="dash_squad_hint">Aplica instantaneamente a todos os jogadores do seu clube</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:10px;">
+            <button class="btn btn-green" onclick="runSquadCmd('stamina')">100% Fôlego (Elenco)</button>
+            <button class="btn btn-primary" onclick="runSquadCmd('arrow')">Seta Azul (Elenco)</button>
+            <button class="btn btn-green" onclick="runSquadCmd('heal')">Curar Todas Lesões</button>
+            <button class="btn btn-gold" onclick="runSquadCmd('contract')">Renovar Contratos +5 Anos</button>
+            <button class="btn" onclick="runSquadCmd('ovr1')">+1 OVR no Elenco</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title" data-i18n="dash_active_hooks">Status dos Hooks Nativos x64</div>
+            <div id="dash-hooks-list" style="display:flex; flex-direction:column; gap:8px; font-size:12.5px;"></div>
+          </div>
+          <div class="card">
+            <div class="card-title" data-i18n="dash_quick_shortcuts">Atalhos Rápidos</div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+              <button class="btn" onclick="switchView('player')">Editar Jogador Atual</button>
+              <button class="btn" onclick="switchView('squad')">Abrir Meu Elenco</button>
+              <button class="btn" onclick="switchView('search')">Buscar nos 30.000+ Atletas</button>
+              <button class="btn" onclick="switchView('match')">Treino / Fôlego em Partida</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. MY SQUAD -->
+      <section class="view-panel" id="view-squad">
+        <div class="page-header">
+          <div>
+            <div class="page-title" id="squad-title">Meu Elenco</div>
+            <div class="page-sub" data-i18n="squad_sub">Clique em qualquer coluna para ordenar. Clique no atleta para abrir no Editor.</div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" class="input" id="squad-search" placeholder="Filtrar nome..." style="width:190px;" />
+            <button class="btn btn-primary" id="btn-squad-refresh">Atualizar</button>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center;">
+          <div class="tabs" style="border-bottom:none; padding-bottom:0;" id="squad-filters">
+            <button class="tab-btn active" data-filter="all">Todos</button>
+            <button class="tab-btn" data-filter="exp">Fim de Contrato</button>
+            <button class="tab-btn" data-filter="inj">Lesionados</button>
+            <button class="tab-btn" data-filter="u23">Sub-23</button>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-sm btn-green" onclick="runSquadCmd('stamina')">100% Fôlego</button>
+            <button class="btn btn-sm btn-primary" onclick="runSquadCmd('arrow')">Seta Azul</button>
+            <button class="btn btn-sm btn-green" onclick="runSquadCmd('heal')">Curar Lesões</button>
+            <button class="btn btn-sm btn-gold" onclick="runSquadCmd('contract')">Contratos +5a</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="studio-table" id="squad-table">
+            <thead>
+              <tr>
+                <th data-sort="ovr">OVR</th>
+                <th data-sort="pos">POS</th>
+                <th data-sort="name">ATLETA</th>
+                <th data-sort="age">IDADE</th>
+                <th data-sort="exp_y">CONTRATO</th>
+                <th data-sort="salary_raw">SALÁRIO</th>
+                <th data-sort="stamina">FÔLEGO</th>
+                <th data-sort="injury">SAÚDE</th>
+              </tr>
+            </thead>
+            <tbody id="squad-tbody">
+              <tr><td colspan="8" class="empty-state">Carregue uma Master League para visualizar o elenco.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 3. PLAYER STUDIO -->
+      <section class="view-panel" id="view-player">
+        <div class="page-header">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span class="ovr-badge ovr-80" id="p-hero-ovr" style="min-width:46px; height:36px; font-size:17px;">--</span>
+            <div>
+              <div class="page-title" id="p-hero-name">Nenhum atleta selecionado</div>
+              <div class="page-sub" id="p-hero-sub">Destaque um jogador no jogo ou selecione em Meu Elenco / Buscar Jogador.</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm" id="btn-export-json">Exportar JSON</button>
+            <button class="btn btn-sm" id="btn-import-json">Importar JSON</button>
+          </div>
+        </div>
+
+        <div class="tabs" id="player-subtabs">
+          <button class="tab-btn active" data-ptab="bio">Condição & Bio</button>
+          <button class="tab-btn" data-ptab="stats">Atributos (25)</button>
+          <button class="tab-btn" data-ptab="poslab">Lab de Posições</button>
+          <button class="tab-btn" data-ptab="skills">Estilo & Habilidades</button>
+          <button class="tab-btn" data-ptab="role">Função de Equipe</button>
+        </div>
+
+        <!-- Subtab: Condição & Bio -->
+        <div class="ptab-pane" id="ptab-bio">
+          <div class="grid-2" style="margin-bottom:14px;">
+            <div class="card">
+              <div class="card-title">Fôlego & Saúde Rápida</div>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-green" id="btn-p-stam100">100% Fôlego</button>
+                <button class="btn btn-green" id="btn-p-heal">Curar Lesão</button>
+                <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:140px;">
+                  <input type="range" id="inp-p-stam" min="0" max="100" value="100" style="flex:1; accent-color:var(--green);" />
+                  <span id="lbl-p-stam" style="font-weight:700; min-width:38px;">100%</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">Seta de Forma (Match Form)</div>
+              <div class="arrow-group" id="p-arrow-group">
+                <button class="arrow-btn" data-arrow="4"><span class="arr-ico" style="color:#38bdf8;">⬆</span><span>Azul</span></button>
+                <button class="arrow-btn" data-arrow="3"><span class="arr-ico" style="color:#4ade80;">↗</span><span>Verde</span></button>
+                <button class="arrow-btn" data-arrow="2"><span class="arr-ico" style="color:#facc15;">➡</span><span>Amarela</span></button>
+                <button class="arrow-btn" data-arrow="1"><span class="arr-ico" style="color:#fb923c;">↘</span><span>Laranja</span></button>
+                <button class="arrow-btn" data-arrow="0"><span class="arr-ico" style="color:#f87171;">⬇</span><span>Vermelha</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>Dados Biográficos & Contrato</span>
+              <button class="btn btn-sm btn-primary" id="btn-save-bio">Salvar Alterações</button>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label>Nome do Jogador</label><input class="input" id="bio-name" /></div>
+              <div class="field"><label>Nome na Camisa</label><input class="input" id="bio-shirt" /></div>
+              <div class="field"><label>Nacionalidade</label><select class="select" id="bio-nat"></select></div>
+              <div class="field"><label>Idade (15-50)</label><input class="input" type="number" min="15" max="50" id="bio-age" /></div>
+              <div class="field"><label>Altura (cm)</label><input class="input" type="number" min="145" max="215" id="bio-height" /></div>
+              <div class="field"><label>Peso (kg)</label><input class="input" type="number" min="45" max="125" id="bio-weight" /></div>
+              <div class="field"><label>Pé Preferido</label>
+                <select class="select" id="bio-foot"><option value="0">Direito</option><option value="1">Esquerdo</option></select>
+              </div>
+              <div class="field"><label>Fim do Contrato (Ano)</label><input class="input" type="number" min="2019" max="2150" id="bio-contract" /></div>
+              <div class="field"><label>Salário Anual (ex: 2.5M)</label><input class="input" id="bio-salary" /></div>
+              <div class="field"><label>Dias Lesionado (0 = OK)</label><input class="input" type="number" min="0" max="255" id="bio-injury" /></div>
+              <div class="field"><label>Uso Pé Ruim (1-4)</label><input class="input" type="number" min="1" max="4" id="bio-wfu" /></div>
+              <div class="field"><label>Precisão Pé Ruim (1-4)</label><input class="input" type="number" min="1" max="4" id="bio-wfa" /></div>
+              <div class="field"><label>Estabilidade / Forma (1-8)</label><input class="input" type="number" min="1" max="8" id="bio-form" /></div>
+              <div class="field"><label>Resistência a Lesões (1-3)</label><input class="input" type="number" min="1" max="3" id="bio-injres" /></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subtab: Attributes -->
+        <div class="ptab-pane" id="ptab-stats" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+            <span style="color:var(--subtext); font-size:12px;">Ajuste qualquer atributo em tempo real. O OVR recalcula instantaneamente.</span>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-sm btn-green" onclick="presetStats(99)">Tudo 99</button>
+              <button class="btn btn-sm btn-primary" onclick="presetStats(90)">Tudo 90</button>
+              <button class="btn btn-sm" onclick="presetStats(80)">Tudo 80</button>
+              <button class="btn btn-sm btn-gold" onclick="shiftAllStats(5)">+5 em Todos</button>
+            </div>
+          </div>
+          <div class="grid-2" id="stats-groups-container"></div>
+        </div>
+
+        <!-- Subtab: Position Lab -->
+        <div class="ptab-pane" id="ptab-poslab" style="display:none;">
+          <div class="card">
+            <div class="card-title">
+              <span>Lab de Posições (Precisão Cirúrgica)</span>
+              <span style="font-size:11px; color:var(--subtext);">OVR já inclui bônus do Grau. +1/-1 move 1 por vez e a posição principal nunca é alterada.</span>
+            </div>
+            <div class="table-wrap" style="max-height:calc(100vh - 320px);">
+              <table class="studio-table">
+                <thead>
+                  <tr>
+                    <th>POSIÇÃO</th>
+                    <th>OVR</th>
+                    <th>GRAU</th>
+                    <th>AJUSTE ISOLADO (1 EM 1)</th>
+                    <th>AÇÕES</th>
+                  </tr>
+                </thead>
+                <tbody id="poslab-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subtab: Skills & Style -->
+        <div class="ptab-pane" id="ptab-skills" style="display:none;">
+          <div class="card" style="margin-bottom:14px;">
+            <div class="card-title">Estilo de Jogo (Playing Style)</div>
+            <select class="select" id="p-playing-style" style="max-width:320px;"></select>
+          </div>
+          <div class="card" style="margin-bottom:14px;">
+            <div class="card-title">
+              <span>Habilidades do Jogador</span>
+              <span id="skills-count" style="font-size:12px; color:var(--green);">0 ativas</span>
+            </div>
+            <div class="chip-grid" id="p-skills-grid"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">
+              <span>Estilos de Jogo do COM (AI)</span>
+              <span id="comai-count" style="font-size:12px; color:var(--cyan);">0 ativos</span>
+            </div>
+            <div class="chip-grid" id="p-comai-grid"></div>
+          </div>
+        </div>
+
+        <!-- Subtab: Team Role -->
+        <div class="ptab-pane" id="ptab-role" style="display:none;">
+          <div class="card" style="max-width:520px;">
+            <div class="card-title">Função de Equipe (Team Role)</div>
+            <div class="field">
+              <label>Função</label>
+              <select class="select" id="p-team-role"></select>
+            </div>
+            <div class="field">
+              <label>Nível (0 a 3)</label>
+              <select class="select" id="p-team-role-lvl">
+                <option value="0">Nível 0</option>
+                <option value="1">Nível 1</option>
+                <option value="2">Nível 2</option>
+                <option value="3">Nível 3 (Máximo)</option>
+              </select>
+            </div>
+            <div>
+              <button class="btn btn-primary" id="btn-save-role">Aplicar Função de Equipe</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. SEARCH 30K+ -->
+      <section class="view-panel" id="view-search">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Buscar Jogador (Base Completa)</div>
+            <div class="page-sub">Pesquise instantaneamente entre todos os 30.000+ jogadores carregados na Master League.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:end;">
+            <div class="field" style="flex:1; min-width:190px;">
+              <label>Nome do Jogador</label>
+              <input class="input" id="srch-query" placeholder="Ex: Messi, Vinicius, Endrick..." />
+            </div>
+            <div class="field" style="width:120px;">
+              <label>Posição</label>
+              <select class="select" id="srch-pos"><option value="-1">Todas</option></select>
+            </div>
+            <div class="field" style="width:95px;">
+              <label>OVR Mín.</label>
+              <input class="input" type="number" id="srch-ovr" value="75" min="40" max="99" />
+            </div>
+            <div class="field" style="width:95px;">
+              <label>Idade Máx.</label>
+              <input class="input" type="number" id="srch-age" value="45" min="15" max="50" />
+            </div>
+            <label style="display:flex; align-items:center; gap:6px; padding-bottom:9px; cursor:pointer; color:var(--subtext);">
+              <input type="checkbox" id="srch-free" /> Sem Clube
+            </label>
+            <button class="btn btn-primary" id="btn-do-search">Pesquisar</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="studio-table">
+            <thead>
+              <tr>
+                <th>OVR</th>
+                <th>POS</th>
+                <th>ATLETA</th>
+                <th>IDADE</th>
+                <th>CLUBE</th>
+                <th>SALÁRIO</th>
+                <th>AÇÕES</th>
+              </tr>
+            </thead>
+            <tbody id="search-tbody">
+              <tr><td colspan="7" class="empty-state">Use os filtros acima e clique em Pesquisar.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 5. SCOUTS & SHORTLIST -->
+      <section class="view-panel" id="view-scouts">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Olheiros & Favoritos (Nativo)</div>
+            <div class="page-sub">Grava apenas o ponteiro nativo na lista da Master League, sem alterar contratos ou cláusulas.</div>
+          </div>
+          <button class="btn btn-primary" id="btn-scouts-refresh">Atualizar Listas</button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center;">
+          <div class="tabs" style="border-bottom:none; padding-bottom:0;" id="scout-tabs">
+            <button class="tab-btn active" data-slot="4">Favoritos (Shortlist)</button>
+            <button class="tab-btn" data-slot="1">Olheiro 1</button>
+            <button class="tab-btn" data-slot="2">Olheiro 2</button>
+            <button class="tab-btn" data-slot="3">Olheiro 3</button>
+          </div>
+          <button class="btn btn-green" id="btn-scout-add-cur">+ Adicionar Jogador Atual nesta Lista</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="studio-table">
+            <thead>
+              <tr>
+                <th>OVR</th>
+                <th>POS</th>
+                <th>ATLETA</th>
+                <th>IDADE</th>
+                <th>CLUBE</th>
+                <th>AÇÕES</th>
+              </tr>
+            </thead>
+            <tbody id="scout-tbody">
+              <tr><td colspan="6" class="empty-state">Clique em Atualizar Listas para carregar.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 6. FINANCES -->
+      <section class="view-panel" id="view-finances">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Finanças da Master League</div>
+            <div class="page-sub">Cálculo exato de Salários Disponíveis descontando folha ativa e pendentes (0x14156D170).</div>
+          </div>
+          <button class="btn" id="btn-fin-refresh">Recarregar</button>
+        </div>
+
+        <div class="card" style="max-width:640px;">
+          <div class="card-title">
+            <span>Editar Orçamentos</span>
+            <span id="fin-wage-bill" style="font-size:12px; color:var(--subtext);">Folha anual: € 0</span>
+          </div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="field">
+              <label>Orçamento de Transferências (ex: 50M, 500k)</label>
+              <input class="input" id="fin-transfer-inp" />
+            </div>
+            <div class="field">
+              <label>Salários Disponíveis (ex: 15M, 2.5M)</label>
+              <input class="input" id="fin-salary-inp" />
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
+            <button class="btn btn-primary" id="btn-fin-save">Aplicar Valores</button>
+            <button class="btn btn-green" onclick="quickFinance('transfer', 100000)">+10M Transf.</button>
+            <button class="btn btn-green" onclick="quickFinance('transfer', 1000000)">+100M Transf.</button>
+            <button class="btn btn-gold" onclick="quickFinance('salary', 100000)">+10M Salários</button>
+            <button class="btn btn-gold" onclick="quickFinance('salary', 500000)">+50M Salários</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. MATCH, TRAINING & BAL -->
+      <section class="view-panel" id="view-match">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Partida, Treino & Rumo ao Estrelato</div>
+            <div class="page-sub">Hooks nativos x64 ativados sob demanda e restaurados automaticamente ao fechar o app.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Velocidade de Treino (Multiplicador Sub-XP)</div>
+          <div class="mode-grid" id="training-mode-grid">
+            <div class="mode-card" data-tmode="0"><div class="mode-card-title">Normal (1x)</div><div class="mode-card-desc">Evolução padrão do jogo</div></div>
+            <div class="mode-card" data-tmode="1"><div class="mode-card-title">Rápido (2x)</div><div class="mode-card-desc">Dobro de XP por treino</div></div>
+            <div class="mode-card" data-tmode="2"><div class="mode-card-title">Acelerado (5x)</div><div class="mode-card-desc">5x mais rápido</div></div>
+            <div class="mode-card" data-tmode="3"><div class="mode-card-title">Turbo (10x)</div><div class="mode-card-desc">10x mais rápido</div></div>
+            <div class="mode-card" data-tmode="4"><div class="mode-card-title">Ultra (50x)</div><div class="mode-card-desc">Evolução extrema</div></div>
+            <div class="mode-card" data-tmode="5"><div class="mode-card-title">Instantâneo</div><div class="mode-card-desc">XP máximo imediato</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Fôlego Seletivo em Partida</div>
+          <div class="mode-grid" id="stamina-mode-grid">
+            <div class="mode-card" data-smode="0"><div class="mode-card-title">Normal</div><div class="mode-card-desc">Desgaste padrão</div></div>
+            <div class="mode-card" data-smode="1"><div class="mode-card-title">Casa 100%</div><div class="mode-card-desc">Time da casa infinito</div></div>
+            <div class="mode-card" data-smode="2"><div class="mode-card-title">Fora 100%</div><div class="mode-card-desc">Visitante infinito</div></div>
+            <div class="mode-card" data-smode="3"><div class="mode-card-title">Ambos 100%</div><div class="mode-card-desc">Todos em campo 100%</div></div>
+            <div class="mode-card" data-smode="4"><div class="mode-card-title">Casa 100% / Fora 5%</div><div class="mode-card-desc">Pressão total em casa</div></div>
+            <div class="mode-card" data-smode="5"><div class="mode-card-title">Fora 100% / Casa 5%</div><div class="mode-card-desc">Pressão total visitante</div></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Relógio da Partida</div>
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <span style="color:var(--subtext);">Congelar cronômetro durante a partida</span>
+              <button class="btn" id="btn-freeze-clock">Congelar: OFF</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Pontos de Foco (Rumo ao Estrelato / BAL)</div>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <input class="input" type="number" id="bal-focus-inp" min="0" max="99" value="21" style="width:86px;" />
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--subtext);">
+                <input type="checkbox" id="bal-lock-chk" /> Travar em 99
+              </label>
+              <button class="btn btn-primary" id="btn-bal-apply">Aplicar</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+  <script src="app.js"></script>
+</body>
+</html>
