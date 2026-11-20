@@ -623,23 +623,37 @@ function PES10.getAvailableSalaryBudget(career, forceRefresh)
       ovSum = ovSum + ov
     end
   end
-  -- Fast squad scan via ML squad slot list (career + 0x016EE854, up to 40 slots) when populated, else full DB
+  -- Squad address cache: the 30K-player DB is scanned only when the club/save changes
+  -- or every 45s (transfers); otherwise only the ~31 cached squad records are re-summed (< 1 ms).
+  local sc = PES10._squadAddrCache
+  local needRescan = (not sc) or sc.career ~= career or sc.uc ~= uc or (now - sc.time) > 45
+  if not needRescan then
+    for _, a in ipairs(sc.addrs) do
+      if PES10.readU32(a + 0x12C) ~= uc then needRescan = true; break end
+    end
+  end
+  if needRescan then
+    local addrs = {}
+    local count = PES10.readU32(career + 0x00D0BCE8)
+    if count == 0 or count > 30001 then count = 30000 end
+    for i = 0, count - 1 do
+      local p = career + i * 0x17C
+      if PES10.readU32(p + 0x12C) == uc then
+        local pid = PES10.readU32(p + 0x30)
+        if pid ~= 0 and pid ~= 0xFFFFFFFF then addrs[#addrs + 1] = p end
+      end
+    end
+    sc = { career = career, uc = uc, time = now, addrs = addrs }
+    PES10._squadAddrCache = sc
+  end
   local sumSal = 0
   local seen = {}
-  local count = PES10.readU32(career + 0x00D0BCE8)
-  if count == 0 or count > 30001 then count = 30000 end
-  for i = 0, count - 1 do
-    local p = career + i * 0x17C
-    if PES10.readU32(p + 0x12C) == uc then
-      local pid = PES10.readU32(p + 0x30)
-      if pid ~= 0 and pid ~= 0xFFFFFFFF then
-        local ph = PES10.readU64(p + 0x2C)
-        if not seen[ph] then
-          seen[ph] = true
-          if not (overrides[ph] and overrides[ph] ~= 0) then
-            sumSal = sumSal + PES10.readI32(p + 0x15C)
-          end
-        end
+  for _, p in ipairs(sc.addrs) do
+    local ph = PES10.readU64(p + 0x2C)
+    if not seen[ph] then
+      seen[ph] = true
+      if not (overrides[ph] and overrides[ph] ~= 0) then
+        sumSal = sumSal + PES10.readI32(p + 0x15C)
       end
     end
   end
@@ -875,7 +889,15 @@ function PES10.syncAllDynamicPointers()
       writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerGrowthDesc, growthAddr)
     end
     writeInteger(sb + PES10.SYM_OFFSETS.valComputedReleaseFee, PES10.estimateReleaseFeeRaw(career, pAddr, pHandle))
-    writeInteger(sb + PES10.SYM_OFFSETS.valComputedOVR, PES10.calcPlayerOVR(pAddr))
+    -- OVR only recomputed when the player's 0x28 attribute header actually changed (skips 99% of ticks)
+    local hdrBytes = readBytes(pAddr, 0x28, true)
+    local hdrKey = hdrBytes and string.char(table.unpack(hdrBytes)) or ""
+    if PES10._ovrCacheAddr ~= pAddr or PES10._ovrCacheKey ~= hdrKey then
+      PES10._ovrCacheAddr = pAddr
+      PES10._ovrCacheKey = hdrKey
+      PES10._ovrCacheVal = PES10.calcPlayerOVR(pAddr)
+    end
+    writeInteger(sb + PES10.SYM_OFFSETS.valComputedOVR, PES10._ovrCacheVal or 0)
     if pAddr ~= PES10._lastNotifiedPlayer then
       PES10._lastNotifiedPlayer = pAddr
       PES10.notifyModalsPlayerChanged(pAddr)
