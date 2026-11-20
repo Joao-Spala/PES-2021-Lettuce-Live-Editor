@@ -155,9 +155,9 @@ EN_PLAYER_LABELS = {
 # ============================================================================
 # VERIFIED x64 AUTO ASSEMBLER SCRIPTS (PES2021.exe v1.7.2.0 + Sider 7.3.3)
 # ============================================================================
-ASM_HOOK_1_PLAYER = """{ PES 2021 v11.0 Pro - Hook 1: Automatic Player Capture (Edit / Squad / Transfer) }
+ASM_HOOK_1_PLAYER = """{ PES 2021 v11.0 - Hook 1: Automatic Player Capture (Game Plan / Edit / Squad / Transfer) }
 [ENABLE]
-aobscanmodule(INJECT_ptrPlayer,PES2021.exe,CB B8 02 00 00 00 0F 1F 40 00 66 0F 1F 84 00 00 00 00 00 0F 10 02 0F 11 01)
+aobscanregion(INJECT_ptrPlayer,PES2021.exe+C6DC00,PES2021.exe+C6FE00,CB B8 02 00 00 00 0F 1F 40 00 66 0F 1F 84 00 00 00 00 00 0F 10 02 0F 11 01)
 alloc(newmem_p1,$1000,INJECT_ptrPlayer)
 
 label(code_p1)
@@ -179,7 +179,7 @@ INJECT_ptrPlayer+13:
 ret_p1:
 registersymbol(INJECT_ptrPlayer)
 
-aobscanmodule(INJECT_ptrPlayerTwo,PES2021.exe,48 8B 40 2C 48 89 02)
+aobscanregion(INJECT_ptrPlayerTwo,PES2021.exe+8E1400,PES2021.exe+8E3500,48 8B 40 2C 48 89 02)
 alloc(newmem_p2,$1000,INJECT_ptrPlayerTwo)
 
 label(code_p2)
@@ -200,6 +200,28 @@ INJECT_ptrPlayerTwo:
 ret_p2:
 registersymbol(INJECT_ptrPlayerTwo)
 
+aobscanregion(INJECT_ptrPlayerGamePlan,PES2021.exe+DDB900,PES2021.exe+DDDB00,0F B6 80 50 01 00 00 89 87 98 00 00 00)
+alloc(newmem_p3,$1000,INJECT_ptrPlayerGamePlan)
+
+label(code_p3)
+label(ret_p3)
+
+newmem_p3:
+  test rax,rax
+  jz code_p3
+  mov [ptrPlayer],rax
+
+code_p3:
+  movzx eax,byte ptr [rax+00000150]
+  jmp ret_p3
+
+INJECT_ptrPlayerGamePlan:
+  jmp newmem_p3
+  nop
+  nop
+ret_p3:
+registersymbol(INJECT_ptrPlayerGamePlan)
+
 [DISABLE]
 INJECT_ptrPlayer+13:
   db 0F 10 02 0F 11 01
@@ -212,11 +234,17 @@ INJECT_ptrPlayerTwo:
 
 unregistersymbol(INJECT_ptrPlayerTwo)
 dealloc(newmem_p2)
+
+INJECT_ptrPlayerGamePlan:
+  db 0F B6 80 50 01 00 00
+
+unregistersymbol(INJECT_ptrPlayerGamePlan)
+dealloc(newmem_p3)
 """
 
-ASM_HOOK_2_RELEASE_FEE = """{ PES 2021 v11.0 Pro - Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
+ASM_HOOK_2_RELEASE_FEE = """{ PES 2021 v11.0 - Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
 [ENABLE]
-aobscanmodule(INJECT_ReleaseFeeGetter,PES2021.exe,0F 29 74 24 40 48 8B DA 48 8B F1 0F 29 7C 24 30 48 8B 09)
+aobscanregion(INJECT_ReleaseFeeGetter,PES2021.exe+156AD00,PES2021.exe+156CF00,0F 29 74 24 40 48 8B DA 48 8B F1 0F 29 7C 24 30 48 8B 09)
 alloc(newmem_rfee,$1000,INJECT_ReleaseFeeGetter)
 
 label(loop_rfee)
@@ -283,7 +311,7 @@ dealloc(newmem_rfee)
 
 ASM_HOOK_3_TRAINING_MULT = """{ PES 2021 v11.0 Pro - Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
 [ENABLE]
-aobscanmodule(INJECT_TrainingXpAdder,PES2021.exe,45 8B C8 83 FA 6C 0F 8D 1E 01 00 00)
+aobscanregion(INJECT_TrainingXpAdder,PES2021.exe+12E0400,PES2021.exe+12E2500,45 8B C8 83 FA 6C 0F 8D 1E 01 00 00)
 alloc(newmem_txp,$1000,INJECT_TrainingXpAdder)
 
 label(check_clamp_txp)
@@ -344,7 +372,7 @@ dealloc(newmem_txp)
 
 ASM_HOOK_4_BAL_CAP = """{ PES 2021 v11.0 Pro - Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
 [ENABLE]
-aobscanmodule(INJECT_BALFocusCap,PES2021.exe,0F BE 41 0A 2B C2 83 F8 15 77 09 48 63 C3)
+aobscanregion(INJECT_BALFocusCap,PES2021.exe+BBEE00,PES2021.exe+BC0F00,0F BE 41 0A 2B C2 83 F8 15 77 09 48 63 C3)
 INJECT_BALFocusCap+08:
   db 7F
 registersymbol(INJECT_BALFocusCap)
@@ -357,7 +385,7 @@ unregistersymbol(INJECT_BALFocusCap)
 
 ASM_HOOK_5_MATCH_HUD_CLOCK = """{ PES 2021 v11.0 Pro - Hook 5: Sider-Safe Match HUD, Live Score, Penalties & FNV-Safe Clock }
 [ENABLE]
-aobscanmodule(INJECT_MatchHud,PES2021.exe,49 8B F8 44 0F B6 E2 88 55 B7)
+aobscanregion(INJECT_MatchHud,PES2021.exe+20F8F00,PES2021.exe+20FB000,49 8B F8 44 0F B6 E2 88 55 B7)
 alloc(newmem_mhud,$1000,INJECT_MatchHud)
 
 label(ret_mhud)
@@ -379,7 +407,7 @@ INJECT_MatchHud:
 ret_mhud:
 registersymbol(INJECT_MatchHud)
 
-aobscanmodule(INJECT_MatchClockTap,PES2021.exe,8B 44 24 40 89 44 24 40 F3 0F 10 44 24 40 48 83 C4 30 5B C3)
+aobscanregion(INJECT_MatchClockTap,PES2021.exe+A3B700,PES2021.exe+A3D800,8B 44 24 40 89 44 24 40 F3 0F 10 44 24 40 48 83 C4 30 5B C3)
 alloc(newmem_mclk,$1000,INJECT_MatchClockTap)
 
 label(done_mclk)
@@ -430,7 +458,7 @@ dealloc(newmem_mclk)
 
 ASM_HOOK_6_STAMINA = """{ PES 2021 v11.0 Pro - Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
 [ENABLE]
-aobscanmodule(INJECT_SelectiveStamina,PES2021.exe,6B 45 10 64 48 8B 5C 24 50)
+aobscanregion(INJECT_SelectiveStamina,PES2021.exe+A57E00,PES2021.exe+A59F00,6B 45 10 64 48 8B 5C 24 50)
 alloc(newmem_stam,$1000,INJECT_SelectiveStamina)
 
 label(loop_stam)
@@ -832,7 +860,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     # =========================================================================
     sec_central = builder.group(
         top_entries,
-        L("[ 1. CENTRAL STUDIO v11.0 ] Painel Gráfico, Telemetria, Moeda & Hooks", "[ 1. CENTRAL STUDIO v11.0 ] Studio GUI, Telemetry, Currency & Hooks"),
+        L("[ 1. CENTRAL STUDIO v11.0 ] Painel Gráfico, Telemetria & Moeda", "[ 1. CENTRAL STUDIO v11.0 ] Studio GUI, Telemetry & Currency"),
         COL_AMBER,
         hide_children=False,
     )
@@ -867,23 +895,16 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
 
     grp_hooks = builder.group(
         sec_central,
-        L("[ MÓDULOS x64 ] 6 Hooks Mestres (Ligados Automaticamente ao Conectar!)", "[ x64 MODULES ] 6 Master Hooks (Auto-Armed on Process Attach!)"),
+        L("[ MOTOR INTERNO ] Automático (Não Precisa Mexer)", "[ INTERNAL ENGINE ] Automatic (No Action Needed)"),
         COL_AMBER,
         hide_children=True,
     )
-    builder.add_script(grp_hooks, L("[ HOOK 1 ] Captura Automática de Jogador (Edit / Elenco / Negociações)", "[ HOOK 1 ] Automatic Player Capture (Edit / Squad / Negotiations)"), ASM_HOOK_1_PLAYER, is_core_hook=True)
-    builder.add_script(grp_hooks, L("[ HOOK 2 ] Motor de Taxa de Rescisão Exata (Release Fee Override)", "[ HOOK 2 ] Exact Release Clause Override Engine"), ASM_HOOK_2_RELEASE_FEE, is_core_hook=True)
-    builder.add_script(grp_hooks, L("[ HOOK 3 ] Multiplicador Universal de Sub-XP (Treino ML, Base & BAL)", "[ HOOK 3 ] Universal Sub-XP Multiplier (Club, Youth & BAL)"), ASM_HOOK_3_TRAINING_MULT, is_core_hook=True)
-    builder.add_script(grp_hooks, L("[ HOOK 4 ] Destravar Limite de 21 Focus Points nas Setas do BAL", "[ HOOK 4 ] Unlock 21 Focus Points Cap on BAL Sliders"), ASM_HOOK_4_BAL_CAP, is_core_hook=True)
-    builder.add_script(grp_hooks, L("[ HOOK 5 ] Partida ao Vivo - Placar, Pênaltis & Relógio (Sider-Safe)", "[ HOOK 5 ] Live Match - Score, Penalties & Clock (Sider-Safe)"), ASM_HOOK_5_MATCH_HUD_CLOCK, is_core_hook=True)
-    builder.add_script(grp_hooks, L("[ HOOK 6 ] Stamina Seletiva em Campo (Casa / Fora / Ambos / Pressão)", "[ HOOK 6 ] Selective Match Stamina (Home / Away / Both / Press)"), ASM_HOOK_6_STAMINA, is_core_hook=True)
-
-    builder.add_script(
-        sec_central,
-        L("[ REATIVAR HOOKS ] Garantir Todos os 6 Hooks Mestres Ligados Agora", "[ ARM ALL HOOKS ] Ensure All 6 Master Hooks Are Active Now"),
-        make_lua_button_script("PES10.activateAllHooks(false)"),
-        color=COL_GREEN,
-    )
+    builder.add_script(grp_hooks, L("[ 1 ] Captura Automática de Jogador (Plano de Jogo / Elenco / Edit / Negociações)", "[ 1 ] Automatic Player Capture (Game Plan / Squad / Edit / Negotiations)"), ASM_HOOK_1_PLAYER, is_core_hook=True)
+    builder.add_script(grp_hooks, L("[ 2 ] Motor de Taxa de Rescisão Exata (Release Fee Override)", "[ 2 ] Exact Release Clause Override Engine"), ASM_HOOK_2_RELEASE_FEE, is_core_hook=True)
+    builder.add_script(grp_hooks, L("[ 3 ] Multiplicador Universal de Sub-XP (Treino ML, Base & BAL)", "[ 3 ] Universal Sub-XP Multiplier (Club, Youth & BAL)"), ASM_HOOK_3_TRAINING_MULT, is_core_hook=True)
+    builder.add_script(grp_hooks, L("[ 4 ] Destravar Limite de 21 Focus Points nas Setas do BAL", "[ 4 ] Unlock 21 Focus Points Cap on BAL Sliders"), ASM_HOOK_4_BAL_CAP, is_core_hook=True)
+    builder.add_script(grp_hooks, L("[ 5 ] Partida ao Vivo - Placar, Pênaltis & Relógio (Sider-Safe)", "[ 5 ] Live Match - Score, Penalties & Clock (Sider-Safe)"), ASM_HOOK_5_MATCH_HUD_CLOCK, is_core_hook=True)
+    builder.add_script(grp_hooks, L("[ 6 ] Stamina Seletiva em Campo (Casa / Fora / Ambos / Pressão)", "[ 6 ] Selective Match Stamina (Home / Away / Both / Press)"), ASM_HOOK_6_STAMINA, is_core_hook=True)
 
     # =========================================================================
     # SECTION 2: [ 2. MASTER LEAGUE - FINANCES & SQUAD COMMANDER ]

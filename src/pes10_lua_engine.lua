@@ -310,14 +310,51 @@ function PES10.toast(msg)
 end
 
 PES10.HOOK_IDS_BY_NUM = {}
+
+-- Exact v1.7.2.0 hook RVAs + original bytes for automatic recovery if a previous CE session closed without disarming
+PES10.HOOK_ORIG_BYTES = {
+  [1] = {
+    { rva = 0xC6ED40, checkOff = -19, checkByte = 0xCB, orig = {0x0F,0x10,0x02,0x0F,0x11,0x01} },
+    { rva = 0x8E24D7, checkOff = -7,  checkByte = 0x48, orig = {0x48,0x8B,0x40,0x2C,0x48,0x89,0x02} },
+    { rva = 0xDDCA5C, checkOff = 7,   checkByte = 0x89, orig = {0x0F,0xB6,0x80,0x50,0x01,0x00,0x00} },
+  },
+  [2] = { { rva = 0x156BE0C, checkOff = 5,  checkByte = 0x48, orig = {0x0F,0x29,0x74,0x24,0x40} } },
+  [3] = { { rva = 0x12E14A0, checkOff = 6,  checkByte = 0x0F, orig = {0x45,0x8B,0xC8,0x83,0xFA,0x6C} } },
+  [4] = { { rva = 0xBBFE79,  checkOff = -8, checkByte = 0x0F, orig = {0x15}, staleByte = 0x7F } },
+  [5] = {
+    { rva = 0x20F9FD6, checkOff = 7, checkByte = 0x88, orig = {0x49,0x8B,0xF8,0x44,0x0F,0xB6,0xE2} },
+    { rva = 0xA3C787,  checkOff = 8, checkByte = 0xF3, orig = {0x8B,0x44,0x24,0x40,0x89,0x44,0x24,0x40} },
+  },
+  [6] = { { rva = 0xA58EAC, checkOff = -2, checkByte = 0x00, orig = {0x6B,0x45,0x10,0x64,0x48,0x8B,0x5C,0x24,0x50}, anyNeighbor = true } },
+}
+
+function PES10.restoreStaleHookBytes(hookNum)
+  local list = PES10.HOOK_ORIG_BYTES[hookNum]
+  if not list or not PES10.isAttached() then return end
+  local base = getAddressSafe(PES10.PROCESS_NAME)
+  if not base or base == 0 then return end
+  for _, h in ipairs(list) do
+    local addr = base + h.rva
+    local b0 = PES10.readU8(addr)
+    local isStale = h.staleByte and (b0 == h.staleByte) or (b0 == 0xE9)
+    if isStale then
+      local okNeighbor = h.anyNeighbor or (PES10.readU8(addr + h.checkOff) == h.checkByte)
+      if okNeighbor then
+        pcall(function() writeBytes(addr, h.orig) end)
+      end
+    end
+  end
+end
+
 function PES10.ensureHookActive(hookNum)
-  if not PES10.isAttached() then return end
+  if not PES10.isAttached() or PES10.stateBase == 0 then return end
   local id = PES10.HOOK_IDS_BY_NUM and PES10.HOOK_IDS_BY_NUM[hookNum]
   if not id then return end
   local al = getAddressList()
   if not al then return end
   local mr = al.getMemoryRecordByID(id)
   if mr and not mr.Active then
+    PES10.restoreStaleHookBytes(hookNum)
     pcall(function() mr.Active = true end)
   end
 end
@@ -325,24 +362,29 @@ end
 function PES10.activateAllHooks(silent)
   if not PES10.isAttached() then
     if not silent then
-      PES10.toast(PES10.T("Abra o PES2021.exe primeiro para ativar os hooks!", "Open PES2021.exe first to activate hooks!"))
+      PES10.toast(PES10.T("Abra o PES2021.exe primeiro!", "Open PES2021.exe first!"))
     end
     return 0
   end
   PES10.initProcessState()
+  if PES10.stateBase == 0 then return 0 end
   local al = getAddressList()
+  if not al then return 0 end
   local okCount = 0
   for num = 1, 6 do
     local id = PES10.HOOK_IDS_BY_NUM[num]
     local mr = id and al.getMemoryRecordByID(id) or nil
     if mr then
-      if not mr.Active then pcall(function() mr.Active = true end) end
+      if not mr.Active then
+        PES10.restoreStaleHookBytes(num)
+        pcall(function() mr.Active = true end)
+      end
       if mr.Active then okCount = okCount + 1 end
     end
   end
-  if not silent or okCount > 0 then
+  if not silent then
     PES10.toast(string.format(
-      PES10.T("Hooks Mestres ativos: %d / 6 ligados automaticamente!", "Master Hooks active: %d / 6 armed ready!"),
+      PES10.T("Motor interno conectado (%d / 6 ativos).", "Internal engine connected (%d / 6 active)."),
       okCount
     ))
   end
@@ -475,9 +517,13 @@ function PES10.decodeClubHandle(rawU32)
   return teamId, slot, string.format(PES10.T("Time ID #%d (Slot %d)", "Team ID #%d (Slot %d)"), teamId, slot)
 end
 
+PES10._clubCacheKey = ""
+PES10._clubCacheName = ""
+
 function PES10.getCareerModeAndClubInfo()
   local career = PES10.readU64(PES10.symAddr("ptrCareer"))
   if career == 0 then
+    PES10._clubCacheKey = ""
     return PES10.T("Menu / Exibição", "Menu / Exhibition"), "", 0
   end
   local balHandle = PES10.readU64(career + 0x01819540)
@@ -485,8 +531,12 @@ function PES10.getCareerModeAndClubInfo()
   if isBAL then
     return PES10.T("Rumo ao Estrelato (BAL)", "Become a Legend (BAL)"), "", career
   end
-  local clubName = ""
   local h0 = PES10.readU64(career + 0x016EE854)
+  local cacheKey = tostring(career) .. ":" .. tostring(h0)
+  if PES10._clubCacheKey == cacheKey then
+    return "Master League", PES10._clubCacheName, career
+  end
+  local clubName = ""
   if math.floor(h0 / 0x100000000) ~= 0 then
     local lowSlot = h0 % 0x100000000
     local count = PES10.readU32(career + 0x00D0BCE8)
@@ -509,6 +559,8 @@ function PES10.getCareerModeAndClubInfo()
       end
     end
   end
+  PES10._clubCacheKey = cacheKey
+  PES10._clubCacheName = clubName
   return "Master League", clubName, career
 end
 
@@ -3715,7 +3767,7 @@ function PES10.openDashboard()
       pPos     = "OVR",
       pUndo    = 0,
       pTop     = PES10.T("Nenhum atleta selecionado no momento", "No player currently selected"),
-      pSub     = PES10.T("Clique em 'Buscar Jogador por Nome ou ID' abaixo ou passe o cursor sobre um atleta.", "Click 'Search Player by Name or ID' below or hover any player in-game."),
+      pSub     = PES10.T("Passe o cursor sobre qualquer jogador no Plano de Jogo, Lista do Elenco ou Negociações.", "Select or hover any player in Game Plan, Squad List or Negotiations."),
       trnTop   = PES10.T("MOTOR DE EVOLUÇÃO SUB-XP (EXCLUSIVO SEU CLUBE, BASE & BAL)", "SUB-XP PROGRESSION ENGINE (YOUR CLUB, YOUTH & BAL ONLY)"),
       trnMain  = PES10.T("Velocidade de Treino: 1x Original     •     BAL Focus Points: 0", "Training Speed: 1x Default     •     BAL Focus Points: 0"),
       mTop     = PES10.T("TELEMETRIA DE PARTIDA AO VIVO (SIDER-SAFE)", "LIVE MATCH TELEMETRY (SIDER-SAFE)"),
@@ -3889,19 +3941,7 @@ function PES10.openDashboard()
       addHitbox(id, px, pillY, pillW, pillH, function() PES10.setCurrency(cIdx) end)
     end
 
-    local hookW = S(146)
-    local hookX = currStartX - S(10) - hookW
-    local hookHov = (hoverId == "btn_hooks")
-    local hookBg  = hookHov and C_HOOK_HOV or C_HOOK_BG
-    local hookTxt = (tel.hooksOn == 6)
-      and PES10.T("⚡ 6/6 Hooks ON", "⚡ 6/6 Hooks ON")
-      or string.format(PES10.T("⚡ Ligar Hooks (%d/6)", "⚡ Arm Hooks (%d/6)"), tel.hooksOn)
-    drawRoundBox(c, hookX, pillY, hookW, pillH, S(8), hookBg, C_GREEN)
-    setFont(c, 8, C_TEXT, true)
-    drawTextCentered(c, hookX, pillY, hookW, pillH, hookBg, hookTxt)
-    addHitbox("btn_hooks", hookX, pillY, hookW, pillH, function() PES10.activateAllHooks(false) end)
-
-    local maxHdrTextW = hookX - PAD_X - S(16)
+    local maxHdrTextW = currStartX - PAD_X - S(16)
     setFont(c, 12, C_TEXT, true)
     drawTextLeft(c, PAD_X, S(12), C_HDR, "PES 2021  •  v11.0 ULTIMATE STUDIO", maxHdrTextW)
     setFont(c, 8, tel.attached and C_GREEN or C_SUBTEXT, false)
@@ -4160,6 +4200,7 @@ function PES10.startBackgroundEngine()
   PES10.isInitializing = false
   pcall(PES10.bindTableHooks)
 
+  local tickCount = 0
   PES10.bgTimer = createTimer(MainForm, true)
   PES10.bgTimer.Interval = 300
   PES10.bgTimer.OnTimer = function()
@@ -4176,6 +4217,11 @@ function PES10.startBackgroundEngine()
       PES10.initProcessState()
     else
       PES10.syncAllDynamicPointers()
+      tickCount = tickCount + 1
+      -- Silent background auto-healing every ~2.4s: keeps all 6 internal modules armed (<5ms via aobscanregion)
+      if (tickCount % 8) == 0 then
+        PES10.activateAllHooks(true)
+      end
     end
   end
 end

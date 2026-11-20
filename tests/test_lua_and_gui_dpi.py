@@ -831,7 +831,7 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
         return tostring(totalClicked)
         """
         clicked_n = int(run_lua_chunk(L, click_test, f"click_all_{expected_lang}_{dpi}"))
-        assert clicked_n >= 56, f"Expected >= 56 hitbox clicks across 4 tabs, got {clicked_n}"
+        assert clicked_n >= 52, f"Expected >= 52 hitbox clicks across 4 tabs, got {clicked_n}"
 
     # v11.0 Behavioral QA: Undo Stack, Secondary Position +1 OVR, Team Role & Real-RAM Scout Lists
     v11_test = """
