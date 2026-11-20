@@ -10167,6 +10167,103 @@ function PES10.openBALFocusModal()
   f.show()
 end
 
+-- MODAL 14: QUICK PLAYER STAMINA, FORM ARROW &amp; INJURY CONTROL
+function PES10.openQuickConditionModal()
+  if not createPanel or not createEdit then return end
+  local p = PES10.getSelectedPlayerOrWarn()
+  if p == 0 then return end
+  local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
+  local f, S, W, H, hdrBar = makeStudioModal("quickcond", PES10.T("Fôlego &amp; Forma - ", "Stamina &amp; Form - ") .. pName, 560, 356, M_GREEN, 58)
+
+  local hdr = makeModalLabel(hdrBar, S(16), S(10), W - S(32), S(22), pName, 11, M_TEXT, true)
+  local sub = makeModalLabel(hdrBar, S(16), S(34), W - S(32), S(18), "", 8, M_GREEN, false)
+
+  local arrowDefs = {
+    { id = 0, pt = "↓ Vermelha", en = "↓ Red",    var = "danger" },
+    { id = 1, pt = "↘ Laranja",  en = "↘ Orange", var = "default" },
+    { id = 2, pt = "→ Amarela",  en = "→ Yellow", var = "gold" },
+    { id = 3, pt = "↗ Verde",    en = "↗ Green",  var = "success" },
+    { id = 4, pt = "↑ Azul",     en = "↑ Blue",   var = "primary" },
+  }
+  local arrowBtns = {}
+  local edStam = nil
+
+  local function refreshCond()
+    local stam = PES10.getBitsInDword(p + 0x146, 0, 7)
+    local arr  = math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3)))
+    local inj  = PES10.readU8(p + 0x148)
+    local arrLbl = PES10.T(arrowDefs[arr + 1].pt, arrowDefs[arr + 1].en)
+    local injTxt = (inj &gt; 0) and string.format(PES10.T("%d dia(s)", "%d day(s)"), inj) or PES10.T("Saudável", "Healthy")
+    sub.Caption = string.format(PES10.T("Fôlego: %d%%  •  Seta: %s  •  Saúde: %s", "Stamina: %d%%  •  Arrow: %s  •  Health: %s"), stam, arrLbl, injTxt)
+    if edStam then edStam.Text = tostring(stam) end
+    for i, ad in ipairs(arrowDefs) do arrowBtns[i].setActive(arr == ad.id) end
+    if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
+  end
+
+  local function setStam(val)
+    val = math.max(0, math.min(100, math.floor((tonumber(val) or 100) + 0.5)))
+    PES10.pushPlayerUndo(p, "Stamina")
+    PES10.setBitsInDword(p + 0x146, 0, 7, val)
+    PES10.syncAllDynamicPointers()
+    PES10.toast(string.format(PES10.T("%s: Fôlego %d%%", "%s: Stamina %d%%"), pName, val))
+    refreshCond()
+  end
+
+  local function setArrow(val)
+    PES10.pushPlayerUndo(p, "Form Arrow")
+    PES10.setBitsInDword(p + 0x147, 0, 3, val)
+    PES10.setBitsInDword(p + 0x146, 7, 1, (val == 4) and 1 or 0)
+    PES10.syncAllDynamicPointers()
+    PES10.toast(string.format("%s: %s", pName, PES10.T(arrowDefs[val + 1].pt, arrowDefs[val + 1].en)))
+    refreshCond()
+  end
+
+  makeModalLabel(f, S(16), S(72), W - S(32), S(16), PES10.T("FÔLEGO / STAMINA (0-100%):", "STAMINA / FATIGUE (0-100%):"), 8, M_SUBTEXT, true)
+  local yS = S(94)
+  makeModalBtn(f, S(16),  yS, S(78),  S(34), "50%",  function() setStam(50) end, "default")
+  makeModalBtn(f, S(100), yS, S(78),  S(34), "75%",  function() setStam(75) end, "default")
+  makeModalBtn(f, S(184), yS, S(148), S(34), PES10.T("100% Fôlego", "100% Stamina"), function() setStam(100) end, "success")
+  edStam = makeDarkEdit(f, S(342), yS + S(2), S(74), S(30), "100", function() setStam(edStam.Text) end, true)
+  makeModalBtn(f, S(422), yS, S(122), S(34), PES10.T("Definir %", "Set %"), function() setStam(edStam.Text) end, "primary")
+
+  makeModalLabel(f, S(16), S(144), W - S(32), S(16), PES10.T("SETA DE FORMA (PRÓXIMO JOGO):", "NEXT MATCH FORM ARROW:"), 8, M_SUBTEXT, true)
+  local yA = S(166)
+  local aW = S(100)
+  for i, ad in ipairs(arrowDefs) do
+    arrowBtns[i] = makeModalBtn(f, S(16) + (i - 1) * (aW + S(7)), yA, aW, S(36), PES10.T(ad.pt, ad.en), function()
+      setArrow(ad.id)
+    end, ad.var)
+  end
+
+  local yQ = S(226)
+  makeModalBtn(f, S(16),  yQ, S(260), S(38), PES10.T("100% Fôlego + Seta Azul", "100% Stamina + Blue Arrow"), function()
+    PES10.pushPlayerUndo(p, "Full Condition")
+    PES10.setBitsInDword(p + 0x146, 0, 7, 100)
+    PES10.setBitsInDword(p + 0x147, 0, 3, 4)
+    PES10.setBitsInDword(p + 0x146, 7, 1, 1)
+    writeBytes(p + 0x148, 0)
+    PES10.syncAllDynamicPointers()
+    PES10.toast(pName .. ": " .. PES10.T("100% Fôlego + Seta Azul + Saudável!", "100% Stamina + Blue Arrow + Healthy!"))
+    refreshCond()
+  end, "primary")
+  makeModalBtn(f, S(284), yQ, S(260), S(38), PES10.T("Curar Lesão (0 dias)", "Heal Injury (0 days)"), function()
+    PES10.pushPlayerUndo(p, "Heal Injury")
+    writeBytes(p + 0x148, 0)
+    PES10.syncAllDynamicPointers()
+    PES10.toast(pName .. ": " .. PES10.T("Lesão zerada!", "Injury cleared!"))
+    refreshCond()
+  end, "success")
+
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16), yF, S(150), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+    PES10.undoLastPlayerEdit(p); refreshCond()
+  end, "gold")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+
+  refreshCond()
+  f.show()
+end
+
 -- ============================================================================
 -- PES 2021 v12.0 ULTIMATE STUDIO - DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
 -- Pixel-exact symmetric layout, DPI-aware, stateful active glow &amp; zero clipping
@@ -10409,18 +10506,11 @@ function PES10.openDashboard()
         title_pt="Overall Alvo (40-99)", title_en="Target Overall (40-99)",
         sub_pt="Escala OVR principal mantendo DNA", sub_en="Scales primary OVR keeping DNA",
         fn=function() PES10.promptTargetOVRProportional() end },
-      { col=2, row=4, accent=C_CRIMSON,
-        tag_pt="FULL", tag_en="FULL",
-        title_pt="41 Skills + 13 Posições 'A'", title_en="41 Skills + All 'A' Pos",
-        sub_pt="Skills, posições A, pé 4/4 e forma 8", sub_en="All skills, 'A' pos, WF 4/4 &amp; Form 8",
-        fn=function()
-          local p = PES10.getSelectedPlayerOrWarn()
-          if p == 0 then return end
-          PES10.runPlayerMacro("all_positions_a")
-          PES10.runPlayerMacro("all_39_skills")
-          PES10.runPlayerMacro("perfect_wf_form_injury")
-          PES10.toast(PES10.T("Pacote Completo aplicado!", "Full Pack applied!"))
-        end },
+      { col=2, row=4, accent=C_GREEN,
+        tag_pt="FORMA", tag_en="FORM",
+        title_pt="Fôlego 100% &amp; Seta de Forma", title_en="Stamina 100% &amp; Form Arrow",
+        sub_pt="Ajuste rápido de fôlego, seta e lesão", sub_en="Quick stamina, form arrow &amp; injury",
+        fn=function() PES10.openQuickConditionModal() end },
     },
 
     [3] = {

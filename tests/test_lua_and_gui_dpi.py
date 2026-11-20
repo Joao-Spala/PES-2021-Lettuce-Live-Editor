@@ -953,6 +953,7 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     PES10.openTrainingSpeedModal()
     PES10.openMatchStaminaModal()
     PES10.openBALFocusModal()
+    PES10.openQuickConditionModal()
     PES10.showPlayerDNAReport()
     PES10.promptTargetOVRProportional()
     local editCount, listCount, rawBtnCount = 0, 0, 0
