@@ -1073,7 +1073,19 @@ function PES10.showPlayerDNAReport()
     PES10.T("Raio-X aberto: %s (Melhor Pos: %s %d OVR)", "X-Ray opened: %s (Best Pos: %s %d OVR)"),
     pName, PES10.posShort(posRanking[1].pos), posRanking[1].ovr
   ))
-  showMessage(table.concat(lines, "\n"))
+  if PES10.openDarkTextModal then
+    PES10.openDarkTextModal(
+      "xray",
+      PES10.T("Raio-X 13 Posições & DNA - ", "13-Position & DNA X-Ray - ") .. pName,
+      string.format(PES10.T("Principal: %d %s  •  Melhor Posição: %d %s", "Primary: %d %s  •  Best Position: %d %s"), curOVR, PES10.posShort(regPos), posRanking[1].ovr, PES10.posShort(posRanking[1].pos)),
+      lines,
+      0xFA8BA7,
+      PES10.T("Abrir Lab de Posições", "Open Position Lab"),
+      function() PES10.openPositionLabModal() end
+    )
+  else
+    showMessage(table.concat(lines, "\n"))
+  end
   return true
 end
 
@@ -2015,31 +2027,31 @@ function PES10.promptTargetOVRProportional()
   if p == 0 then return false end
   local curOVR, regPos = PES10.calcPlayerOVR(p)
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local ans = inputQuery(
-    PES10.T("Definir Overall Proporcional (", "Set Proportional Overall (") .. pName .. ")",
-    string.format(
-      PES10.T(
-        "Overall atual: %d (%s). Digite o novo OVR desejado (40-99) mantendo o DNA/estilo:",
-        "Current Overall: %d (%s). Enter target OVR (40-99) preserving player DNA/style:"
-      ),
-      curOVR, PES10.posShort(regPos)
-    ),
-    tostring(math.min(99, curOVR + 3))
+  local title = PES10.T("Overall Alvo (DNA) - ", "Target Overall (DNA) - ") .. pName
+  local sub = string.format(
+    PES10.T("Atual: %d %s  •  Digite o novo OVR (40-99) preservando proporções:", "Current: %d %s  •  Enter target OVR (40-99) keeping DNA:"),
+    curOVR, PES10.posShort(regPos)
   )
+  local function applyVal(ans)
+    local t = tonumber(ans)
+    if not t then PES10.toast(PES10.T("Overall inválido.", "Invalid Overall value.")); return end
+    local ok, oldO, newO = PES10.scalePlayerToTargetOVR(p, t)
+    if ok then
+      PES10.toast(string.format(
+        PES10.T("%s ajustado de %d -> %d OVR (DNA preservado).", "%s scaled %d -> %d OVR (DNA preserved)."),
+        pName, oldO, newO
+      ))
+      if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
+    end
+  end
+  if PES10.openDarkPrompt then
+    PES10.openDarkPrompt(title, sub, tostring(math.min(99, curOVR + 3)), 0xF8BD38, applyVal)
+    return true
+  end
+  local ans = inputQuery(title, sub, tostring(math.min(99, curOVR + 3)))
   if not ans then return false end
-  local t = tonumber(ans)
-  if not t then
-    PES10.toast(PES10.T("Overall inválido.", "Invalid Overall value."))
-    return false
-  end
-  local ok, oldO, newO = PES10.scalePlayerToTargetOVR(p, t)
-  if ok then
-    PES10.toast(string.format(
-      PES10.T("%s ajustado de %d → %d OVR preservando proporções!", "%s scaled from %d → %d OVR preserving proportions!"),
-      pName, oldO, newO
-    ))
-  end
-  return ok
+  applyVal(ans)
+  return true
 end
 
 function PES10.rejuvenateAndSyncMarket(yearsDelta)
@@ -2661,68 +2673,71 @@ function PES10.bindTableHooks()
     if PES10.MONEY_DESC_TAGS[id] then
       local c = PES10.getCurrentCurrency()
       local curRaw = tonumber(memrec.Value) or 0
-      local ans = inputQuery(
+      PES10.openDarkPrompt(
         PES10.T("Editar Valor Financeiro (", "Edit Financial Value (") .. c.symbol .. ")",
-        PES10.T(
-          "Digite o valor (aceita 50M, 500k, 1.5B, 1000 ou 80.000.000):",
-          "Enter amount (accepts 50M, 500k, 1.5B, 1000 or 80,000,000):"
-        ),
-        PES10.formatMoneyFromRaw(curRaw)
+        PES10.T("Aceita 50M, 500k, 1.5B, 1000 ou 80.000.000:", "Accepts 50M, 500k, 1.5B, 1000 or 80,000,000:"),
+        PES10.formatMoneyFromRaw(curRaw),
+        0x24BFFB,
+        function(ans)
+          local newRaw = PES10.parseHumanMoneyToRaw(ans)
+          if not newRaw then
+            PES10.toast(PES10.T("Valor inválido: ", "Invalid amount: ") .. tostring(ans))
+            return
+          end
+          if id == PES10.CUSTOM_RFEE_RECORD_ID then
+            local p = PES10.getSelectedPlayerOrWarn()
+            if p ~= 0 then PES10.setOverrideReleaseFeeForPlayer(p, newRaw) end
+            return
+          end
+          memrec.Value = tostring(newRaw)
+        end
       )
-      if not ans then return true end
-      local newRaw = PES10.parseHumanMoneyToRaw(ans)
-      if not newRaw then
-        showMessage(PES10.T("Valor inválido: ", "Invalid amount: ") .. tostring(ans))
-        return true
-      end
-      if id == PES10.CUSTOM_RFEE_RECORD_ID then
-        local p = PES10.getSelectedPlayerOrWarn()
-        if p ~= 0 then PES10.setOverrideReleaseFeeForPlayer(p, newRaw) end
-        return true
-      end
-      memrec.Value = tostring(newRaw)
       return true
     end
 
     if id == PES10.CLOCK_RECORD_ID then
       local info = PES10.getMatchClockInfo()
       if not info then
-        showMessage(PES10.T("Entre em uma partida ao vivo primeiro!", "Enter a live match first!"))
+        PES10.toast(PES10.T("Entre em uma partida ao vivo primeiro!", "Enter a live match first!"))
         return true
       end
-      local ans = inputQuery(
-        PES10.T("Definir Minuto Exato da Partida", "Set Exact Match Minute"),
-        PES10.T("Digite o minuto desejado (ex: 15, 44, 88 ou 44:30):", "Enter desired minute (e.g., 15, 44, 88 or 44:30):"),
-        string.format("%02d:%02d", info.mm, info.ss)
+      PES10.openDarkPrompt(
+        PES10.T("Minuto Exato da Partida", "Exact Match Minute"),
+        PES10.T("Digite o minuto (ex: 15, 44, 88 ou 44:30):", "Enter minute (e.g. 15, 44, 88 or 44:30):"),
+        string.format("%02d:%02d", info.mm, info.ss),
+        0x24BFFB,
+        function(ans)
+          local mm, ss = ans:match("^(%d+)%s*:%s*(%d+)$")
+          local targetMin = mm and (tonumber(mm) + tonumber(ss) / 60.0) or tonumber((ans:gsub(",", ".")))
+          if targetMin then PES10.setExactMatchMinute(targetMin) end
+        end
       )
-      if not ans then return true end
-      local mm, ss = ans:match("^(%d+)%s*:%s*(%d+)$")
-      local targetMin = mm and (tonumber(mm) + tonumber(ss) / 60.0) or tonumber((ans:gsub(",", ".")))
-      if targetMin then PES10.setExactMatchMinute(targetMin) end
       return true
     end
 
     if PES10.SCORE_SYNC_IDS[id] then
       local side = PES10.SCORE_SYNC_IDS[id]
-      local ans = inputQuery(
+      PES10.openDarkPrompt(
         PES10.T("Editar Placar ao Vivo", "Edit Live Score"),
-        PES10.T("Digite o novo número de gols (0-99):", "Enter new goal count (0-99):"),
-        memrec.Value
-      )
-      if not ans then return true end
-      local g = tonumber(ans)
-      if g and g >= 0 and g <= 99 then
-        PES10.ensureHookActive(5)
-        local mCore = PES10.readU64(PES10.symAddr("ptrMatchCore"))
-        local mHud = PES10.readU64(PES10.symAddr("ptrMatchHud"))
-        if side == "home" then
-          if mCore ~= 0 then writeBytes(mCore + 0x9E, g) end
-          if mHud ~= 0 then writeInteger(mHud + 0x120, g) end
-        else
-          if mCore ~= 0 then writeBytes(mCore + 0x9F, g) end
-          if mHud ~= 0 then writeInteger(mHud + 0x124, g) end
+        PES10.T("Digite o número de gols (0-99):", "Enter goal count (0-99):"),
+        memrec.Value,
+        0x99D334,
+        function(ans)
+          local g = tonumber(ans)
+          if g and g >= 0 and g <= 99 then
+            PES10.ensureHookActive(5)
+            local mCore = PES10.readU64(PES10.symAddr("ptrMatchCore"))
+            local mHud = PES10.readU64(PES10.symAddr("ptrMatchHud"))
+            if side == "home" then
+              if mCore ~= 0 then writeBytes(mCore + 0x9E, g) end
+              if mHud ~= 0 then writeInteger(mHud + 0x120, g) end
+            else
+              if mCore ~= 0 then writeBytes(mCore + 0x9F, g) end
+              if mHud ~= 0 then writeInteger(mHud + 0x124, g) end
+            end
+          end
         end
-      end
+      )
       return true
     end
     return false
@@ -2744,8 +2759,8 @@ function PES10.asyncActionButton(memrec, fn)
 end
 
 -- ============================================================================
--- PES 2021 v11.1 ULTIMATE STUDIO - VISUAL INTERACTIVE MODALS (DPI-AWARE)
--- Zero clunky text prompts: 1-click Position Lab, Team Role, Real-RAM Scouts & Radar 30K
+-- PES 2021 v11.1 ULTIMATE STUDIO - UNIFIED DARK STUDIO UI KIT (DPI-AWARE)
+-- Zero white Win32 inputs, zero gray Win32 buttons, 100% cohesive dark theme
 -- ============================================================================
 function PES10.uiScale()
   local dpi = (getScreenDPI and getScreenDPI()) or 96
@@ -2754,7 +2769,43 @@ function PES10.uiScale()
   return function(px) return math.floor(px * sc + 0.5) end
 end
 
-local function makeStudioModal(modalKey, title, logW, logH)
+local M_BG        = 0x170F0B -- #0B0F17 Deep Midnight
+local M_HDR       = 0x20150F -- #0F1520 Header & Footer Surface
+local M_SURFACE   = 0x241811 -- #111824 Card / List Surface
+local M_INPUT_BG  = 0x1A110C -- #0C111A Recessed Dark Input
+local M_INPUT_FOC = 0x221710 -- #101722 Focused Dark Input
+local M_BTN_BG    = 0x2B1E16 -- #161E2B Button Idle
+local M_BTN_HOV   = 0x3A291F -- #1F293A Button Hover
+local M_BTN_DOWN  = 0x1E140E -- #0E141E Button Pressed
+local M_BORDER    = 0x453226 -- #263245 Crisp 1px Border
+local M_DIVIDER   = 0x33241B -- #1B2433 Subtle Divider
+local M_TEXT      = 0xFCFAF8 -- #F8FAFC Primary White Text
+local M_SUBTEXT   = 0xB8A394 -- #94A3B8 Muted Slate Text
+local M_BLUE      = 0xF8BD38 -- #38BDF8 Sky Blue Accent
+local M_GREEN     = 0x99D334 -- #34D399 Emerald Accent
+local M_GOLD      = 0x24BFFB -- #FBBF24 Gold Accent
+local M_CRIMSON   = 0x5E3FF4 -- #F43F5E Crimson Accent
+local M_PURPLE    = 0xFA8BA7 -- #A78BFA Violet Accent
+
+local M_VARIANTS = {
+  default = { bg = M_BTN_BG,   hov = M_BTN_HOV,  down = M_BTN_DOWN, bd = M_BORDER,  bdHov = M_BLUE,    fg = M_TEXT,    fgHov = M_TEXT },
+  primary = { bg = 0x3D2B14,   hov = 0x523A1C,   down = 0x291D0D,   bd = M_BLUE,    bdHov = 0xFCE08B,  fg = M_TEXT,    fgHov = M_TEXT },
+  success = { bg = 0x273314,   hov = 0x35471C,   down = 0x1A220D,   bd = M_GREEN,   bdHov = 0xC2F07D,  fg = M_TEXT,    fgHov = M_TEXT },
+  gold    = { bg = 0x18293A,   hov = 0x223A52,   down = 0x101C28,   bd = M_GOLD,    bdHov = 0x7AD9FC,  fg = M_TEXT,    fgHov = M_TEXT },
+  danger  = { bg = 0x26193A,   hov = 0x362352,   down = 0x1A1128,   bd = M_CRIMSON, bdHov = 0x9A82F9,  fg = M_TEXT,    fgHov = M_TEXT },
+  subtle  = { bg = M_HDR,      hov = M_BTN_BG,   down = M_BTN_DOWN, bd = M_DIVIDER, bdHov = M_BORDER,  fg = M_SUBTEXT, fgHov = M_TEXT },
+}
+
+local function makeDarkBox(parent, x, y, w, h, col)
+  local p = createPanel(parent)
+  p.Left = x; p.Top = y; p.Width = w; p.Height = h
+  p.Caption = ""
+  p.Color = col
+  pcall(function() p.ParentColor = false; p.BevelOuter = "bvNone"; p.BevelInner = "bvNone"; p.BorderStyle = "bsNone" end)
+  return p
+end
+
+local function makeStudioModal(modalKey, title, logW, logH, accentCol, hdrHLog)
   if modalKey and PES10.openModals and PES10.openModals[modalKey] then
     pcall(function() PES10.openModals[modalKey].close(); PES10.openModals[modalKey].destroy() end)
     PES10.openModals[modalKey] = nil
@@ -2762,71 +2813,333 @@ local function makeStudioModal(modalKey, title, logW, logH)
   local S = PES10.uiScale()
   local f = createForm(false)
   f.Caption = title
-  pcall(function() f.BorderStyle = "bsSingle" end)
-  f.Color = 0x170F0B
+  pcall(function() f.BorderStyle = "bsSingle"; f.KeyPreview = true end)
+  f.Color = M_BG
   f.DoNotSaveInTable = true
   local W, H = S(logW), S(logH)
   pcall(function() f.ClientWidth = W; f.ClientHeight = H end)
   if not f.ClientWidth or f.ClientWidth ~= W then f.Width = W; f.Height = H end
   f.centerScreen()
+  pcall(function()
+    f.OnKeyDown = function(sender, key)
+      if key == 27 then f.close() end
+      return key
+    end
+  end)
   f.OnClose = function()
     if modalKey and PES10.openModals and PES10.openModals[modalKey] == f then
       PES10.openModals[modalKey] = nil
     end
     return caFree
   end
+  if createPanel then
+    local hh = S(hdrHLog or 58)
+    makeDarkBox(f, 0, 0, W, hh, M_HDR)
+    makeDarkBox(f, 0, 0, W, S(2), accentCol or M_BLUE)
+    makeDarkBox(f, 0, hh, W, 1, M_DIVIDER)
+  end
   if modalKey and PES10.openModals then PES10.openModals[modalKey] = f end
   return f, S, W, H
 end
 
-local function makeModalLabel(parent, x, y, w, h, txt, ptSize, color, bold)
+local function makeModalLabel(parent, x, y, w, h, txt, ptSize, color, bold, alignCenter)
   local lbl = createLabel(parent)
   lbl.Left = x; lbl.Top = y; lbl.Width = w; lbl.Height = h
   lbl.AutoSize = false
   lbl.Caption = txt
   lbl.Font.Name = "Segoe UI"
   lbl.Font.Size = ptSize or 9
-  lbl.Font.Color = color or 0xFCFAF8
-  pcall(function() lbl.Font.Style = bold and "[fsBold]" or "[]" end)
+  lbl.Font.Color = color or M_TEXT
+  pcall(function()
+    lbl.Transparent = true
+    lbl.Font.Style = bold and "[fsBold]" or "[]"
+    if alignCenter then lbl.Alignment = "taCenter"; lbl.Layout = "tlCenter" end
+  end)
   return lbl
 end
 
-local function makeModalBtn(parent, x, y, w, h, txt, onClick)
-  local b = createButton(parent)
-  b.Left = x; b.Top = y; b.Width = w; b.Height = h
-  b.Caption = txt
-  b.Font.Name = "Segoe UI"
-  b.Font.Size = 9
-  b.OnClick = onClick
-  return b
+local function makeModalBtn(parent, x, y, w, h, txt, onClick, variant)
+  if not createPanel or not createLabel then
+    local b = createButton(parent)
+    b.Left = x; b.Top = y; b.Width = w; b.Height = h
+    b.Caption = txt; b.Font.Name = "Segoe UI"; b.Font.Size = 9; b.OnClick = onClick
+    return {
+      ctrl = b,
+      setCaption = function(s) b.Caption = s end,
+      setActive = function() end,
+    }
+  end
+  local v = M_VARIANTS[variant or "default"] or M_VARIANTS.default
+  local active = false
+  local hovered = false
+
+  local outer = makeDarkBox(parent, x, y, w, h, v.bd)
+  local inner = makeDarkBox(outer, 1, 1, math.max(2, w - 2), math.max(2, h - 2), v.bg)
+  local lbl = createLabel(inner)
+  lbl.Left = 2; lbl.Top = 0; lbl.Width = math.max(2, w - 6); lbl.Height = math.max(2, h - 2)
+  lbl.AutoSize = false
+  lbl.Caption = txt
+  lbl.Font.Name = "Segoe UI"
+  lbl.Font.Size = 9
+  lbl.Font.Color = v.fg
+  pcall(function()
+    lbl.Transparent = true
+    lbl.Alignment = "taCenter"
+    lbl.Layout = "tlCenter"
+    lbl.Font.Style = (variant == "primary" or variant == "success" or variant == "gold" or variant == "danger") and "[fsBold]" or "[]"
+    outer.Cursor = -21; inner.Cursor = -21; lbl.Cursor = -21
+  end)
+
+  local function applyVisual(isDown)
+    if active then
+      outer.Color = M_BLUE
+      inner.Color = isDown and 0x291D0D or 0x3D2B14
+      lbl.Font.Color = M_TEXT
+    elseif isDown then
+      outer.Color = v.bdHov
+      inner.Color = v.down
+      lbl.Font.Color = v.fgHov
+    elseif hovered then
+      outer.Color = v.bdHov
+      inner.Color = v.hov
+      lbl.Font.Color = v.fgHov
+    else
+      outer.Color = v.bd
+      inner.Color = v.bg
+      lbl.Font.Color = v.fg
+    end
+  end
+
+  local function onEnter() hovered = true; applyVisual(false) end
+  local function onLeave() hovered = false; applyVisual(false) end
+  local function onDown() applyVisual(true) end
+  local function onUp() applyVisual(false) end
+  local function onClk() if onClick then pcall(onClick) end end
+
+  for _, obj in ipairs({ outer, inner, lbl }) do
+    pcall(function()
+      obj.OnMouseEnter = onEnter
+      obj.OnMouseLeave = onLeave
+      obj.OnMouseDown  = onDown
+      obj.OnMouseUp    = onUp
+      obj.OnClick      = onClk
+    end)
+  end
+
+  return {
+    outer = outer, inner = inner, label = lbl,
+    setCaption = function(s) lbl.Caption = s end,
+    setActive = function(state)
+      active = (state == true)
+      pcall(function() lbl.Font.Style = active and "[fsBold]" or "[]" end)
+      applyVisual(false)
+    end,
+  }
 end
 
--- MODAL 1: VISUAL POSITION LAB (ISOLATED +1 OVR, MATCH PRIMARY OVR, SET PRIMARY & C/B/A APTITUDE)
+local function makeDarkEdit(parent, x, y, w, h, initText, onEnter, mono)
+  local S = PES10.uiScale()
+  if not createPanel then
+    local ed = createEdit(parent)
+    ed.Left = x; ed.Top = y; ed.Width = w; ed.Height = h; ed.Text = tostring(initText or "")
+    return ed
+  end
+  local outer = makeDarkBox(parent, x, y, w, h, M_BORDER)
+  local inner = makeDarkBox(outer, 1, 1, math.max(2, w - 2), math.max(2, h - 2), M_INPUT_BG)
+  local ed = createEdit(inner)
+  local edH = S(18)
+  local padY = math.max(2, math.floor((h - 2 - edH) / 2))
+  ed.Left = S(7); ed.Top = padY; ed.Width = math.max(10, w - S(16)); ed.Height = edH
+  ed.Text = tostring(initText or "")
+  ed.Color = M_INPUT_BG
+  ed.Font.Name = mono and "Consolas" or "Segoe UI"
+  ed.Font.Size = 9
+  ed.Font.Color = M_TEXT
+  pcall(function()
+    ed.ParentColor = false
+    ed.BorderStyle = "bsNone"
+    ed.OnEnter = function() outer.Color = M_BLUE; inner.Color = M_INPUT_FOC; ed.Color = M_INPUT_FOC end
+    ed.OnExit  = function() outer.Color = M_BORDER; inner.Color = M_INPUT_BG; ed.Color = M_INPUT_BG end
+    if onEnter then
+      ed.OnKeyDown = function(sender, key)
+        if key == 13 then onEnter() end
+        return key
+      end
+    end
+  end)
+  pcall(function() inner.OnClick = function() pcall(function() ed.setFocus() end) end end)
+  return ed
+end
+
+local function makeDarkListBox(parent, x, y, w, h, fontName, fontSize)
+  local S = PES10.uiScale()
+  if not createPanel then
+    local lb = createListBox(parent)
+    lb.Left = x; lb.Top = y; lb.Width = w; lb.Height = h
+    lb.Color = M_SURFACE; lb.Font.Name = fontName or "Consolas"; lb.Font.Size = fontSize or 10; lb.Font.Color = M_TEXT
+    return lb
+  end
+  local outer = makeDarkBox(parent, x, y, w, h, M_BORDER)
+  local inner = makeDarkBox(outer, 1, 1, math.max(2, w - 2), math.max(2, h - 2), M_SURFACE)
+  local lb = createListBox(inner)
+  lb.Left = S(4); lb.Top = S(4); lb.Width = math.max(10, w - S(10)); lb.Height = math.max(10, h - S(10))
+  lb.Color = M_SURFACE
+  lb.Font.Name = fontName or "Consolas"
+  lb.Font.Size = fontSize or 10
+  lb.Font.Color = M_TEXT
+  pcall(function() lb.ParentColor = false; lb.BorderStyle = "bsNone" end)
+  return lb
+end
+
+-- Zero-White Custom Dark Dropdown (panel + floating dark popup listbox)
+local function makeDarkCombo(parent, x, y, w, h, itemsList, initIdx, onChange)
+  local S = PES10.uiScale()
+  local curIdx = math.max(0, math.min(#itemsList - 1, initIdx or 0))
+  local popup = nil
+
+  local outer = makeDarkBox(parent, x, y, w, h, M_BORDER)
+  local inner = makeDarkBox(outer, 1, 1, math.max(2, w - 2), math.max(2, h - 2), M_INPUT_BG)
+  local lbl = createLabel(inner)
+  lbl.Left = S(8); lbl.Top = 0; lbl.Width = math.max(10, w - S(28)); lbl.Height = math.max(2, h - 2)
+  lbl.AutoSize = false; lbl.Font.Name = "Segoe UI"; lbl.Font.Size = 9; lbl.Font.Color = M_TEXT
+  lbl.Caption = itemsList[curIdx + 1] or ""
+  pcall(function() lbl.Transparent = true; lbl.Layout = "tlCenter"; lbl.Cursor = -21 end)
+
+  local chev = createLabel(inner)
+  chev.Left = math.max(2, w - S(22)); chev.Top = 0; chev.Width = S(18); chev.Height = math.max(2, h - 2)
+  chev.AutoSize = false; chev.Font.Name = "Segoe UI"; chev.Font.Size = 9; chev.Font.Color = M_BLUE
+  chev.Caption = "▾"
+  pcall(function() chev.Transparent = true; chev.Alignment = "taCenter"; chev.Layout = "tlCenter"; chev.Cursor = -21; outer.Cursor = -21; inner.Cursor = -21 end)
+
+  local function closePopup()
+    if popup then
+      pcall(function() popup.Visible = false; popup.destroy() end)
+      popup = nil
+      outer.Color = M_BORDER
+    end
+  end
+
+  local function setIndex(idx, fireCb)
+    idx = math.max(0, math.min(#itemsList - 1, idx or 0))
+    curIdx = idx
+    lbl.Caption = itemsList[curIdx + 1] or ""
+    if fireCb and onChange then pcall(onChange, curIdx) end
+  end
+
+  local function togglePopup()
+    if popup then closePopup(); return end
+    outer.Color = M_BLUE
+    local popH = math.min(#itemsList * S(21) + S(8), S(190))
+    local formH = parent.ClientHeight or parent.Height or S(500)
+    local popY = y + h + S(2)
+    if popY + popH > formH - S(8) then popY = math.max(S(6), y - popH - S(2)) end
+    popup = makeDarkBox(parent, x, popY, w, popH, M_BLUE)
+    local pIn = makeDarkBox(popup, 1, 1, math.max(2, w - 2), math.max(2, popH - 2), M_SURFACE)
+    local plb = createListBox(pIn)
+    plb.Left = S(2); plb.Top = S(2); plb.Width = math.max(8, w - S(6)); plb.Height = math.max(8, popH - S(6))
+    plb.Color = M_SURFACE; plb.Font.Name = "Segoe UI"; plb.Font.Size = 9; plb.Font.Color = M_TEXT
+    pcall(function() plb.ParentColor = false; plb.BorderStyle = "bsNone" end)
+    for _, it in ipairs(itemsList) do plb.Items.add(it) end
+    plb.ItemIndex = curIdx
+    local function pick()
+      local si = plb.ItemIndex
+      if si and si >= 0 and si < #itemsList then setIndex(si, true) end
+      closePopup()
+    end
+    pcall(function()
+      plb.OnClick = pick
+      plb.OnExit = closePopup
+      popup.bringToFront()
+      plb.setFocus()
+    end)
+  end
+
+  for _, obj in ipairs({ outer, inner, lbl, chev }) do
+    pcall(function()
+      obj.OnClick = togglePopup
+      obj.OnMouseEnter = function() if not popup then outer.Color = M_BLUE end end
+      obj.OnMouseLeave = function() if not popup then outer.Color = M_BORDER end end
+    end)
+  end
+
+  return {
+    getIndex = function() return curIdx end,
+    setIndex = function(i) setIndex(i, false) end,
+    closePopup = closePopup,
+  }
+end
+
+-- Unified Dark Prompt Modal (replaces blinding white Windows inputQuery dialogs)
+function PES10.openDarkPrompt(title, subtitle, defaultVal, accentCol, onConfirm)
+  if not createForm or not createEdit or not createPanel then
+    local ans = inputQuery(title, subtitle, tostring(defaultVal or ""))
+    if ans and onConfirm then onConfirm(ans) end
+    return
+  end
+  local f, S, W, H = makeStudioModal("darkprompt", title, 440, 198, accentCol or M_BLUE, 56)
+  makeModalLabel(f, S(16), S(10), W - S(32), S(20), title, 10, M_TEXT, true)
+  makeModalLabel(f, S(16), S(32), W - S(32), S(18), subtitle, 8, M_SUBTEXT, false)
+
+  local ed = nil
+  local function submit()
+    local val = ed and ed.Text or ""
+    f.close()
+    if onConfirm then pcall(onConfirm, val) end
+  end
+  ed = makeDarkEdit(f, S(16), S(74), W - S(32), S(34), tostring(defaultVal or ""), submit, false)
+
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  makeModalBtn(f, W - S(226), H - S(46), S(102), S(34), PES10.T("Cancelar", "Cancel"), function() f.close() end, "subtle")
+  makeModalBtn(f, W - S(116), H - S(46), S(100), S(34), PES10.T("Aplicar", "Apply"), submit, "primary")
+
+  f.show()
+  pcall(function() ed.setFocus(); ed.selectAll() end)
+end
+
+-- Unified Dark X-Ray Modal (replaces blinding white Windows showMessage dialog)
+function PES10.openDarkTextModal(modalKey, title, subtitle, linesTbl, accentCol, extraBtnTxt, extraBtnFn)
+  if not createForm or not createListBox or not createPanel then
+    showMessage(table.concat(linesTbl, "\n"))
+    return
+  end
+  local f, S, W, H = makeStudioModal(modalKey or "xray", title, 640, 520, accentCol or M_PURPLE, 58)
+  makeModalLabel(f, S(16), S(10), W - S(32), S(22), title, 11, M_TEXT, true)
+  makeModalLabel(f, S(16), S(34), W - S(32), S(18), subtitle, 8, M_SUBTEXT, false)
+
+  local lb = makeDarkListBox(f, S(16), S(70), W - S(32), H - S(142), "Consolas", 9)
+  for _, ln in ipairs(linesTbl) do lb.Items.add(ln) end
+
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  if extraBtnTxt and extraBtnFn then
+    makeModalBtn(f, S(16), H - S(46), S(200), S(34), extraBtnTxt, function() f.close(); extraBtnFn() end, "primary")
+  end
+  makeModalBtn(f, W - S(116), H - S(46), S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  f.show()
+end
+
+-- MODAL 1: VISUAL POSITION LAB (ISOLATED +1/-1/EXACT OVR, MATCH PRIMARY, SET PRIMARY & C/B/A)
 function PES10.openPositionLabModal()
-  if not createListBox or not createButton then return PES10.promptTargetPositionOVRPlusOne() end
+  if not createListBox or not createPanel then return PES10.promptTargetPositionOVRPlusOne() end
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal("poslab", PES10.T("Laboratório de Posições (Isolamento OVR) - ", "Position Lab (Isolated OVR) - ") .. pName, 670, 560)
+  local f, S, W, H = makeStudioModal("poslab", PES10.T("Laboratório de Posições - ", "Position Lab - ") .. pName, 680, 566, M_GREEN, 58)
 
-  local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
-  local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20),
-    PES10.T("Selecione uma posição para subir +1 OVR isolado (sem inflar a principal), igualar OVR ou mudar Grau:",
-            "Pick a position to boost +1 isolated OVR (without inflating primary), match primary OVR, or edit Grade:"),
-    8, 0xC4B2A0, false)
+  local hdr = makeModalLabel(f, S(16), S(10), W - S(32), S(22), "", 11, M_TEXT, true)
+  local sub = makeModalLabel(f, S(16), S(34), W - S(32), S(18),
+    PES10.T("Controle livre por posição: -1 / +1 / OVR exato, igualar principal ou editar Grau A/B/C",
+            "Full position control: -1 / +1 / exact OVR, match primary, or edit Grade A/B/C"),
+    8, M_SUBTEXT, false)
 
-  local lb = createListBox(f)
-  lb.Left = S(16); lb.Top = S(64); lb.Width = W - S(32); lb.Height = S(286)
-  lb.Color = 0x241811
-  lb.Font.Name = "Consolas"
-  lb.Font.Size = 10
-  lb.Font.Color = 0xFCFAF8
+  local lb = makeDarkListBox(f, S(16), S(70), W - S(32), S(284), "Consolas", 10)
 
-  local lblIso = makeModalLabel(f, S(16), S(358), W - S(32), S(20), "", 8, 0xF8BD38, true)
-  local lblLog = makeModalLabel(f, S(16), S(380), W - S(32), S(20),
-    PES10.T("Dica: Duplo-clique em qualquer posição aplica +1 OVR Isolado imediatamente.",
-            "Tip: Double-click any position to apply +1 Isolated OVR right away."),
-    8, 0x99D334, false)
+  local lblIso = makeModalLabel(f, S(16), S(362), W - S(32), S(18), "", 8, M_BLUE, true)
+  local lblLog = makeModalLabel(f, S(16), S(382), W - S(32), S(18),
+    PES10.T("Duplo-clique aplica +1 OVR isolado na posição selecionada.",
+            "Double-click applies +1 isolated OVR on the selected position."),
+    8, M_GREEN, false)
 
   local posOrder = {12, 11, 9, 10, 8, 6, 7, 5, 4, 2, 3, 1, 0}
   local function getPickedPos()
@@ -2848,8 +3161,8 @@ function PES10.openPositionLabModal()
     end
     if tp == regPos then
       lblIso.Caption = PES10.T(
-        "Posição Principal selecionada: +1 OVR usa o motor proporcional DNA completo.",
-        "Primary Position selected: +1 OVR uses the full proportional DNA solver."
+        "Posição Principal: ajustes usam o motor proporcional DNA completo.",
+        "Primary Position: edits use the full proportional DNA solver."
       )
       return
     end
@@ -2860,7 +3173,7 @@ function PES10.openPositionLabModal()
       top[#top + 1] = string.format("%s (%d vs %d)", it.name, it.wT, it.wP)
     end
     lblIso.Caption = string.format(
-      PES10.T("Atributos isolados (%s sem subir %s): %s", "Isolated stats (%s vs %s): %s"),
+      PES10.T("Atributos isolados (%s vs %s): %s", "Isolated stats (%s vs %s): %s"),
       PES10.posShort(tp), PES10.posShort(regPos), table.concat(top, "  •  ")
     )
   end
@@ -2871,7 +3184,7 @@ function PES10.openPositionLabModal()
     local regOVR, regPos = PES10.calcPlayerOVRFromBuf(b)
     local undoN = PES10.canUndoPlayer(p)
     hdr.Caption = string.format(
-      PES10.T("%s  •  Principal: %d %s  •  Histórico Undo: %d", "%s  •  Primary: %d %s  •  Undo History: %d"),
+      PES10.T("%s  •  Principal: %d %s  •  Undo: %d", "%s  •  Primary: %d %s  •  Undo: %d"),
       pName, regOVR, PES10.posShort(regPos), undoN
     )
     local prev = keepIdx or lb.ItemIndex
@@ -2903,69 +3216,67 @@ function PES10.openPositionLabModal()
   end
   lb.OnDblClick = doBoostOne
 
-  local y1, y2, y3 = S(408), S(450), S(494)
+  local y1, y2 = S(410), S(454)
   makeModalBtn(f, S(16),  y1, S(78),  S(34), "-1 OVR", function()
     local tp, idx = getPickedPos()
     if tp ~= nil then PES10.stepTargetPositionOVR(tp, -1); refreshList(idx, PES10.lastToastMsg) end
-  end)
-  makeModalBtn(f, S(100), y1, S(78),  S(34), "+1 OVR", doBoostOne)
+  end, "default")
+  makeModalBtn(f, S(100), y1, S(78),  S(34), "+1 OVR", doBoostOne, "success")
 
-  edTgt = createEdit(f)
-  edTgt.Left = S(186); edTgt.Top = y1 + S(4); edTgt.Width = S(52); edTgt.Height = S(26); edTgt.Text = "85"
   local function applyExact()
     local tp, idx = getPickedPos()
-    local val = tonumber(edTgt.Text)
+    local val = tonumber(edTgt and edTgt.Text or "")
     if tp ~= nil and val then
       PES10.setTargetPositionExactOVR(tp, val)
       refreshList(idx, PES10.lastToastMsg)
     end
   end
-  pcall(function() edTgt.OnKeyDown = function(sender, key) if key == 13 then applyExact() end; return key end end)
-  makeModalBtn(f, S(244), y1, S(94),  S(34), PES10.T("Definir OVR", "Set OVR"), applyExact)
+  edTgt = makeDarkEdit(f, S(186), y1 + S(2), S(56), S(30), "85", applyExact, true)
+  makeModalBtn(f, S(248), y1, S(94),  S(34), PES10.T("Definir OVR", "Set OVR"), applyExact, "primary")
 
-  makeModalBtn(f, S(344), y1, S(152), S(34), PES10.T("Igualar Principal", "Match Primary"), function()
+  makeModalBtn(f, S(348), y1, S(156), S(34), PES10.T("Igualar Principal", "Match Primary"), function()
     local tp, idx = getPickedPos()
-    if tp ~= nil then
-      PES10.matchSecondaryToPrimaryOVR(p, tp)
-      refreshList(idx, PES10.lastToastMsg)
-    end
-  end)
-  makeModalBtn(f, S(502), y1, S(152), S(34), PES10.T("Tornar Principal", "Set as Primary"), function()
+    if tp ~= nil then PES10.matchSecondaryToPrimaryOVR(p, tp); refreshList(idx, PES10.lastToastMsg) end
+  end, "gold")
+  makeModalBtn(f, S(510), y1, S(154), S(34), PES10.T("Tornar Principal", "Set as Primary"), function()
     local tp, idx = getPickedPos()
     if tp ~= nil and PES10.setRegisteredPosition(p, tp) then
       local newOvr = PES10.calcPlayerOVR(p)
-      PES10.toast(string.format(PES10.T("%s: Posição Principal alterada p/ %s (%d OVR)!", "%s: Primary Position set to %s (%d OVR)!"), pName, PES10.posShort(tp), newOvr))
+      PES10.toast(string.format(PES10.T("%s: Principal -> %s (%d OVR)", "%s: Primary -> %s (%d OVR)"), pName, PES10.posShort(tp), newOvr))
       refreshList(idx, PES10.lastToastMsg)
     end
-  end)
+  end, "default")
 
-  makeModalBtn(f, S(16),  y2, S(124), S(34), PES10.T("Definir Grau A", "Set Grade A"), function()
+  makeModalBtn(f, S(16),  y2, S(106), S(34), PES10.T("Grau A", "Grade A"), function()
     local tp, idx = getPickedPos()
     if tp ~= nil then PES10.setPosAptitude(p, tp, 2); PES10.toast(pName .. ": " .. PES10.posShort(tp) .. " -> A"); refreshList(idx, PES10.lastToastMsg) end
-  end)
-  makeModalBtn(f, S(146), y2, S(124), S(34), PES10.T("Definir Grau B", "Set Grade B"), function()
+  end, "default")
+  makeModalBtn(f, S(128), y2, S(106), S(34), PES10.T("Grau B", "Grade B"), function()
     local tp, idx = getPickedPos()
     if tp ~= nil then PES10.setPosAptitude(p, tp, 1); PES10.toast(pName .. ": " .. PES10.posShort(tp) .. " -> B"); refreshList(idx, PES10.lastToastMsg) end
-  end)
-  makeModalBtn(f, S(276), y2, S(124), S(34), PES10.T("Definir Grau C", "Set Grade C"), function()
+  end, "default")
+  makeModalBtn(f, S(240), y2, S(106), S(34), PES10.T("Grau C", "Grade C"), function()
     local tp, idx = getPickedPos()
     if tp ~= nil then PES10.setPosAptitude(p, tp, 0); PES10.toast(pName .. ": " .. PES10.posShort(tp) .. " -> C"); refreshList(idx, PES10.lastToastMsg) end
-  end)
-  makeModalBtn(f, S(406), y2, S(248), S(34), PES10.T("Promover Todas Secundárias B -> A", "Promote All Secondary B -> A"), function()
+  end, "default")
+  makeModalBtn(f, S(352), y2, S(164), S(34), PES10.T("Promover B -> A", "Promote B -> A"), function()
     local n = PES10.promoteSecondaryPositionsToA(p)
-    PES10.toast(string.format(PES10.T("%d secundária(s) promovida(s) p/ A!", "%d secondary pos promoted to A!"), n))
+    PES10.toast(string.format(PES10.T("%d secundária(s) -> A", "%d secondary -> A"), n))
     refreshList(lb.ItemIndex, PES10.lastToastMsg)
-  end)
-
-  makeModalBtn(f, S(16),  y3, S(210), S(34), PES10.T("Todas as 13 Posições em 'A'", "All 13 Positions to Grade 'A'"), function()
+  end, "default")
+  makeModalBtn(f, S(522), y2, S(142), S(34), PES10.T("Todas 13 em A", "All 13 to A"), function()
     PES10.runPlayerMacro("all_positions_a")
     refreshList(lb.ItemIndex, PES10.lastToastMsg)
-  end)
-  makeModalBtn(f, S(232), y3, S(210), S(34), PES10.T("Desfazer Última Edição (Undo)", "Undo Last Edit"), function()
+  end, "default")
+
+  -- Structured Dark Footer Bar
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  makeModalBtn(f, S(16), H - S(46), S(160), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
     PES10.undoLastPlayerEdit(p)
     refreshList(lb.ItemIndex, PES10.lastToastMsg)
-  end)
-  makeModalBtn(f, S(448), y3, S(206), S(34), PES10.T("Fechar", "Close"), function() f.close() end)
+  end, "gold")
+  makeModalBtn(f, W - S(126), H - S(46), S(110), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshList(0)
   f.show()
@@ -2973,43 +3284,33 @@ end
 
 -- MODAL 2: VISUAL TEAM ROLE SELECTOR (22 ROLES + LEVEL 1-3 + QUICK PRESETS)
 function PES10.openTeamRoleModal()
-  if not createListBox or not createButton then return PES10.promptSetTeamRole() end
+  if not createListBox or not createPanel then return PES10.promptSetTeamRole() end
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal("teamrole", PES10.T("Função de Equipe (Team Role) - ", "Team Role & Level - ") .. pName, 560, 470)
+  local f, S, W, H = makeStudioModal("teamrole", PES10.T("Função de Equipe - ", "Team Role - ") .. pName, 580, 504, M_GOLD, 58)
 
-  local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
-  local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20),
-    PES10.T("Selecione qualquer uma das 22 Funções de Equipe + Nível (1-3) ou use um Preset rápido:",
-            "Select any of the 22 Team Roles + Level (1-3) or click a Quick Preset:"),
-    8, 0xC4B2A0, false)
+  local hdr = makeModalLabel(f, S(16), S(10), W - S(32), S(22), "", 11, M_TEXT, true)
+  local sub = makeModalLabel(f, S(16), S(34), W - S(32), S(18),
+    PES10.T("Escolha qualquer uma das 22 Funções + Nível (1-3) ou clique em um Preset:",
+            "Pick any of the 22 Team Roles + Level (1-3) or click a Quick Preset:"),
+    8, M_SUBTEXT, false)
 
-  local lb = createListBox(f)
-  lb.Left = S(16); lb.Top = S(64); lb.Width = W - S(32); lb.Height = S(268)
-  lb.Color = 0x241811
-  lb.Font.Name = "Segoe UI"
-  lb.Font.Size = 10
-  lb.Font.Color = 0xFCFAF8
-
+  local lb = makeDarkListBox(f, S(16), S(70), W - S(32), S(254), "Segoe UI", 10)
   for r = 0, 22 do
     local info = PES10.TEAM_ROLES[r]
     lb.Items.add(string.format("[%2d]  %s", r, info and PES10.T(info.pt, info.en) or "-"))
   end
 
-  local cbLvl = createComboBox(f)
-  cbLvl.Left = S(16); cbLvl.Top = S(344); cbLvl.Width = S(130); cbLvl.Height = S(28)
-  cbLvl.Style = "csDropDownList"
-  cbLvl.Items.add(PES10.T("Nível 1", "Level 1"))
-  cbLvl.Items.add(PES10.T("Nível 2", "Level 2"))
-  cbLvl.Items.add(PES10.T("Nível 3 (Máx)", "Level 3 (Max)"))
+  local lvlItems = { PES10.T("Nível 1", "Level 1"), PES10.T("Nível 2", "Level 2"), PES10.T("Nível 3 (Máx)", "Level 3 (Max)") }
+  local cbLvl = makeDarkCombo(f, S(16), S(336), S(156), S(34), lvlItems, 2)
 
   local function refreshRole()
     local cr, cl = PES10.getTeamRole(p)
     local rn = PES10.TEAM_ROLES[cr] and PES10.T(PES10.TEAM_ROLES[cr].pt, PES10.TEAM_ROLES[cr].en) or "-"
-    hdr.Caption = string.format(PES10.T("%s  •  Atual: %s (Nível %d)", "%s  •  Current: %s (Level %d)"), pName, rn, cl)
+    hdr.Caption = string.format(PES10.T("%s  •  Atual: %s (Nv %d)", "%s  •  Current: %s (Lv %d)"), pName, rn, cl)
     lb.ItemIndex = cr
-    cbLvl.ItemIndex = math.max(0, math.min(2, cl - 1))
+    cbLvl.setIndex(math.max(0, math.min(2, cl - 1)))
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
   end
 
@@ -3017,33 +3318,33 @@ function PES10.openTeamRoleModal()
     PES10.setTeamRole(p, rNum, lNum)
     local rInfo = PES10.TEAM_ROLES[rNum]
     local rTxt = rInfo and PES10.T(rInfo.pt, rInfo.en) or tostring(rNum)
-    PES10.toast(string.format(PES10.T("%s agora é '%s' (Nível %d)!", "%s is now '%s' (Level %d)!"), pName, rTxt, lNum))
+    PES10.toast(string.format(PES10.T("%s: %s (Nv %d)", "%s: %s (Lv %d)"), pName, rTxt, lNum))
     refreshRole()
   end
   lb.OnDblClick = function()
     local idx = lb.ItemIndex
-    if idx and idx >= 0 and idx <= 22 then applyRole(idx, (cbLvl.ItemIndex or 2) + 1) end
+    if idx and idx >= 0 and idx <= 22 then applyRole(idx, cbLvl.getIndex() + 1) end
   end
 
-  makeModalBtn(f, S(156), S(342), S(200), S(32), PES10.T("Aplicar Função Selecionada", "Apply Selected Role"), function()
+  makeModalBtn(f, S(180), S(336), S(220), S(34), PES10.T("Aplicar Função Selecionada", "Apply Selected Role"), function()
     local idx = lb.ItemIndex
-    if idx and idx >= 0 and idx <= 22 then
-      applyRole(idx, (cbLvl.ItemIndex or 2) + 1)
-    end
-  end)
-  makeModalBtn(f, S(364), S(342), S(90), S(32), PES10.T("Desfazer", "Undo"), function()
-    PES10.undoLastPlayerEdit(p); refreshRole()
-  end)
-  makeModalBtn(f, S(462), S(342), S(82), S(32), PES10.T("Fechar", "Close"), function() f.close() end)
+    if idx and idx >= 0 and idx <= 22 then applyRole(idx, cbLvl.getIndex() + 1) end
+  end, "primary")
 
-  -- 5 One-Click Quick Presets
-  local yP = S(390)
-  makeModalLabel(f, S(16), yP - S(18), W - S(32), S(16), PES10.T("PRESETS DE 1 CLIQUE (NÍVEL 3 MÁXIMO):", "1-CLICK QUICK PRESETS (LEVEL 3 MAX):"), 8, 0x24BFFB, true)
-  makeModalBtn(f, S(16),  yP, S(100), S(34), PES10.T("Lenda", "Legend"),       function() applyRole(19, 3) end)
-  makeModalBtn(f, S(122), yP, S(100), S(34), PES10.T("Bandeira", "Bandiera"),  function() applyRole(18, 3) end)
-  makeModalBtn(f, S(228), yP, S(100), S(34), PES10.T("Maestro", "Maestro"),    function() applyRole(9, 3) end)
-  makeModalBtn(f, S(334), yP, S(100), S(34), PES10.T("General", "General"),    function() applyRole(7, 3) end)
-  makeModalBtn(f, S(440), yP, S(104), S(34), PES10.T("Superestrela", "Superstar"), function() applyRole(14, 3) end)
+  local yP = S(396)
+  makeModalLabel(f, S(16), yP - S(18), W - S(32), S(16), PES10.T("PRESETS NÍVEL 3:", "LEVEL 3 PRESETS:"), 8, M_GOLD, true)
+  makeModalBtn(f, S(16),  yP, S(104), S(34), PES10.T("Lenda", "Legend"),           function() applyRole(19, 3) end, "default")
+  makeModalBtn(f, S(126), yP, S(104), S(34), PES10.T("Bandeira", "Bandiera"),      function() applyRole(18, 3) end, "default")
+  makeModalBtn(f, S(236), yP, S(104), S(34), PES10.T("Maestro", "Maestro"),        function() applyRole(9, 3) end, "default")
+  makeModalBtn(f, S(346), yP, S(104), S(34), PES10.T("General", "General"),        function() applyRole(7, 3) end, "default")
+  makeModalBtn(f, S(456), yP, S(108), S(34), PES10.T("Superestrela", "Superstar"), function() applyRole(14, 3) end, "default")
+
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  makeModalBtn(f, S(16), H - S(46), S(140), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+    PES10.undoLastPlayerEdit(p); refreshRole()
+  end, "gold")
+  makeModalBtn(f, W - S(126), H - S(46), S(110), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshRole()
   f.show()
@@ -3051,26 +3352,21 @@ end
 
 -- MODAL 3: VISUAL REAL-RAM SCOUT OBSERVATION HUB (SCOUTS 1, 2, 3 & SHORTLIST)
 function PES10.openScoutListsModal()
-  if not createListBox or not createButton then return PES10.promptAddPlayerToScoutList() end
+  if not createListBox or not createPanel then return PES10.promptAddPlayerToScoutList() end
   local career = PES10.readU64(PES10.symAddr("ptrCareer"))
   if career == 0 then
     PES10.toast(PES10.T("Carregue um save de Master League primeiro!", "Load a Master League save first!"))
     return
   end
 
-  local f, S, W, H = makeStudioModal("scouthub", PES10.T("Central de Olheiros & Observação (RAM Real)", "Scout Observation Hub (Live RAM)"), 660, 500)
-  local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
-  local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20), "", 8, 0x99D334, false)
+  local f, S, W, H = makeStudioModal("scouthub", PES10.T("Olheiros & Observação (RAM Real)", "Scout Observation Hub (Live RAM)"), 680, 526, M_GREEN, 58)
+  local hdr = makeModalLabel(f, S(16), S(10), W - S(32), S(22), "", 11, M_TEXT, true)
+  local sub = makeModalLabel(f, S(16), S(34), W - S(32), S(18), "", 8, M_GREEN, false)
 
   local curSlot = 1
   local curEntries = {}
 
-  local lb = createListBox(f)
-  lb.Left = S(16); lb.Top = S(104); lb.Width = W - S(32); lb.Height = S(268)
-  lb.Color = 0x241811
-  lb.Font.Name = "Consolas"
-  lb.Font.Size = 9
-  lb.Font.Color = 0xFCFAF8
+  local lb = makeDarkListBox(f, S(16), S(112), W - S(32), S(278), "Consolas", 9)
 
   local tabBtns = {}
   local function refreshHub()
@@ -3078,24 +3374,24 @@ function PES10.openScoutListsModal()
     if p ~= 0 then
       local nm = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
       local ovr, rp = PES10.calcPlayerOVR(p)
-      hdr.Caption = string.format(PES10.T("Atleta Selecionado: %s (%d %s)", "Selected Player: %s (%d %s)"), nm, ovr, PES10.posShort(rp))
+      hdr.Caption = string.format(PES10.T("Atleta Atual: %s (%d %s)", "Selected Player: %s (%d %s)"), nm, ovr, PES10.posShort(rp))
     else
-      hdr.Caption = PES10.T("Nenhum atleta selecionado - Use o Radar 30K ou passe o cursor no jogo", "No player selected - Use Radar 30K or hover a player in-game")
+      hdr.Caption = PES10.T("Nenhum atleta selecionado - passe o cursor no jogo ou abra o Radar 30K", "No player selected - hover in-game or open Radar 30K")
     end
 
     for s = 1, 4 do
       local def = PES10.SCOUT_LISTS[s]
       local u, cap = PES10.getScoutListSummary(s)
-      local tag = (s == curSlot) and ">> " or ""
-      tabBtns[s].Caption = string.format("%s%s (%d/%d)", tag, PES10.T(def.pt, def.en):gsub(" %(Shortlist%)", ""):gsub("Lista de ", ""), u, cap)
+      tabBtns[s].setCaption(string.format("%s (%d/%d)", PES10.T(def.pt, def.en):gsub(" %(Shortlist%)", ""):gsub("Lista de ", ""), u, cap))
+      tabBtns[s].setActive(s == curSlot)
     end
 
     curEntries = PES10.getScoutListEntries(curSlot)
     local def = PES10.SCOUT_LISTS[curSlot]
-    sub.Caption = string.format(PES10.T("Exibindo na RAM: %s - %d / %d vagas ocupadas", "Live RAM View: %s - %d / %d slots used"), PES10.T(def.pt, def.en), #curEntries, def.cap)
+    sub.Caption = string.format(PES10.T("RAM ao vivo: %s  •  %d / %d vagas ocupadas", "Live RAM: %s  •  %d / %d slots used"), PES10.T(def.pt, def.en), #curEntries, def.cap)
     lb.Items.clear()
     if #curEntries == 0 then
-      lb.Items.add(PES10.T("  [ Lista vazia - Clique em '+ Adicionar Atleta Atual' abaixo ]", "  [ List empty - Click '+ Add Current Player' below ]"))
+      lb.Items.add(PES10.T("  [ Lista vazia - clique em '+ Adicionar Atleta' abaixo ]", "  [ List empty - click '+ Add Current Player' below ]"))
     else
       for idx, e in ipairs(curEntries) do
         lb.Items.add(string.format("%2d. %-24s | %2d %-3s | %2d %s | %s", idx, e.name, e.ovr, PES10.posShort(e.pos), e.age, PES10.T("a", "y"), e.club))
@@ -3105,53 +3401,56 @@ function PES10.openScoutListsModal()
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
   end
 
-  local tW = S(152)
+  local tW = S(157)
   for s = 1, 4 do
     local sCopy = s
-    tabBtns[s] = makeModalBtn(f, S(16) + (s - 1) * (tW + S(6)), S(64), tW, S(32), "Slot " .. s, function()
+    tabBtns[s] = makeModalBtn(f, S(16) + (s - 1) * (tW + S(6)), S(70), tW, S(32), "Slot " .. s, function()
       curSlot = sCopy; refreshHub()
-    end)
+    end, "default")
   end
 
-  local y1, y2 = S(384), S(428)
-  makeModalBtn(f, S(16),  y1, S(240), S(34), PES10.T("+ Adicionar Atleta Atual nesta Lista", "+ Add Current Player to This List"), function()
+  local y1 = S(402)
+  makeModalBtn(f, S(16), y1, S(246), S(34), PES10.T("+ Adicionar Atleta nesta Lista", "+ Add Current Player to List"), function()
     if PES10.addPlayerToScoutList(curSlot) then refreshHub() end
-  end)
+  end, "success")
   local function loadScoutEntry()
     local idx = lb.ItemIndex
     if idx and curEntries[idx + 1] and curEntries[idx + 1].playerAddr ~= 0 then
       local e = curEntries[idx + 1]
       writeQword(PES10.symAddr("ptrPlayer"), e.playerAddr)
       PES10.syncAllDynamicPointers()
-      PES10.toast(PES10.T("Carregado do Olheiro: ", "Loaded from Scout: ") .. e.name)
+      PES10.toast(PES10.T("Carregado: ", "Loaded: ") .. e.name)
       refreshHub()
     end
   end
   lb.OnDblClick = loadScoutEntry
-  makeModalBtn(f, S(264), y1, S(196), S(34), PES10.T("Carregar Selecionado no Studio", "Load Picked Player to Studio"), loadScoutEntry)
-  makeModalBtn(f, S(468), y1, S(176), S(34), PES10.T("Remover Item da Lista", "Remove Selected Item"), function()
+  makeModalBtn(f, S(270), y1, S(204), S(34), PES10.T("Carregar no Studio", "Load into Studio"), loadScoutEntry, "primary")
+  makeModalBtn(f, S(482), y1, S(182), S(34), PES10.T("Remover da Lista", "Remove Item"), function()
     local idx = lb.ItemIndex
     if idx and curEntries[idx + 1] then
       local e = curEntries[idx + 1]
       PES10.removePlayerFromScoutList(curSlot, e.handle)
-      PES10.toast(PES10.T("Removido da lista: ", "Removed from list: ") .. e.name)
+      PES10.toast(PES10.T("Removido: ", "Removed: ") .. e.name)
       refreshHub()
     end
-  end)
+  end, "danger")
 
-  makeModalBtn(f, S(16),  y2, S(176), S(34), PES10.T("Negócio Irrecusável", "Irresistible Deal"), function()
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  local yF = H - S(46)
+  makeModalBtn(f, S(16),  yF, S(162), S(34), PES10.T("Negócio Irrecusável", "Irresistible Deal"), function()
     PES10.makeDealIrresistible(); refreshHub()
-  end)
-  makeModalBtn(f, S(198), y2, S(116), S(34), PES10.T("Radar 30K...", "Radar 30K..."), function()
+  end, "gold")
+  makeModalBtn(f, S(184), yF, S(114), S(34), "Radar 30K...", function()
     PES10.openScoutFinderModal()
-  end)
-  makeModalBtn(f, S(320), y2, S(116), S(34), PES10.T("Limpar Lista", "Clear List"), function()
+  end, "default")
+  makeModalBtn(f, S(304), yF, S(114), S(34), PES10.T("Limpar Lista", "Clear List"), function()
     PES10.clearScoutSlots(curSlot); refreshHub()
-  end)
-  makeModalBtn(f, S(442), y2, S(116), S(34), PES10.T("Limpar 1-3", "Clear 1-3"), function()
+  end, "danger")
+  makeModalBtn(f, S(424), yF, S(114), S(34), PES10.T("Limpar 1-3", "Clear 1-3"), function()
     PES10.clearScoutSlots(); refreshHub()
-  end)
-  makeModalBtn(f, S(564), y2, S(80),  S(34), PES10.T("Fechar", "Close"), function() f.close() end)
+  end, "danger")
+  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshHub()
   f.show()
@@ -3159,7 +3458,7 @@ end
 
 -- MODAL 4: RADAR 30K - ADVANCED VISUAL SCOUT FINDER (NAME, POS, OVR, AGE, EXPIRING CONTRACT)
 function PES10.openScoutFinderModal()
-  if not createListBox or not createEdit or not createComboBox or not createButton then
+  if not createListBox or not createEdit or not createPanel then
     return PES10.searchCareerPlayerDialog()
   end
   PES10.syncAllDynamicPointers()
@@ -3169,57 +3468,51 @@ function PES10.openScoutFinderModal()
     return
   end
 
-  local f, S, W, H = makeStudioModal("radar30k", PES10.T("Radar 30K - Busca Avançada & Caçador de Joias", "Radar 30K - Advanced Scout & Wonderkid Finder"), 740, 568)
-  makeModalLabel(f, S(16), S(10), S(160), S(16), PES10.T("Nome ou Player ID:", "Name or Player ID:"), 8, 0xC4B2A0, true)
-  local edName = createEdit(f)
-  edName.Left = S(16); edName.Top = S(28); edName.Width = S(180); edName.Height = S(26); edName.Text = ""
+  local f, S, W, H = makeStudioModal("radar30k", PES10.T("Radar 30K - Busca Global", "Radar 30K - Global Search"), 752, 586, M_BLUE, 66)
+  local runSearch = nil
+  local function triggerSearch() if runSearch then runSearch() end end
 
-  makeModalLabel(f, S(204), S(10), S(90), S(16), PES10.T("Posição:", "Position:"), 8, 0xC4B2A0, true)
-  local cbPos = createComboBox(f)
-  cbPos.Left = S(204); cbPos.Top = S(28); cbPos.Width = S(96); cbPos.Height = S(26); cbPos.Style = "csDropDownList"
-  cbPos.Items.add(PES10.T("Todas", "All"))
+  makeModalLabel(f, S(16), S(8), S(180), S(16), PES10.T("Nome ou Player ID:", "Name or Player ID:"), 8, M_SUBTEXT, true)
+  local edName = makeDarkEdit(f, S(16), S(26), S(186), S(30), "", triggerSearch, false)
+
+  makeModalLabel(f, S(210), S(8), S(96), S(16), PES10.T("Posição:", "Position:"), 8, M_SUBTEXT, true)
   local posOrder = {12, 11, 9, 10, 8, 6, 7, 5, 4, 2, 3, 1, 0}
-  for _, pIdx in ipairs(posOrder) do cbPos.Items.add(PES10.posShort(pIdx)) end
-  cbPos.ItemIndex = 0
+  local posLabels = { PES10.T("Todas", "All") }
+  for _, pIdx in ipairs(posOrder) do posLabels[#posLabels + 1] = PES10.posShort(pIdx) end
+  local cbPos = makeDarkCombo(f, S(210), S(26), S(96), S(30), posLabels, 0)
 
-  makeModalLabel(f, S(308), S(10), S(68), S(16), PES10.T("OVR Mín:", "Min OVR:"), 8, 0xC4B2A0, true)
-  local edOvr = createEdit(f)
-  edOvr.Left = S(308); edOvr.Top = S(28); edOvr.Width = S(64); edOvr.Height = S(26); edOvr.Text = "80"
+  makeModalLabel(f, S(314), S(8), S(68), S(16), PES10.T("OVR Mín:", "Min OVR:"), 8, M_SUBTEXT, true)
+  local edOvr = makeDarkEdit(f, S(314), S(26), S(64), S(30), "80", triggerSearch, true)
 
-  makeModalLabel(f, S(380), S(10), S(74), S(16), PES10.T("Idade Máx:", "Max Age:"), 8, 0xC4B2A0, true)
-  local edAge = createEdit(f)
-  edAge.Left = S(380); edAge.Top = S(28); edAge.Width = S(64); edAge.Height = S(26); edAge.Text = "45"
+  makeModalLabel(f, S(386), S(8), S(74), S(16), PES10.T("Idade Máx:", "Max Age:"), 8, M_SUBTEXT, true)
+  local edAge = makeDarkEdit(f, S(386), S(26), S(64), S(30), "45", triggerSearch, true)
 
-  makeModalLabel(f, S(452), S(10), S(150), S(16), PES10.T("Status Especial:", "Special Filter:"), 8, 0xC4B2A0, true)
-  local cbSpec = createComboBox(f)
-  cbSpec.Left = S(452); cbSpec.Top = S(28); cbSpec.Width = S(160); cbSpec.Height = S(26); cbSpec.Style = "csDropDownList"
-  cbSpec.Items.add(PES10.T("Todos os Jogadores", "All Players"))
-  cbSpec.Items.add(PES10.T("Contrato <= 1 Ano", "Contract <= 1 Yr"))
-  cbSpec.Items.add(PES10.T("Lista de Transferência", "Transfer Listed"))
-  cbSpec.Items.add(PES10.T("Sem Clube / Livre", "Free Agents"))
-  cbSpec.ItemIndex = 0
+  makeModalLabel(f, S(458), S(8), S(160), S(16), PES10.T("Filtro:", "Filter:"), 8, M_SUBTEXT, true)
+  local specLabels = {
+    PES10.T("Todos os Jogadores", "All Players"),
+    PES10.T("Contrato <= 1 Ano", "Contract <= 1 Yr"),
+    PES10.T("Lista de Transferência", "Transfer Listed"),
+    PES10.T("Sem Clube / Livre", "Free Agents"),
+  }
+  local cbSpec = makeDarkCombo(f, S(458), S(26), S(164), S(30), specLabels, 0)
 
-  local lblStat = makeModalLabel(f, S(16), S(98), W - S(32), S(18),
-    PES10.T("Use os Presets rápidos acima ou digite Nome/Filtros e aperte ENTER (Duplo-Clique carrega o atleta):",
-            "Use the Quick Presets above or enter Name/Filters and press ENTER (Double-Click loads player):"),
-    8, 0xF8BD38, false)
+  local lblStat = makeModalLabel(f, S(16), S(114), W - S(32), S(18),
+    PES10.T("Filtre ou clique em um preset abaixo (Duplo-clique carrega no Studio):",
+            "Filter or click a preset below (Double-click loads into Studio):"),
+    8, M_BLUE, false)
 
-  local lb = createListBox(f)
-  lb.Left = S(16); lb.Top = S(120); lb.Width = W - S(32); lb.Height = S(348)
-  lb.Color = 0x241811
-  lb.Font.Name = "Consolas"
-  lb.Font.Size = 9
-  lb.Font.Color = 0xFCFAF8
+  local lb = makeDarkListBox(f, S(16), S(136), W - S(32), S(376), "Consolas", 9)
 
   local results = {}
-  local function runSearch()
+  runSearch = function()
     local qRaw = (edName.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
     local qNorm = PES10.normalizeText(qRaw)
     local qNum = tonumber(qRaw)
-    local posSel = (cbPos.ItemIndex and cbPos.ItemIndex > 0) and posOrder[cbPos.ItemIndex] or nil
+    local posIdxSel = cbPos.getIndex()
+    local posSel = (posIdxSel and posIdxSel > 0) and posOrder[posIdxSel] or nil
     local minOvr = tonumber(edOvr.Text) or 0
     local maxAge = tonumber(edAge.Text) or 99
-    local specMode = cbSpec.ItemIndex or 0
+    local specMode = cbSpec.getIndex() or 0
     local curYear = PES10.readU16(career + 0x01642A24)
     if curYear < 2019 or curYear > 2150 then curYear = 2026 end
 
@@ -3230,7 +3523,6 @@ function PES10.openScoutFinderModal()
       local p = career + (i * 0x17C)
       local pid = PES10.readU32(p + 0x30)
       if pid ~= 0 and pid ~= 0xFFFFFFFF then
-        -- Fast 1-byte pre-filters BEFORE reading name or computing full Konami OVR (~10x faster across 30k players!)
         local age = PES10.readU8(p + 0x1C) % 64
         local regPosFast = (PES10.readU8(p + 0x07) >> 4) & 0x0F
         local snapOvr = PES10.readU8(p + 0x179)
@@ -3281,16 +3573,10 @@ function PES10.openScoutFinderModal()
     end
     if showLimit > 0 then lb.ItemIndex = 0 end
     lblStat.Caption = string.format(
-      PES10.T("Encontrados %d atleta(s) no banco 30K - exibindo Top %d por maior OVR.", "Found %d player(s) across 30K DB - showing Top %d by highest OVR."),
+      PES10.T("Encontrados %d atleta(s) no banco 30K - exibindo Top %d por OVR.", "Found %d player(s) across 30K DB - showing Top %d by OVR."),
       totalFound, showLimit
     )
   end
-
-  local function onEnterSearch(sender, key)
-    if key == 13 then runSearch() end
-    return key
-  end
-  pcall(function() edName.OnKeyDown = onEnterSearch; edOvr.OnKeyDown = onEnterSearch; edAge.OnKeyDown = onEnterSearch end)
 
   local function loadPicked()
     local idx = lb.ItemIndex
@@ -3306,41 +3592,42 @@ function PES10.openScoutFinderModal()
     if m then PES10.toast(string.format(PES10.T("Carregado: %s (%d %s)", "Loaded: %s (%d %s)"), m.name, m.ovr, PES10.posShort(m.pos))) end
   end
 
-  makeModalBtn(f, S(620), S(26), S(104), S(30), PES10.T("Filtrar", "Search"), runSearch)
+  makeModalBtn(f, S(630), S(26), S(106), S(30), PES10.T("Filtrar", "Search"), runSearch, "primary")
 
-  -- 4 One-Click Smart Presets
-  local yPre = S(62)
-  makeModalBtn(f, S(16),  yPre, S(168), S(28), PES10.T("Joias Sub-21 (74+)", "Wonderkids U21 (74+)"), function()
-    edName.Text = ""; cbPos.ItemIndex = 0; edOvr.Text = "74"; edAge.Text = "21"; cbSpec.ItemIndex = 0; runSearch()
-  end)
-  makeModalBtn(f, S(190), yPre, S(168), S(28), PES10.T("Craques Mundiais (85+)", "World Stars (85+)"), function()
-    edName.Text = ""; cbPos.ItemIndex = 0; edOvr.Text = "85"; edAge.Text = "45"; cbSpec.ItemIndex = 0; runSearch()
-  end)
-  makeModalBtn(f, S(364), yPre, S(174), S(28), PES10.T("Fim de Contrato (75+)", "Expiring Deals (75+)"), function()
-    edName.Text = ""; cbPos.ItemIndex = 0; edOvr.Text = "75"; edAge.Text = "45"; cbSpec.ItemIndex = 1; runSearch()
-  end)
-  makeModalBtn(f, S(544), yPre, S(180), S(28), PES10.T("Sem Clube / Livres", "Free Agents"), function()
-    edName.Text = ""; cbPos.ItemIndex = 0; edOvr.Text = "70"; edAge.Text = "45"; cbSpec.ItemIndex = 3; runSearch()
-  end)
+  local yPre = S(76)
+  makeModalBtn(f, S(16),  yPre, S(174), S(28), PES10.T("Joias Sub-21 (74+)", "Wonderkids U21 (74+)"), function()
+    edName.Text = ""; cbPos.setIndex(0); edOvr.Text = "74"; edAge.Text = "21"; cbSpec.setIndex(0); runSearch()
+  end, "default")
+  makeModalBtn(f, S(196), yPre, S(174), S(28), PES10.T("Craques Mundiais (85+)", "World Stars (85+)"), function()
+    edName.Text = ""; cbPos.setIndex(0); edOvr.Text = "85"; edAge.Text = "45"; cbSpec.setIndex(0); runSearch()
+  end, "default")
+  makeModalBtn(f, S(376), yPre, S(176), S(28), PES10.T("Fim de Contrato (75+)", "Expiring Deals (75+)"), function()
+    edName.Text = ""; cbPos.setIndex(0); edOvr.Text = "75"; edAge.Text = "45"; cbSpec.setIndex(1); runSearch()
+  end, "default")
+  makeModalBtn(f, S(558), yPre, S(178), S(28), PES10.T("Sem Clube / Livres", "Free Agents"), function()
+    edName.Text = ""; cbPos.setIndex(0); edOvr.Text = "70"; edAge.Text = "45"; cbSpec.setIndex(3); runSearch()
+  end, "default")
 
-  local yB = S(480)
-  makeModalBtn(f, S(16),  yB, S(156), S(36), PES10.T("Carregar no Studio", "Load into Studio"), function()
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  local yB = H - S(46)
+  makeModalBtn(f, S(16),  yB, S(156), S(34), PES10.T("Carregar no Studio", "Load into Studio"), function()
     local m = loadPicked()
     if m then PES10.toast(string.format(PES10.T("Carregado: %s (%d %s)", "Loaded: %s (%d %s)"), m.name, m.ovr, PES10.posShort(m.pos))) end
-  end)
-  makeModalBtn(f, S(178), yB, S(104), S(36), PES10.T("+ Olheiro 1", "+ Scout 1"), function()
+  end, "primary")
+  makeModalBtn(f, S(178), yB, S(104), S(34), PES10.T("+ Olheiro 1", "+ Scout 1"), function()
     if loadPicked() then PES10.addPlayerToScoutList(1) end
-  end)
-  makeModalBtn(f, S(288), yB, S(104), S(36), PES10.T("+ Olheiro 2", "+ Scout 2"), function()
+  end, "success")
+  makeModalBtn(f, S(288), yB, S(104), S(34), PES10.T("+ Olheiro 2", "+ Scout 2"), function()
     if loadPicked() then PES10.addPlayerToScoutList(2) end
-  end)
-  makeModalBtn(f, S(398), yB, S(104), S(36), PES10.T("+ Olheiro 3", "+ Scout 3"), function()
+  end, "success")
+  makeModalBtn(f, S(398), yB, S(104), S(34), PES10.T("+ Olheiro 3", "+ Scout 3"), function()
     if loadPicked() then PES10.addPlayerToScoutList(3) end
-  end)
-  makeModalBtn(f, S(508), yB, S(124), S(36), PES10.T("Negócio 100%", "100% Deal"), function()
+  end, "success")
+  makeModalBtn(f, S(508), yB, S(124), S(34), PES10.T("Negócio 100%", "100% Deal"), function()
     if loadPicked() then PES10.makeDealIrresistible() end
-  end)
-  makeModalBtn(f, S(638), yB, S(86),  S(36), PES10.T("Fechar", "Close"), function() f.close() end)
+  end, "gold")
+  makeModalBtn(f, W - S(106), yB, S(90), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   runSearch()
   f.show()
@@ -3348,21 +3635,19 @@ end
 
 -- MODAL 5: VISUAL 25 ATTRIBUTES EDITOR (40-99, -5/-1/+1/+5/EXACT, LIVE OVR & UNDO)
 function PES10.openAttributesModal()
-  if not createListBox or not createEdit or not createButton then return end
+  if not createListBox or not createEdit or not createPanel then return end
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal("attrs", PES10.T("Editor de 25 Atributos (40-99) - ", "25 Attributes Editor (40-99) - ") .. pName, 600, 520)
+  local f, S, W, H = makeStudioModal("attrs", PES10.T("Atributos (40-99) - ", "Attributes (40-99) - ") .. pName, 620, 540, M_BLUE, 58)
 
-  local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
-  local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(18),
-    PES10.T("Selecione qualquer atributo para ajustar (-5 / -1 / +1 / +5 ou digite 40-99 e aperte ENTER):",
-            "Pick any attribute to adjust (-5 / -1 / +1 / +5 or type 40-99 and press ENTER):"),
-    8, 0xC4B2A0, false)
+  local hdr = makeModalLabel(f, S(16), S(10), W - S(32), S(22), "", 11, M_TEXT, true)
+  local sub = makeModalLabel(f, S(16), S(34), W - S(32), S(18),
+    PES10.T("Ajuste livre (-5 / -1 / +1 / +5 ou digite 40-99 e aperte ENTER):",
+            "Free edit (-5 / -1 / +1 / +5 or type 40-99 and press ENTER):"),
+    8, M_SUBTEXT, false)
 
-  local lb = createListBox(f)
-  lb.Left = S(16); lb.Top = S(62); lb.Width = W - S(32); lb.Height = S(340)
-  lb.Color = 0x241811; lb.Font.Name = "Consolas"; lb.Font.Size = 10; lb.Font.Color = 0xFCFAF8
+  local lb = makeDarkListBox(f, S(16), S(70), W - S(32), S(344), "Consolas", 10)
 
   local fidOrder = {14,33,17,38,20,21,19,22,18,23,25,36,26,27,34,35,24,15,37,39,16,31,29,30,28}
   local langIdx = (PES10.lang == "en") and 2 or 1
@@ -3387,7 +3672,7 @@ function PES10.openAttributesModal()
     if not b or #b < 0x28 then return end
     local ovr, regPos = PES10.calcPlayerOVRFromBuf(b)
     hdr.Caption = string.format(
-      PES10.T("%s  •  OVR Atual: %d %s  •  Undo: %d", "%s  •  Current OVR: %d %s  •  Undo: %d"),
+      PES10.T("%s  •  OVR: %d %s  •  Undo: %d", "%s  •  OVR: %d %s  •  Undo: %d"),
       pName, ovr, PES10.posShort(regPos), PES10.canUndoPlayer(p)
     )
     local prev = keepIdx or lb.ItemIndex
@@ -3422,30 +3707,31 @@ function PES10.openAttributesModal()
   pcall(function() lb.OnSelectionChange = syncEditBox; lb.OnClick = syncEditBox end)
   lb.OnDblClick = function() setFidVal(1, true) end
 
-  local y1, y2 = S(414), S(458)
-  makeModalBtn(f, S(16),  y1, S(54), S(34), "-5", function() setFidVal(-5, true) end)
-  makeModalBtn(f, S(76),  y1, S(54), S(34), "-1", function() setFidVal(-1, true) end)
-  makeModalBtn(f, S(136), y1, S(54), S(34), "+1", function() setFidVal(1, true) end)
-  makeModalBtn(f, S(196), y1, S(54), S(34), "+5", function() setFidVal(5, true) end)
-  edVal = createEdit(f)
-  edVal.Left = S(260); edVal.Top = y1 + S(4); edVal.Width = S(58); edVal.Height = S(26); edVal.Text = "80"
+  local y1 = S(426)
+  makeModalBtn(f, S(16),  y1, S(54), S(34), "-5", function() setFidVal(-5, true) end, "default")
+  makeModalBtn(f, S(76),  y1, S(54), S(34), "-1", function() setFidVal(-1, true) end, "default")
+  makeModalBtn(f, S(136), y1, S(54), S(34), "+1", function() setFidVal(1, true) end, "success")
+  makeModalBtn(f, S(196), y1, S(54), S(34), "+5", function() setFidVal(5, true) end, "success")
   local function applyTyped()
-    local v = tonumber(edVal.Text)
+    local v = tonumber(edVal and edVal.Text or "")
     if v then setFidVal(v, false) end
   end
-  pcall(function() edVal.OnKeyDown = function(s, key) if key == 13 then applyTyped() end; return key end end)
-  makeModalBtn(f, S(324), y1, S(96),  S(34), PES10.T("Definir", "Set Value"), applyTyped)
-  makeModalBtn(f, S(426), y1, S(158), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
-    PES10.undoLastPlayerEdit(p); refreshAttrs(lb.ItemIndex)
-  end)
-
-  makeModalBtn(f, S(16),  y2, S(180), S(34), PES10.T("+5 em Todos os Atributos", "+5 to All Attributes"), function()
+  edVal = makeDarkEdit(f, S(260), y1 + S(2), S(60), S(30), "80", applyTyped, true)
+  makeModalBtn(f, S(326), y1, S(96),  S(34), PES10.T("Definir", "Set Value"), applyTyped, "primary")
+  makeModalBtn(f, S(428), y1, S(176), S(34), PES10.T("+5 em Todos", "+5 All Stats"), function()
     PES10.runPlayerMacro("stats_plus_5"); refreshAttrs(lb.ItemIndex)
-  end)
-  makeModalBtn(f, S(202), y2, S(180), S(34), PES10.T("Todos os 25 em 99", "Max All 25 to 99"), function()
+  end, "default")
+
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  local yF = H - S(46)
+  makeModalBtn(f, S(16),  yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+    PES10.undoLastPlayerEdit(p); refreshAttrs(lb.ItemIndex)
+  end, "gold")
+  makeModalBtn(f, S(188), yF, S(166), S(34), PES10.T("Todos 25 em 99", "All 25 to 99"), function()
     PES10.runPlayerMacro("stats_99"); refreshAttrs(lb.ItemIndex)
-  end)
-  makeModalBtn(f, S(388), y2, S(196), S(34), PES10.T("Fechar", "Close"), function() f.close() end)
+  end, "danger")
+  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshAttrs(0)
   f.show()
@@ -3453,38 +3739,35 @@ end
 
 -- MODAL 6: VISUAL PLAYING STYLE & 41 PLAYER SKILLS EDITOR
 function PES10.openSkillsStyleModal()
-  if not createListBox or not createComboBox or not createButton then return end
+  if not createListBox or not createPanel then return end
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal("skills", PES10.T("Estilo de Jogo & 41 Habilidades - ", "Playing Style & 41 Skills - ") .. pName, 600, 520)
+  local f, S, W, H = makeStudioModal("skills", PES10.T("Estilo & 41 Habilidades - ", "Style & 41 Skills - ") .. pName, 620, 540, M_PURPLE, 58)
 
-  makeModalLabel(f, S(16), S(12), S(160), S(20), PES10.T("Estilo de Jogo (Playing Style):", "Playing Style:"), 9, 0xFCFAF8, true)
-  local cbStyle = createComboBox(f)
-  cbStyle.Left = S(180); cbStyle.Top = S(10); cbStyle.Width = S(268); cbStyle.Height = S(26); cbStyle.Style = "csDropDownList"
+  makeModalLabel(f, S(16), S(16), S(140), S(20), PES10.T("Estilo de Jogo:", "Playing Style:"), 9, M_TEXT, true)
   local psMap = PES10.PLAYING_STYLE_NAMES or {}
+  local psItems = {}
   for i = 0, 21 do
-    cbStyle.Items.add(string.format("%2d: %s", i, psMap[i] or ("Style " .. tostring(i))))
+    psItems[#psItems + 1] = string.format("%2d: %s", i, psMap[i] or ("Style " .. tostring(i)))
   end
   local curPs = PES10.getBitsInDword(p + 0x1D, 3, 5)
-  cbStyle.ItemIndex = math.max(0, math.min(21, curPs))
+  local cbStyle = makeDarkCombo(f, S(160), S(13), S(300), S(32), psItems, math.max(0, math.min(21, curPs)))
 
-  makeModalBtn(f, S(456), S(8), S(128), S(30), PES10.T("Aplicar Estilo", "Apply Style"), function()
-    local sel = cbStyle.ItemIndex or 0
+  makeModalBtn(f, S(468), S(13), S(136), S(32), PES10.T("Aplicar Estilo", "Apply Style"), function()
+    local sel = cbStyle.getIndex() or 0
     PES10.pushPlayerUndo(p, "Playing Style")
     PES10.setBitsInDword(p + 0x1D, 3, 5, sel)
     PES10.syncAllDynamicPointers()
     PES10.toast(pName .. ": " .. (psMap[sel] or tostring(sel)))
-  end)
+  end, "primary")
 
-  local sub = makeModalLabel(f, S(16), S(46), W - S(32), S(18),
-    PES10.T("Clique duplo em qualquer habilidade (Skill) para ligar/desligar individualmente:",
-            "Double-click any Player Skill below to toggle ON/OFF individually:"),
-    8, 0xC4B2A0, false)
+  local sub = makeModalLabel(f, S(16), S(68), W - S(32), S(18),
+    PES10.T("Duplo-clique em qualquer habilidade para ligar/desligar:",
+            "Double-click any Player Skill below to toggle ON/OFF:"),
+    8, M_SUBTEXT, false)
 
-  local lb = createListBox(f)
-  lb.Left = S(16); lb.Top = S(68); lb.Width = W - S(32); lb.Height = S(344)
-  lb.Color = 0x241811; lb.Font.Name = "Consolas"; lb.Font.Size = 9; lb.Font.Color = 0xFCFAF8
+  local lb = makeDarkListBox(f, S(16), S(90), W - S(32), S(334), "Consolas", 9)
 
   local items = PES10.ALL_SKILL_ITEMS or {}
   local isEn = (PES10.lang == "en")
@@ -3517,20 +3800,24 @@ function PES10.openSkillsStyleModal()
   end
   lb.OnDblClick = togglePicked
 
-  local y1, y2 = S(424), S(466)
-  makeModalBtn(f, S(16),  y1, S(186), S(34), PES10.T("Alternar Skill (ON/OFF)", "Toggle Skill (ON/OFF)"), togglePicked)
-  makeModalBtn(f, S(208), y1, S(184), S(34), PES10.T("Desbloquear Todas (41)", "Unlock All 41 Skills"), function()
+  local y1 = S(434)
+  makeModalBtn(f, S(16),  y1, S(192), S(34), PES10.T("Alternar Skill (ON/OFF)", "Toggle Skill (ON/OFF)"), togglePicked, "primary")
+  makeModalBtn(f, S(214), y1, S(192), S(34), PES10.T("Desbloquear Todas (41)", "Unlock All 41"), function()
     PES10.runPlayerMacro("all_39_skills"); refreshSkills(lb.ItemIndex)
-  end)
-  makeModalBtn(f, S(398), y1, S(186), S(34), PES10.T("Limpar Todas as Skills", "Clear All Skills"), function()
+  end, "success")
+  makeModalBtn(f, S(412), y1, S(192), S(34), PES10.T("Limpar Todas", "Clear All"), function()
     PES10.pushPlayerUndo(p, "Clear Skills")
     for _, sk in ipairs(items) do PES10.setBitsInDword(p + sk[1], sk[2], 1, 0) end
     refreshSkills(lb.ItemIndex)
-  end)
-  makeModalBtn(f, S(16),  y2, S(280), S(34), PES10.T("Desfazer Última Edição (Undo)", "Undo Last Edit"), function()
-    PES10.undoLastPlayerEdit(p); cbStyle.ItemIndex = PES10.getBitsInDword(p + 0x1D, 3, 5); refreshSkills(lb.ItemIndex)
-  end)
-  makeModalBtn(f, S(304), y2, S(280), S(34), PES10.T("Fechar", "Close"), function() f.close() end)
+  end, "danger")
+
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  local yF = H - S(46)
+  makeModalBtn(f, S(16), yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+    PES10.undoLastPlayerEdit(p); cbStyle.setIndex(PES10.getBitsInDword(p + 0x1D, 3, 5)); refreshSkills(lb.ItemIndex)
+  end, "gold")
+  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshSkills(0)
   f.show()
@@ -3538,34 +3825,34 @@ end
 
 -- MODAL 7: VISUAL CONTRACT, SALARY, MARKET VALUE & EXACT RELEASE CLAUSE EDITOR
 function PES10.openContractModal()
-  if not createEdit or not createButton then return end
+  if not createEdit or not createPanel then return end
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal("contract", PES10.T("Contrato, Finanças & Multa Exata - ", "Contract, Finances & Release Fee - ") .. pName, 580, 440)
+  local f, S, W, H = makeStudioModal("contract", PES10.T("Contrato & Multa - ", "Contract & Clause - ") .. pName, 600, 470, M_GOLD, 58)
 
   local c = PES10.getCurrentCurrency()
-  makeModalLabel(f, S(16), S(12), W - S(32), S(22), pName .. "  (" .. c.symbol .. " " .. c.code .. ")", 11, 0xFCFAF8, true)
-  makeModalLabel(f, S(16), S(36), W - S(32), S(18),
-    PES10.T("Aceita valores naturais: 50M, 500k, 1.5B, 1000 (ou 0 na Multa Exata para remover override):",
-            "Accepts natural amounts: 50M, 500k, 1.5B, 1000 (or 0 in Release Fee to clear override):"),
-    8, 0xC4B2A0, false)
+  makeModalLabel(f, S(16), S(10), W - S(32), S(22), pName .. "  (" .. c.symbol .. " " .. c.code .. ")", 11, M_TEXT, true)
+  makeModalLabel(f, S(16), S(34), W - S(32), S(18),
+    PES10.T("Aceita 50M, 500k, 1.5B, 1000 (ou 0 na Multa para remover override)",
+            "Accepts 50M, 500k, 1.5B, 1000 (or 0 in Clause to clear override)"),
+    8, M_SUBTEXT, false)
 
+  local applyContract = nil
+  local function onEnterContract() if applyContract then applyContract() end end
   local function addField(y, lblPt, lblEn, initVal)
-    makeModalLabel(f, S(16), y + S(4), S(240), S(20), PES10.T(lblPt, lblEn), 9, 0xFCFAF8, false)
-    local ed = createEdit(f)
-    ed.Left = S(264); ed.Top = y; ed.Width = S(296); ed.Height = S(26); ed.Text = tostring(initVal or "")
-    return ed
+    makeModalLabel(f, S(16), y + S(6), S(240), S(20), PES10.T(lblPt, lblEn), 9, M_SUBTEXT, false)
+    return makeDarkEdit(f, S(264), y, S(320), S(30), tostring(initVal or ""), onEnterContract, true)
   end
 
-  local edSal  = addField(S(68),  "Salário Anual Ativo:",         "Active Annual Salary:",          "")
-  local edMkt  = addField(S(104), "Valor de Mercado Base:",       "Base Market Value:",             "")
-  local edRfee = addField(S(140), "Multa Rescisória Exata:",      "Exact Custom Release Clause:",   "")
-  local edExpY = addField(S(176), "Ano Término do Contrato:",     "Contract Expiry Year:",          "")
-  local edAff  = addField(S(212), "Afeição pelo Clube (0-100%):", "Club Affection (0-100%):",       "")
+  local edSal  = addField(S(74),  "Salário Anual Ativo:",         "Active Annual Salary:",          "")
+  local edMkt  = addField(S(112), "Valor de Mercado Base:",       "Base Market Value:",             "")
+  local edRfee = addField(S(150), "Multa Rescisória Exata:",      "Exact Custom Release Clause:",   "")
+  local edExpY = addField(S(188), "Ano Término do Contrato:",     "Contract Expiry Year:",          "")
+  local edAff  = addField(S(226), "Afeição pelo Clube (0-100%):", "Club Affection (0-100%):",       "")
   local initRfeeText = ""
 
-  local lblFlags = makeModalLabel(f, S(16), S(252), W - S(32), S(20), "", 9, 0xF8BD38, true)
+  local lblFlags = makeModalLabel(f, S(16), S(268), W - S(32), S(20), "", 9, M_BLUE, true)
   local function refreshContract(reloadInputs)
     if reloadInputs then
       edSal.Text  = PES10.formatMoneyFromRaw(PES10.readI32(p + 0x15C))
@@ -3587,8 +3874,7 @@ function PES10.openContractModal()
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
   end
 
-  local y1, y2, y3 = S(284), S(328), S(374)
-  makeModalBtn(f, S(16),  y1, S(176), S(34), PES10.T("Aplicar Valores", "Apply Values"), function()
+  applyContract = function()
     PES10.pushPlayerUndo(p, "Contract Edit")
     local sRaw = PES10.parseHumanMoneyToRaw(edSal.Text)
     if sRaw then writeInteger(p + 0x15C, sRaw) end
@@ -3606,39 +3892,45 @@ function PES10.openContractModal()
     local af = tonumber(edAff.Text)
     if af then PES10.setBitsInDword(p + 0x13C, 18, 7, math.max(0, math.min(100, math.floor(af)))) end
     PES10.syncAllDynamicPointers()
-    PES10.toast(PES10.T("Contrato e valores financeiros atualizados para ", "Contract & finances updated for ") .. pName .. "!")
+    PES10.toast(PES10.T("Contrato atualizado: ", "Contract updated: ") .. pName)
     refreshContract(true)
-  end)
-  makeModalBtn(f, S(198), y1, S(180), S(34), PES10.T("Alternar Multa (S/N)", "Toggle Release Clause"), function()
+  end
+
+  local y1, y2 = S(300), S(344)
+  makeModalBtn(f, S(16),  y1, S(182), S(34), PES10.T("Aplicar Valores", "Apply Values"), applyContract, "primary")
+  makeModalBtn(f, S(204), y1, S(186), S(34), PES10.T("Alternar Multa (S/N)", "Toggle Clause"), function()
     PES10.pushPlayerUndo(p, "Toggle Clause")
     local v = PES10.getBitsInDword(p + 0x144, 30, 1)
     PES10.setBitsInDword(p + 0x144, 30, 1, v == 1 and 0 or 1)
     PES10.syncAllDynamicPointers(); refreshContract(false)
-  end)
-  makeModalBtn(f, S(384), y1, S(176), S(34), PES10.T("Alternar Lista Transf.", "Toggle Transfer List"), function()
+  end, "default")
+  makeModalBtn(f, S(396), y1, S(188), S(34), PES10.T("Alternar Lista Transf.", "Toggle Transfer List"), function()
     PES10.pushPlayerUndo(p, "Toggle Transfer List")
     local v = PES10.getBitsInDword(p + 0x14A, 1, 1)
     PES10.setBitsInDword(p + 0x14A, 1, 1, v == 1 and 0 or 1)
     refreshContract(false)
-  end)
+  end, "default")
 
-  makeModalBtn(f, S(16),  y2, S(180), S(34), PES10.T("Destravar Renegociação", "Unlock Renegotiation"), function()
+  makeModalBtn(f, S(16),  y2, S(182), S(34), PES10.T("Destravar Renegociação", "Unlock Renegotiation"), function()
     PES10.runPlayerMacro("unlock_renegotiation"); refreshContract(false)
-  end)
-  makeModalBtn(f, S(202), y2, S(180), S(34), PES10.T("Negociação 100% (€ 1k)", "Irresistible Deal (€ 1k)"), function()
+  end, "default")
+  makeModalBtn(f, S(204), y2, S(186), S(34), PES10.T("Negociação 100% (€ 1k)", "Irresistible Deal (€ 1k)"), function()
     PES10.makeDealIrresistible(); refreshContract(true)
-  end)
-  makeModalBtn(f, S(388), y2, S(172), S(34), PES10.T("Alternar Empréstimo", "Toggle Loan List"), function()
+  end, "gold")
+  makeModalBtn(f, S(396), y2, S(188), S(34), PES10.T("Alternar Empréstimo", "Toggle Loan List"), function()
     PES10.pushPlayerUndo(p, "Toggle Loan")
     local v = PES10.getBitsInDword(p + 0x14A, 2, 1)
     PES10.setBitsInDword(p + 0x14A, 2, 1, v == 1 and 0 or 1)
     refreshContract(false)
-  end)
+  end, "default")
 
-  makeModalBtn(f, S(16),  y3, S(268), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  local yF = H - S(46)
+  makeModalBtn(f, S(16), yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
     PES10.undoLastPlayerEdit(p); refreshContract(true)
-  end)
-  makeModalBtn(f, S(292), y3, S(268), S(34), PES10.T("Fechar", "Close"), function() f.close() end)
+  end, "gold")
+  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshContract(true)
   f.show()
@@ -3646,70 +3938,46 @@ end
 
 -- MODAL 8: VISUAL PROFILE, PHYSICAL, CONDITION, LONGEVITY & JSON BACKUP EDITOR
 function PES10.openBioConditionModal()
-  if not createEdit or not createComboBox or not createButton then return end
+  if not createEdit or not createPanel then return end
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal("bio", PES10.T("Perfil, Físico, Condição & Backup - ", "Profile, Physical, Condition & Backup - ") .. pName, 600, 470)
+  local f, S, W, H = makeStudioModal("bio", PES10.T("Perfil, Físico & Condição - ", "Profile, Physical & Condition - ") .. pName, 620, 504, M_BLUE, 54)
 
-  makeModalLabel(f, S(16), S(12), W - S(32), S(22), pName, 11, 0xFCFAF8, true)
+  makeModalLabel(f, S(16), S(10), W - S(32), S(20), pName, 11, M_TEXT, true)
+  makeModalLabel(f, S(16), S(32), W - S(32), S(16), PES10.T("Edição completa de físico, pés, regularidade, seta, auge e backup JSON", "Full physical, feet, form, arrow, breakthrough & JSON backup editor"), 8, M_SUBTEXT, false)
 
+  local applyBio = nil
+  local function onEnterBio() if applyBio then applyBio() end end
   local function addPair(x, y, lbl, val)
-    makeModalLabel(f, x, y + S(4), S(165), S(18), lbl, 9, 0xC4B2A0, false)
-    local ed = createEdit(f)
-    ed.Left = x + S(170); ed.Top = y; ed.Width = S(100); ed.Height = S(26); ed.Text = tostring(val)
-    return ed
+    makeModalLabel(f, x, y + S(6), S(168), S(18), lbl, 9, M_SUBTEXT, false)
+    return makeDarkEdit(f, x + S(172), y, S(108), S(30), tostring(val), onEnterBio, true)
   end
 
-  local edAge  = addPair(S(16),  S(48),  PES10.T("Idade (15-50):", "Age (15-50):"),             PES10.readU8(p + 0x1C) & 0x3F)
-  local edHgt  = addPair(S(310), S(48),  PES10.T("Altura (cm):", "Height (cm):"),               PES10.readU8(p + 0x00))
-  local edWgt  = addPair(S(16),  S(84),  PES10.T("Peso (kg):", "Weight (kg):"),                 PES10.readU8(p + 0x01))
-  local edStam = addPair(S(310), S(84),  PES10.T("Stamina (0-100):", "Stamina (0-100):"),       PES10.getBitsInDword(p + 0x146, 0, 7))
-  local edWfu  = addPair(S(16),  S(120), PES10.T("Uso Pé Ruim (1-4):", "Weak Foot Use (1-4):"), PES10.getBitsInDword(p + 0x23, 0, 2) + 1)
-  local edWfa  = addPair(S(310), S(120), PES10.T("Prec. Pé Ruim (1-4):", "WF Accuracy (1-4):"), PES10.getBitsInDword(p + 0x22, 4, 2) + 1)
-  local edFrm  = addPair(S(16),  S(156), PES10.T("Regularidade (1-8):", "Form / Cond (1-8):"),  PES10.getBitsInDword(p + 0x17, 4, 3) + 1)
-  local edInjR = addPair(S(310), S(156), PES10.T("Res. Lesões (1-3):", "Injury Res (1-3):"),    PES10.getBitsInDword(p + 0x22, 6, 2) + 1)
-  local edInjD = addPair(S(16),  S(192), PES10.T("Dias Lesionado (0=OK):", "Injury Days (0=OK):"), PES10.readU8(p + 0x148))
+  local edAge  = addPair(S(16),  S(68),  PES10.T("Idade (15-50):", "Age (15-50):"),             PES10.readU8(p + 0x1C) & 0x3F)
+  local edHgt  = addPair(S(320), S(68),  PES10.T("Altura (cm):", "Height (cm):"),               PES10.readU8(p + 0x00))
+  local edWgt  = addPair(S(16),  S(106), PES10.T("Peso (kg):", "Weight (kg):"),                 PES10.readU8(p + 0x01))
+  local edStam = addPair(S(320), S(106), PES10.T("Stamina (0-100):", "Stamina (0-100):"),       PES10.getBitsInDword(p + 0x146, 0, 7))
+  local edWfu  = addPair(S(16),  S(144), PES10.T("Uso Pé Ruim (1-4):", "Weak Foot Use (1-4):"), PES10.getBitsInDword(p + 0x23, 0, 2) + 1)
+  local edWfa  = addPair(S(320), S(144), PES10.T("Prec. Pé Ruim (1-4):", "WF Accuracy (1-4):"), PES10.getBitsInDword(p + 0x22, 4, 2) + 1)
+  local edFrm  = addPair(S(16),  S(182), PES10.T("Regularidade (1-8):", "Form / Cond (1-8):"),  PES10.getBitsInDword(p + 0x17, 4, 3) + 1)
+  local edInjR = addPair(S(320), S(182), PES10.T("Res. Lesões (1-3):", "Injury Res (1-3):"),    PES10.getBitsInDword(p + 0x22, 6, 2) + 1)
+  local edInjD = addPair(S(16),  S(220), PES10.T("Dias Lesionado (0=OK):", "Injury Days (0=OK):"), PES10.readU8(p + 0x148))
 
-  makeModalLabel(f, S(310), S(196), S(115), S(18), PES10.T("Pé Dominante:", "Strong Foot:"), 9, 0xC4B2A0, false)
-  local cbFoot = createComboBox(f)
-  cbFoot.Left = S(430); cbFoot.Top = S(192); cbFoot.Width = S(150); cbFoot.Height = S(26); cbFoot.Style = "csDropDownList"
-  cbFoot.Items.add(PES10.T("Direito (Destro)", "Right Foot"))
-  cbFoot.Items.add(PES10.T("Esquerdo (Canhoto)", "Left Foot"))
-  cbFoot.ItemIndex = PES10.getBitsInDword(p + 0x03, 7, 1)
+  makeModalLabel(f, S(320), S(226), S(115), S(18), PES10.T("Pé Dominante:", "Strong Foot:"), 9, M_SUBTEXT, false)
+  local cbFoot = makeDarkCombo(f, S(440), S(220), S(160), S(30), {
+    PES10.T("Direito (Destro)", "Right Foot"),
+    PES10.T("Esquerdo (Canhoto)", "Left Foot"),
+  }, PES10.getBitsInDword(p + 0x03, 7, 1))
 
-  makeModalLabel(f, S(16), S(236), S(165), S(18), PES10.T("Seta de Forma Próx. Jogo:", "Next Match Form Arrow:"), 9, 0xC4B2A0, false)
-  local cbArr = createComboBox(f)
-  cbArr.Left = S(186); cbArr.Top = S(232); cbArr.Width = S(394); cbArr.Height = S(26); cbArr.Style = "csDropDownList"
-  cbArr.Items.add(PES10.T("0: Vermelha (Péssima)", "0: Red Down (Worst)"))
-  cbArr.Items.add(PES10.T("1: Laranja (Ruim)", "1: Orange Down-Right (Poor)"))
-  cbArr.Items.add(PES10.T("2: Amarela (Normal)", "2: Yellow Flat (Normal)"))
-  cbArr.Items.add(PES10.T("3: Verde (Boa)", "3: Green Up-Right (Good)"))
-  cbArr.Items.add(PES10.T("4: Azul (Excelente / Topo)", "4: Blue Up (Top Form)"))
-  cbArr.ItemIndex = math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3)))
-
-  local y1, y2, y3 = S(284), S(330), S(380)
-  makeModalBtn(f, S(16),  y1, S(276), S(36), PES10.T("Aplicar Todas as Alterações", "Apply All Changes"), function()
-    PES10.pushPlayerUndo(p, "Bio & Condition")
-    local age = tonumber(edAge.Text); if age then PES10.setBitsInDword(p + 0x1C, 0, 6, math.max(15, math.min(50, math.floor(age)))) end
-    local hgt = tonumber(edHgt.Text); if hgt then writeBytes(p + 0x00, math.max(140, math.min(220, math.floor(hgt)))) end
-    local wgt = tonumber(edWgt.Text); if wgt then writeBytes(p + 0x01, math.max(45, math.min(130, math.floor(wgt)))) end
-    local stm = tonumber(edStam.Text); if stm then PES10.setBitsInDword(p + 0x146, 0, 7, math.max(0, math.min(100, math.floor(stm)))) end
-    local wfu = tonumber(edWfu.Text); if wfu then PES10.setBitsInDword(p + 0x23, 0, 2, math.max(0, math.min(3, math.floor(wfu) - 1))) end
-    local wfa = tonumber(edWfa.Text); if wfa then PES10.setBitsInDword(p + 0x22, 4, 2, math.max(0, math.min(3, math.floor(wfa) - 1))) end
-    local frm = tonumber(edFrm.Text); if frm then PES10.setBitsInDword(p + 0x17, 4, 3, math.max(0, math.min(7, math.floor(frm) - 1))) end
-    local ijr = tonumber(edInjR.Text); if ijr then PES10.setBitsInDword(p + 0x22, 6, 2, math.max(0, math.min(2, math.floor(ijr) - 1))) end
-    local ijd = tonumber(edInjD.Text); if ijd then writeBytes(p + 0x148, math.max(0, math.min(255, math.floor(ijd)))) end
-    PES10.setBitsInDword(p + 0x03, 7, 1, cbFoot.ItemIndex or 0)
-    PES10.setBitsInDword(p + 0x147, 0, 3, cbArr.ItemIndex or 4)
-    PES10.setBitsInDword(p + 0x146, 7, 1, (cbArr.ItemIndex == 4) and 1 or 0)
-    PES10.syncAllDynamicPointers()
-    PES10.toast(PES10.T("Perfil, físico e condição atualizados para ", "Profile, physical & condition updated for ") .. pName .. "!")
-    if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
-  end)
-  makeModalBtn(f, S(300), y1, S(280), S(36), PES10.T("Auge (Breakthrough) + Anti-Declínio 30+", "Breakthrough Surge + Anti-Decline 30+"), function()
-    PES10.applyPlayerEternalPeak(p)
-  end)
+  makeModalLabel(f, S(16), S(268), S(168), S(18), PES10.T("Seta Próx. Jogo:", "Next Match Arrow:"), 9, M_SUBTEXT, false)
+  local cbArr = makeDarkCombo(f, S(188), S(262), S(412), S(30), {
+    PES10.T("0: Vermelha (Péssima)", "0: Red Down (Worst)"),
+    PES10.T("1: Laranja (Ruim)", "1: Orange Down-Right (Poor)"),
+    PES10.T("2: Amarela (Normal)", "2: Yellow Flat (Normal)"),
+    PES10.T("3: Verde (Boa)", "3: Green Up-Right (Good)"),
+    PES10.T("4: Azul (Excelente / Topo)", "4: Blue Up (Top Form)"),
+  }, math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3))))
 
   local function reloadBioFields()
     edAge.Text  = tostring(PES10.readU8(p + 0x1C) & 0x3F)
@@ -3721,28 +3989,54 @@ function PES10.openBioConditionModal()
     edFrm.Text  = tostring(PES10.getBitsInDword(p + 0x17, 4, 3) + 1)
     edInjR.Text = tostring(PES10.getBitsInDword(p + 0x22, 6, 2) + 1)
     edInjD.Text = tostring(PES10.readU8(p + 0x148))
-    cbFoot.ItemIndex = PES10.getBitsInDword(p + 0x03, 7, 1)
-    cbArr.ItemIndex  = math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3)))
+    cbFoot.setIndex(PES10.getBitsInDword(p + 0x03, 7, 1))
+    cbArr.setIndex(math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3))))
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
   end
 
-  makeModalBtn(f, S(16),  y2, S(182), S(34), PES10.T("Rejuvenescer (-2 Anos)", "Rejuvenate (-2 Yrs)"), function()
-    PES10.rejuvenateAndSyncMarket(-2)
-    reloadBioFields()
-  end)
-  makeModalBtn(f, S(204), y2, S(186), S(34), PES10.T("Exportar Backup (.json)", "Export Backup (.json)"), function()
-    PES10.exportPlayerBackupJson()
-  end)
-  makeModalBtn(f, S(396), y2, S(184), S(34), PES10.T("Importar Backup (.json)", "Import Backup (.json)"), function()
-    PES10.importPlayerBackupJson()
-    reloadBioFields()
-  end)
+  applyBio = function()
+    PES10.pushPlayerUndo(p, "Bio & Condition")
+    local age = tonumber(edAge.Text); if age then PES10.setBitsInDword(p + 0x1C, 0, 6, math.max(15, math.min(50, math.floor(age)))) end
+    local hgt = tonumber(edHgt.Text); if hgt then writeBytes(p + 0x00, math.max(140, math.min(220, math.floor(hgt)))) end
+    local wgt = tonumber(edWgt.Text); if wgt then writeBytes(p + 0x01, math.max(45, math.min(130, math.floor(wgt)))) end
+    local stm = tonumber(edStam.Text); if stm then PES10.setBitsInDword(p + 0x146, 0, 7, math.max(0, math.min(100, math.floor(stm)))) end
+    local wfu = tonumber(edWfu.Text); if wfu then PES10.setBitsInDword(p + 0x23, 0, 2, math.max(0, math.min(3, math.floor(wfu) - 1))) end
+    local wfa = tonumber(edWfa.Text); if wfa then PES10.setBitsInDword(p + 0x22, 4, 2, math.max(0, math.min(3, math.floor(wfa) - 1))) end
+    local frm = tonumber(edFrm.Text); if frm then PES10.setBitsInDword(p + 0x17, 4, 3, math.max(0, math.min(7, math.floor(frm) - 1))) end
+    local ijr = tonumber(edInjR.Text); if ijr then PES10.setBitsInDword(p + 0x22, 6, 2, math.max(0, math.min(2, math.floor(ijr) - 1))) end
+    local ijd = tonumber(edInjD.Text); if ijd then writeBytes(p + 0x148, math.max(0, math.min(255, math.floor(ijd)))) end
+    local arrIdx = cbArr.getIndex()
+    PES10.setBitsInDword(p + 0x03, 7, 1, cbFoot.getIndex() or 0)
+    PES10.setBitsInDword(p + 0x147, 0, 3, arrIdx or 4)
+    PES10.setBitsInDword(p + 0x146, 7, 1, (arrIdx == 4) and 1 or 0)
+    PES10.syncAllDynamicPointers()
+    PES10.toast(PES10.T("Perfil atualizado: ", "Profile updated: ") .. pName)
+    if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
+  end
 
-  makeModalBtn(f, S(16),  y3, S(276), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
-    PES10.undoLastPlayerEdit(p)
-    reloadBioFields()
-  end)
-  makeModalBtn(f, S(300), y3, S(280), S(34), PES10.T("Fechar", "Close"), function() f.close() end)
+  local y1, y2 = S(314), S(358)
+  makeModalBtn(f, S(16),  y1, S(288), S(36), PES10.T("Aplicar Todas as Alterações", "Apply All Changes"), applyBio, "primary")
+  makeModalBtn(f, S(312), y1, S(288), S(36), PES10.T("Auge (Breakthrough) + Anti-Declínio", "Breakthrough + Anti-Decline 30+"), function()
+    PES10.applyPlayerEternalPeak(p)
+  end, "success")
+
+  makeModalBtn(f, S(16),  y2, S(190), S(34), PES10.T("Rejuvenescer (-2 Anos)", "Rejuvenate (-2 Yrs)"), function()
+    PES10.rejuvenateAndSyncMarket(-2); reloadBioFields()
+  end, "default")
+  makeModalBtn(f, S(212), y2, S(192), S(34), PES10.T("Exportar Backup (.json)", "Export Backup (.json)"), function()
+    PES10.exportPlayerBackupJson()
+  end, "default")
+  makeModalBtn(f, S(410), y2, S(190), S(34), PES10.T("Importar Backup (.json)", "Import Backup (.json)"), function()
+    PES10.importPlayerBackupJson(); reloadBioFields()
+  end, "default")
+
+  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
+  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  local yF = H - S(46)
+  makeModalBtn(f, S(16), yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+    PES10.undoLastPlayerEdit(p); reloadBioFields()
+  end, "gold")
+  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   f.show()
 end
@@ -4077,16 +4371,17 @@ function PES10.openDashboard()
         fn=function()
           local info = PES10.getMatchClockInfo()
           if not info then PES10.toast(PES10.T("Entre em uma partida primeiro!", "Enter a live match first!")); return end
-          local ans = inputQuery(
+          PES10.openDarkPrompt(
             PES10.T("Minuto da Partida", "Match Minute"),
             PES10.T("Digite o minuto (ex: 15, 44, 88 ou 44:30):", "Enter minute (e.g. 15, 44, 88 or 44:30):"),
-            tostring(info.mm)
+            tostring(info.mm),
+            0x24BFFB,
+            function(ans)
+              local mm, ss = ans:match("^(%d+)%s*:%s*(%d+)$")
+              local tMin = mm and (tonumber(mm) + tonumber(ss) / 60.0) or tonumber((ans:gsub(",", ".")))
+              if tMin then PES10.setExactMatchMinute(tMin) end
+            end
           )
-          if ans then
-            local mm, ss = ans:match("^(%d+)%s*:%s*(%d+)$")
-            local tMin = mm and (tonumber(mm) + tonumber(ss) / 60.0) or tonumber((ans:gsub(",", ".")))
-            if tMin then PES10.setExactMatchMinute(tMin) end
-          end
         end },
       { col=2, row=1, accent=C_BLUE,
         tag_pt="44/88", tag_en="44/88",
@@ -4118,20 +4413,21 @@ function PES10.openDashboard()
           if mCore == 0 and mHud == 0 then PES10.toast(PES10.T("Entre em uma partida primeiro!", "Enter a live match first!")); return end
           local hCur = (mCore ~= 0) and PES10.readU8(mCore + 0x9E) or 0
           local aCur = (mCore ~= 0) and PES10.readU8(mCore + 0x9F) or 0
-          local ans = inputQuery(
+          PES10.openDarkPrompt(
             PES10.T("Placar (Casa x Fora)", "Score (Home - Away)"),
             PES10.T("Formato CASA-FORA (ex: 3-0):", "Format HOME-AWAY (e.g. 3-0):"),
-            string.format("%d-%d", hCur, aCur)
-          )
-          if ans then
-            local hg, ag = ans:match("^(%d+)%s*[%-%s:xX]%s*(%d+)$")
-            if hg and ag then
-              local hi, ai = tonumber(hg), tonumber(ag)
-              if mCore ~= 0 then writeBytes(mCore + 0x9E, hi); writeBytes(mCore + 0x9F, ai) end
-              if mHud ~= 0 then writeInteger(mHud + 0x120, hi); writeInteger(mHud + 0x124, ai) end
-              PES10.toast(string.format(PES10.T("Placar: %d x %d!", "Score: %d - %d!"), hi, ai))
+            string.format("%d-%d", hCur, aCur),
+            0x99D334,
+            function(ans)
+              local hg, ag = ans:match("^(%d+)%s*[%-%s:xX]%s*(%d+)$")
+              if hg and ag then
+                local hi, ai = tonumber(hg), tonumber(ag)
+                if mCore ~= 0 then writeBytes(mCore + 0x9E, hi); writeBytes(mCore + 0x9F, ai) end
+                if mHud ~= 0 then writeInteger(mHud + 0x120, hi); writeInteger(mHud + 0x124, ai) end
+                PES10.toast(string.format(PES10.T("Placar: %d x %d!", "Score: %d - %d!"), hi, ai))
+              end
             end
-          end
+          )
         end },
       { col=2, row=3, accent=C_PURPLE,
         tag_pt="PAUSA", tag_en="FREEZE",
@@ -4555,8 +4851,9 @@ function PES10.openDashboard()
     local impBg  = impHov and C_CARD_HOV or C_CARD
     drawRoundBox(c, expX, jBtnY, jBtnW, jBtnH, S(6), expBg, expHov and C_BLUE or C_BORDER)
     drawRoundBox(c, impX, jBtnY, jBtnW, jBtnH, S(6), impBg, impHov and C_BLUE or C_BORDER)
-    setFont(c, 8, C_SUBTEXT, true)
+    setFont(c, 8, expHov and C_TEXT or C_SUBTEXT, true)
     drawTextCentered(c, expX, jBtnY, jBtnW, jBtnH, expBg, PES10.T("Exportar .JSON", "Export .JSON"))
+    setFont(c, 8, impHov and C_TEXT or C_SUBTEXT, true)
     drawTextCentered(c, impX, jBtnY, jBtnW, jBtnH, impBg, PES10.T("Importar .JSON", "Import .JSON"))
     addHitbox("ftr_exp", expX, jBtnY, jBtnW, jBtnH, function() PES10.exportPlayerBackupJson() end)
     addHitbox("ftr_imp", impX, jBtnY, jBtnW, jBtnH, function() PES10.importPlayerBackupJson() end)

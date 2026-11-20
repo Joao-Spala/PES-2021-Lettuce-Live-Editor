@@ -525,10 +525,33 @@ end
 function createForm(visible)
   local f = newCtrl("Form", nil)
   f.Visible = (visible ~= false)
+  f.close = function() f.Visible = false; if f.OnClose then f.OnClose() end end
   MOCK_FORMS[#MOCK_FORMS + 1] = f
   return f
 end
 function createPanel(parent) return newCtrl("Panel", parent) end
+MOCK_CREATED_CONTROLS = {}
+local function makeDarkAuditCtrl(kind, parent)
+  local c = newCtrl(kind, parent)
+  c.Color = 0xFFFFFF -- default Win32 white; MUST be overridden to dark!
+  c.BorderStyle = "bsSingle"
+  c.Text = ""
+  c.ItemIndex = 0
+  c.Font = { Name = "Segoe UI", Size = 9, Color = 0, Style = "[]" }
+  c.Items = {
+    _list = {},
+    add = function(v) c.Items._list[#c.Items._list + 1] = v end,
+    clear = function() c.Items._list = {} end,
+  }
+  c.setFocus = function() end
+  c.selectAll = function() end
+  MOCK_CREATED_CONTROLS[#MOCK_CREATED_CONTROLS + 1] = c
+  return c
+end
+function createLabel(parent) return makeDarkAuditCtrl("Label", parent) end
+function createEdit(parent) return makeDarkAuditCtrl("Edit", parent) end
+function createListBox(parent) return makeDarkAuditCtrl("ListBox", parent) end
+function createButton(parent) return makeDarkAuditCtrl("Button", parent) end
 
 MOCK_RECORDS = {}
 for id = 1, 320 do
@@ -666,21 +689,28 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     local dnOVR = PES10.calcPlayerOVR(p0)
     assert(dnOVR == baseOVR, "Expected -1 OVR back to " .. tostring(baseOVR) .. ", got " .. tostring(dnOVR))
 
-    -- Double-clicking COMPUTED_OVR_RECORD_ID in Cheat Engine AddressList scales to Target OVR!
+    -- Double-clicking COMPUTED_OVR_RECORD_ID opens Dark Prompt Modal -> typing "90" + Enter scales to 90 OVR!
     local ovrRec = MOCK_RECORDS[PES10.COMPUTED_OVR_RECORD_ID]
     assert(ovrRec ~= nil and ovrRec.OnGetDisplayValue ~= nil)
     local _, dispStr = ovrRec.OnGetDisplayValue(ovrRec, tostring(baseOVR))
     assert(dispStr:find(tostring(baseOVR)) ~= nil)
-    MOCK_INPUT_QUEUE = {{ "90" }}
+    MOCK_CREATED_CONTROLS = {{}}
     assert(MOCK_ADDRLIST.OnValueChange(MOCK_ADDRLIST, ovrRec) == true)
+    assert(PES10.openModals["darkprompt"] ~= nil, "Expected darkprompt modal to open!")
+    local promptEd = nil
+    for _, ctrl in ipairs(MOCK_CREATED_CONTROLS) do
+      if ctrl.kind == "Edit" then promptEd = ctrl end
+    end
+    assert(promptEd ~= nil and promptEd.Color ~= 0xFFFFFF, "Dark prompt Edit missing or white!")
+    promptEd.Text = "90"
+    promptEd.OnKeyDown(promptEd, 13)
     assert(PES10.calcPlayerOVR(p0) == 90, "Double-click OVR scale to 90 failed!")
     -- Restore back to baseOVR for clean screenshot telemetry
     PES10.scalePlayerToTargetOVR(p0, baseOVR)
 
-    -- 13-Position & DNA X-Ray report
-    local msgBefore = #MOCK_MESSAGES
+    -- 13-Position & DNA X-Ray report opens Dark X-Ray Modal (zero white showMessage!)
     assert(PES10.showPlayerDNAReport() == true)
-    assert(#MOCK_MESSAGES == msgBefore + 1)
+    assert(PES10.openModals["xray"] ~= nil, "Expected dark xray modal to open!")
 
     -- Rejuvenate (-2 years) + Squad +1 OVR DNA
     assert(PES10.rejuvenateAndSyncMarket(-2) == true)
@@ -907,6 +937,35 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     assert(PES10.removePlayerFromScoutList(1, pHandle) == true, "removePlayerFromScoutList failed")
     local u2 = PES10.getScoutListSummary(1)
     assert(u2 == 0, "Scout 1 should be empty after removal")
+
+    -- 5. Dark Studio Modal Audit: instantiate ALL 10 modals and assert ZERO white Win32 inputs/buttons!
+    MOCK_CREATED_CONTROLS = {}
+    PES10.openPositionLabModal()
+    PES10.openTeamRoleModal()
+    PES10.openScoutListsModal()
+    PES10.openScoutFinderModal()
+    PES10.openAttributesModal()
+    PES10.openSkillsStyleModal()
+    PES10.openContractModal()
+    PES10.openBioConditionModal()
+    PES10.showPlayerDNAReport()
+    PES10.promptTargetOVRProportional()
+    local editCount, listCount, rawBtnCount = 0, 0, 0
+    for _, ctrl in ipairs(MOCK_CREATED_CONTROLS) do
+      if ctrl.kind == "Button" then rawBtnCount = rawBtnCount + 1 end
+      if ctrl.kind == "Edit" then
+        editCount = editCount + 1
+        assert(ctrl.Color ~= 0xFFFFFF, "White Edit detected in modal!")
+        assert(ctrl.BorderStyle == "bsNone", "Win32 3D border on Edit detected in modal!")
+      elseif ctrl.kind == "ListBox" then
+        listCount = listCount + 1
+        assert(ctrl.Color ~= 0xFFFFFF, "White ListBox detected in modal!")
+        assert(ctrl.BorderStyle == "bsNone", "Win32 3D border on ListBox detected in modal!")
+      end
+    end
+    assert(rawBtnCount == 0, "Raw Win32 gray TButton detected in modals: " .. tostring(rawBtnCount))
+    assert(editCount >= 18, "Expected >=18 dark Edit controls across modals, got " .. tostring(editCount))
+    assert(listCount >= 6, "Expected >=6 dark ListBox controls across modals, got " .. tostring(listCount))
     return "V11_OK"
     """
     assert run_lua_chunk(L, v11_test, f"v11_behavioral_{expected_lang}") == "V11_OK"
