@@ -222,6 +222,28 @@ INJECT_ptrPlayerGamePlan:
 ret_p3:
 registersymbol(INJECT_ptrPlayerGamePlan)
 
+aobscanregion(INJECT_ptrPlayerListUI,PES2021.exe+F26400,PES2021.exe+F28500,0F B6 80 50 01 00 00 89 45 67)
+alloc(newmem_p4,$1000,INJECT_ptrPlayerListUI)
+
+label(code_p4)
+label(ret_p4)
+
+newmem_p4:
+  test rax,rax
+  jz code_p4
+  mov [ptrPlayer],rax
+
+code_p4:
+  movzx eax,byte ptr [rax+00000150]
+  jmp ret_p4
+
+INJECT_ptrPlayerListUI:
+  jmp newmem_p4
+  nop
+  nop
+ret_p4:
+registersymbol(INJECT_ptrPlayerListUI)
+
 [DISABLE]
 INJECT_ptrPlayer+13:
   db 0F 10 02 0F 11 01
@@ -240,6 +262,12 @@ INJECT_ptrPlayerGamePlan:
 
 unregistersymbol(INJECT_ptrPlayerGamePlan)
 dealloc(newmem_p3)
+
+INJECT_ptrPlayerListUI:
+  db 0F B6 80 50 01 00 00
+
+unregistersymbol(INJECT_ptrPlayerListUI)
+dealloc(newmem_p4)
 """
 
 ASM_HOOK_2_RELEASE_FEE = """{ PES 2021 v11.0 - Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }

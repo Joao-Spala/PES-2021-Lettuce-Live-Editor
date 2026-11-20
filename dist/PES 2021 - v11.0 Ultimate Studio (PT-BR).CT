@@ -120,6 +120,28 @@ INJECT_ptrPlayerGamePlan:
 ret_p3:
 registersymbol(INJECT_ptrPlayerGamePlan)
 
+aobscanregion(INJECT_ptrPlayerListUI,PES2021.exe+F26400,PES2021.exe+F28500,0F B6 80 50 01 00 00 89 45 67)
+alloc(newmem_p4,$1000,INJECT_ptrPlayerListUI)
+
+label(code_p4)
+label(ret_p4)
+
+newmem_p4:
+  test rax,rax
+  jz code_p4
+  mov [ptrPlayer],rax
+
+code_p4:
+  movzx eax,byte ptr [rax+00000150]
+  jmp ret_p4
+
+INJECT_ptrPlayerListUI:
+  jmp newmem_p4
+  nop
+  nop
+ret_p4:
+registersymbol(INJECT_ptrPlayerListUI)
+
 [DISABLE]
 INJECT_ptrPlayer+13:
   db 0F 10 02 0F 11 01
@@ -138,6 +160,12 @@ INJECT_ptrPlayerGamePlan:
 
 unregistersymbol(INJECT_ptrPlayerGamePlan)
 dealloc(newmem_p3)
+
+INJECT_ptrPlayerListUI:
+  db 0F B6 80 50 01 00 00
+
+unregistersymbol(INJECT_ptrPlayerListUI)
+dealloc(newmem_p4)
 </AssemblerScript>
             </CheatEntry>
             <CheatEntry>
@@ -5406,6 +5434,7 @@ PES10.HOOK_ORIG_BYTES = {
     { rva = 0xC6ED40, checkOff = -19, checkByte = 0xCB, orig = {0x0F,0x10,0x02,0x0F,0x11,0x01} },
     { rva = 0x8E24D7, checkOff = -7,  checkByte = 0x48, orig = {0x48,0x8B,0x40,0x2C,0x48,0x89,0x02} },
     { rva = 0xDDCA5C, checkOff = 7,   checkByte = 0x89, orig = {0x0F,0xB6,0x80,0x50,0x01,0x00,0x00} },
+    { rva = 0xF27462, checkOff = 7,   checkByte = 0x89, orig = {0x0F,0xB6,0x80,0x50,0x01,0x00,0x00} },
   },
   [2] = { { rva = 0x156BE0C, checkOff = 5,  checkByte = 0x48, orig = {0x0F,0x29,0x74,0x24,0x40} } },
   [3] = { { rva = 0x12E14A0, checkOff = 6,  checkByte = 0x0F, orig = {0x45,0x8B,0xC8,0x83,0xFA,0x6C} } },
@@ -5800,6 +5829,9 @@ function PES10.estimateReleaseFeeRaw(career, playerAddr, pHandle)
   return math.max(1, math.floor(mkt * f8 + 0.5))
 end
 
+PES10._lastBalKey = ""
+PES10._lastPlayerKey = ""
+
 function PES10.syncAllDynamicPointers()
   if not PES10.isAttached() or PES10.stateBase == 0 then return end
   local sb = PES10.stateBase
@@ -5836,35 +5868,45 @@ function PES10.syncAllDynamicPointers()
       PES10.ensureHookActive(4)
     end
     local balHandle = PES10.readU64(career + 0x01819540)
-    local balRec = (math.floor(balHandle / 0x100000000) ~= 0) and PES10.findRecordByHandle64(career + 0x016BF710, 82, 0x170, balHandle) or 0
-    writeQword(sb + PES10.SYM_OFFSETS.ptrBALTrainingRec, balRec)
+    local balKey = tostring(career) .. ":" .. tostring(balHandle)
+    if PES10._lastBalKey ~= balKey then
+      PES10._lastBalKey = balKey
+      local balRec = (math.floor(balHandle / 0x100000000) ~= 0) and PES10.findRecordByHandle64(career + 0x016BF710, 82, 0x170, balHandle) or 0
+      writeQword(sb + PES10.SYM_OFFSETS.ptrBALTrainingRec, balRec)
+    end
   else
+    PES10._lastBalKey = ""
     writeQword(sb + PES10.SYM_OFFSETS.ptrBALTrainingRec, 0)
   end
 
   local pAddr = PES10.readU64(sb + PES10.SYM_OFFSETS.ptrPlayer)
   if pAddr ~= 0 and career ~= 0 then
     local pHandle = PES10.readU64(pAddr + 0x2C)
-    local pId = PES10.readU32(pAddr + 0x30)
-    local lowHandle = PES10.readU32(pAddr + 0x2C)
+    local pKey = tostring(career) .. ":" .. tostring(pAddr) .. ":" .. tostring(pHandle)
+    if PES10._lastPlayerKey ~= pKey then
+      PES10._lastPlayerKey = pKey
+      local pId = PES10.readU32(pAddr + 0x30)
+      local lowHandle = PES10.readU32(pAddr + 0x2C)
 
-    local trnSlot = PES10.findRecordByHandle64(career + 0x016BF710, 82, 0x170, pHandle)
-    local bonusSlot = PES10.findRecordByHandle64(career + 0x016EE854, 40, 0x34, pHandle)
-    local rfeeSlot = PES10.findRecordByHandle64(career + 0x01674D98, 40, 0x18, pHandle)
-    local growthAddr = 0
-    if (lowHandle % 0x10000) &lt; 0x61A9 then
-      growthAddr = career + 0x01676324 + ((lowHandle % 0x10000) * 4)
-    elseif (pId % 0x10000) &lt; 0x61A9 then
-      growthAddr = career + 0x01676324 + ((pId % 0x10000) * 4)
+      local trnSlot = PES10.findRecordByHandle64(career + 0x016BF710, 82, 0x170, pHandle)
+      local bonusSlot = PES10.findRecordByHandle64(career + 0x016EE854, 40, 0x34, pHandle)
+      local rfeeSlot = PES10.findRecordByHandle64(career + 0x01674D98, 40, 0x18, pHandle)
+      local growthAddr = 0
+      if (lowHandle % 0x10000) &lt; 0x61A9 then
+        growthAddr = career + 0x01676324 + ((lowHandle % 0x10000) * 4)
+      elseif (pId % 0x10000) &lt; 0x61A9 then
+        growthAddr = career + 0x01676324 + ((pId % 0x10000) * 4)
+      end
+
+      writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerTraining, trnSlot)
+      writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerSquadBonus, bonusSlot)
+      writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerReleaseSlot, rfeeSlot)
+      writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerGrowthDesc, growthAddr)
     end
-
-    writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerTraining, trnSlot)
-    writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerSquadBonus, bonusSlot)
-    writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerReleaseSlot, rfeeSlot)
-    writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerGrowthDesc, growthAddr)
     writeInteger(sb + PES10.SYM_OFFSETS.valComputedReleaseFee, PES10.estimateReleaseFeeRaw(career, pAddr, pHandle))
     writeInteger(sb + PES10.SYM_OFFSETS.valComputedOVR, PES10.calcPlayerOVR(pAddr))
   else
+    PES10._lastPlayerKey = ""
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerTraining, 0)
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerSquadBonus, 0)
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerReleaseSlot, 0)
@@ -6437,23 +6479,31 @@ function PES10.getPositionIsolationProfile(regPos, targetPos)
   local list = {}
   for _, fid in ipairs(fids) do
     local sl = slotByFid[fid] or -1
-    local wP, wT = 0, 0
+    local wP, wT, wOthersSum = 0, 0, 0
     for ri, sx in ipairs(T.stat_indices_23) do
       if sx == sl then
-        wP = T.weights_23x13[ri][colP] or 0
-        wT = T.weights_23x13[ri][colT] or 0
+        local row = T.weights_23x13[ri]
+        wP = row[colP] or 0
+        wT = row[colT] or 0
+        for ci = 1, #row do
+          if ci ~= colT and ci ~= colP then
+            wOthersSum = wOthersSum + (row[ci] or 0)
+          end
+        end
         break
       end
     end
     if wT &gt; 0 then
+      local avgOther = wOthersSum / 11.0
+      local bleedDiv = 1.0 + (avgOther * 0.04)
       local isoScore
       local exclusive = (wP == 0)
       if exclusive then
-        isoScore = wT * 5.0
+        isoScore = (wT * 5.0) / bleedDiv
       elseif wT &gt; wP then
-        isoScore = (wT - wP) * 3.0 + (wT * 0.6)
+        isoScore = ((wT - wP) * 3.0 + (wT * 0.6)) / bleedDiv
       else
-        isoScore = wT / (wP + 2.0)
+        isoScore = (wT / (wP + 2.0)) / bleedDiv
       end
       local lbl = PES10.STAT_LABELS[fid]
       list[#list + 1] = {
