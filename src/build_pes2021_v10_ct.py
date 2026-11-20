@@ -31,31 +31,31 @@ PT_PLAYER_LABELS = {
     "Player ID": "ID do Jogador (Player ID)",
     "Commentary ID": "ID de Narração (Commentary ID)",
     "Player Name": "Nome do Jogador (UTF-8 60B)",
-    "Name on Strip (Club)": "Nome na Camisa — Clube (UTF-8 60B)",
-    "Name on Strip (National Team)": "Nome na Camisa — Seleção (UTF-8 60B)",
+    "Name on Strip (Club)": "Nome na Camisa - Clube (UTF-8 60B)",
+    "Name on Strip (National Team)": "Nome na Camisa - Seleção (UTF-8 60B)",
     "Nationality": "Nacionalidade / País",
     "Height (cm)": "Altura (cm)",
     "Weight (kg)": "Peso (kg)",
-    "Age": "Idade (15–50)",
+    "Age": "Idade (15-50)",
     "Stronger Foot": "Pé Dominante",
     "Registred Position": "Posição de Origem (Registered Position)",
-    "CF - Center Forward": "CA (CF) — Centroavante",
-    "SS - Second Striker": "SA (SS) — Segundo Atacante",
-    "LWF - Left Wing Forward": "PTE (LWF) — Ponta Esquerda",
-    "RWF - Right Wing Forward": "PTD (RWF) — Ponta Direita",
-    "AMF - Attacking Midfielder": "MAT (AMF) — Meia Atacante",
-    "DMF - Defensive Midfielder": "VOL (DMF) — Volante",
-    "CMF - Center Midfielder": "MLG (CMF) — Meia de Ligação",
-    "LMF - Left Midfielder": "MLE (LMF) — Meia Esquerda",
-    "RMF - Right Midfielder": "MLD (RMF) — Meia Direita",
-    "CB - Center Back": "ZAG (CB) — Zagueiro",
-    "LB - Left Back": "LE (LB) — Lateral Esquerdo",
-    "RB - Right Back": "LD (RB) — Lateral Direito",
-    "GK - Goalkeeper": "GL (GK) — Goleiro",
-    "Weak Foot Usage": "Uso do Pé Ruim (1–4)",
-    "Weak Foot Accuracy": "Precisão do Pé Ruim (1–4)",
-    "Form": "Forma Física / Condicionamento (1–8)",
-    "Injury Resistance": "Resistência a Lesões (1–3)",
+    "CF - Center Forward": "CA (CF) - Centroavante",
+    "SS - Second Striker": "SA (SS) - Segundo Atacante",
+    "LWF - Left Wing Forward": "PTE (LWF) - Ponta Esquerda",
+    "RWF - Right Wing Forward": "PTD (RWF) - Ponta Direita",
+    "AMF - Attacking Midfielder": "MAT (AMF) - Meia Atacante",
+    "DMF - Defensive Midfielder": "VOL (DMF) - Volante",
+    "CMF - Center Midfielder": "MLG (CMF) - Meia de Ligação",
+    "LMF - Left Midfielder": "MLE (LMF) - Meia Esquerda",
+    "RMF - Right Midfielder": "MLD (RMF) - Meia Direita",
+    "CB - Center Back": "ZAG (CB) - Zagueiro",
+    "LB - Left Back": "LE (LB) - Lateral Esquerdo",
+    "RB - Right Back": "LD (RB) - Lateral Direito",
+    "GK - Goalkeeper": "GL (GK) - Goleiro",
+    "Weak Foot Usage": "Uso do Pé Ruim (1-4)",
+    "Weak Foot Accuracy": "Precisão do Pé Ruim (1-4)",
+    "Form": "Forma Física / Condicionamento (1-8)",
+    "Injury Resistance": "Resistência a Lesões (1-3)",
     "Offensive Awareness": "Talento Ofensivo (Offensive Awareness)",
     "Ball Control": "Controle de Bola (Ball Control)",
     "Dribbling": "Drible (Dribbling)",
@@ -155,7 +155,7 @@ EN_PLAYER_LABELS = {
 # ============================================================================
 # VERIFIED x64 AUTO ASSEMBLER SCRIPTS (PES2021.exe v1.7.2.0 + Sider 7.3.3)
 # ============================================================================
-ASM_HOOK_1_PLAYER = """{ PES 2021 v11.0 Pro — Hook 1: Automatic Player Capture (Edit / Squad / Transfer) }
+ASM_HOOK_1_PLAYER = """{ PES 2021 v11.0 Pro - Hook 1: Automatic Player Capture (Edit / Squad / Transfer) }
 [ENABLE]
 aobscanmodule(INJECT_ptrPlayer,PES2021.exe,CB B8 02 00 00 00 0F 1F 40 00 66 0F 1F 84 00 00 00 00 00 0F 10 02 0F 11 01)
 alloc(newmem_p1,$1000,INJECT_ptrPlayer)
@@ -214,7 +214,7 @@ unregistersymbol(INJECT_ptrPlayerTwo)
 dealloc(newmem_p2)
 """
 
-ASM_HOOK_2_RELEASE_FEE = """{ PES 2021 v11.0 Pro — Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
+ASM_HOOK_2_RELEASE_FEE = """{ PES 2021 v11.0 Pro - Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
 [ENABLE]
 aobscanmodule(INJECT_ReleaseFeeGetter,PES2021.exe,0F 29 74 24 40 48 8B DA 48 8B F1 0F 29 7C 24 30 48 8B 09)
 alloc(newmem_rfee,$1000,INJECT_ReleaseFeeGetter)
@@ -281,7 +281,7 @@ unregistersymbol(INJECT_ReleaseFeeGetter)
 dealloc(newmem_rfee)
 """
 
-ASM_HOOK_3_TRAINING_MULT = """{ PES 2021 v11.0 Pro — Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
+ASM_HOOK_3_TRAINING_MULT = """{ PES 2021 v11.0 Pro - Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
 [ENABLE]
 aobscanmodule(INJECT_TrainingXpAdder,PES2021.exe,45 8B C8 83 FA 6C 0F 8D 1E 01 00 00)
 alloc(newmem_txp,$1000,INJECT_TrainingXpAdder)
@@ -342,7 +342,7 @@ unregistersymbol(INJECT_TrainingXpAdder)
 dealloc(newmem_txp)
 """
 
-ASM_HOOK_4_BAL_CAP = """{ PES 2021 v11.0 Pro — Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
+ASM_HOOK_4_BAL_CAP = """{ PES 2021 v11.0 Pro - Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
 [ENABLE]
 aobscanmodule(INJECT_BALFocusCap,PES2021.exe,0F BE 41 0A 2B C2 83 F8 15 77 09 48 63 C3)
 INJECT_BALFocusCap+08:
@@ -355,7 +355,7 @@ INJECT_BALFocusCap+08:
 unregistersymbol(INJECT_BALFocusCap)
 """
 
-ASM_HOOK_5_MATCH_HUD_CLOCK = """{ PES 2021 v11.0 Pro — Hook 5: Sider-Safe Match HUD, Live Score, Penalties & FNV-Safe Clock }
+ASM_HOOK_5_MATCH_HUD_CLOCK = """{ PES 2021 v11.0 Pro - Hook 5: Sider-Safe Match HUD, Live Score, Penalties & FNV-Safe Clock }
 [ENABLE]
 aobscanmodule(INJECT_MatchHud,PES2021.exe,49 8B F8 44 0F B6 E2 88 55 B7)
 alloc(newmem_mhud,$1000,INJECT_MatchHud)
@@ -428,7 +428,7 @@ unregistersymbol(INJECT_MatchClockTap)
 dealloc(newmem_mclk)
 """
 
-ASM_HOOK_6_STAMINA = """{ PES 2021 v11.0 Pro — Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
+ASM_HOOK_6_STAMINA = """{ PES 2021 v11.0 Pro - Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
 [ENABLE]
 aobscanmodule(INJECT_SelectiveStamina,PES2021.exe,6B 45 10 64 48 8B 5C 24 50)
 alloc(newmem_stam,$1000,INJECT_SelectiveStamina)
@@ -691,44 +691,44 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
         "0:C (Unfamiliar)\n1:B (Secondary)\n2:A (Full Mastery)",
     )
     dd_form_arrow = L(
-        "0:0 — Péssima (Seta Vermelha p/ Baixo)\n"
-        "1:1 — Ruim (Seta Laranja Diagonal)\n"
-        "2:2 — Normal (Seta Amarela Horizontal)\n"
-        "3:3 — Boa (Seta Verde Diagonal)\n"
-        "4:4 — Excelente / Top Form (Seta Azul p/ Cima)",
-        "0:0 — Terrible (Red Down Arrow)\n"
-        "1:1 — Poor (Orange Diagonal Arrow)\n"
-        "2:2 — Normal (Yellow Flat Arrow)\n"
-        "3:3 — Good (Green Diagonal Arrow)\n"
-        "4:4 — Top Form (Blue Up Arrow)",
+        "0:0 - Péssima (Seta Vermelha p/ Baixo)\n"
+        "1:1 - Ruim (Seta Laranja Diagonal)\n"
+        "2:2 - Normal (Seta Amarela Horizontal)\n"
+        "3:3 - Boa (Seta Verde Diagonal)\n"
+        "4:4 - Excelente / Top Form (Seta Azul p/ Cima)",
+        "0:0 - Terrible (Red Down Arrow)\n"
+        "1:1 - Poor (Orange Diagonal Arrow)\n"
+        "2:2 - Normal (Yellow Flat Arrow)\n"
+        "3:3 - Good (Green Diagonal Arrow)\n"
+        "4:4 - Top Form (Blue Up Arrow)",
     )
     dd_reg_pos = L(
-        "0:GL (GK) — Goleiro\n"
-        "1:ZAG (CB) — Zagueiro\n"
-        "2:LE (LB) — Lateral Esquerdo\n"
-        "3:LD (RB) — Lateral Direito\n"
-        "4:VOL (DMF) — Volante\n"
-        "5:MLG (CMF) — Meia de Ligação\n"
-        "6:MLE (LMF) — Meia Esquerda\n"
-        "7:MLD (RMF) — Meia Direita\n"
-        "8:MAT (AMF) — Meia Atacante\n"
-        "9:PTE (LWF) — Ponta Esquerda\n"
-        "10:PTD (RWF) — Ponta Direita\n"
-        "11:SA (SS) — Segundo Atacante\n"
-        "12:CA (CF) — Centroavante",
-        "0:GK — Goalkeeper\n"
-        "1:CB — Center Back\n"
-        "2:LB — Left Back\n"
-        "3:RB — Right Back\n"
-        "4:DMF — Defensive Midfielder\n"
-        "5:CMF — Center Midfielder\n"
-        "6:LMF — Left Midfielder\n"
-        "7:RMF — Right Midfielder\n"
-        "8:AMF — Attacking Midfielder\n"
-        "9:LWF — Left Wing Forward\n"
-        "10:RWF — Right Wing Forward\n"
-        "11:SS — Second Striker\n"
-        "12:CF — Center Forward",
+        "0:GL (GK) - Goleiro\n"
+        "1:ZAG (CB) - Zagueiro\n"
+        "2:LE (LB) - Lateral Esquerdo\n"
+        "3:LD (RB) - Lateral Direito\n"
+        "4:VOL (DMF) - Volante\n"
+        "5:MLG (CMF) - Meia de Ligação\n"
+        "6:MLE (LMF) - Meia Esquerda\n"
+        "7:MLD (RMF) - Meia Direita\n"
+        "8:MAT (AMF) - Meia Atacante\n"
+        "9:PTE (LWF) - Ponta Esquerda\n"
+        "10:PTD (RWF) - Ponta Direita\n"
+        "11:SA (SS) - Segundo Atacante\n"
+        "12:CA (CF) - Centroavante",
+        "0:GK - Goalkeeper\n"
+        "1:CB - Center Back\n"
+        "2:LB - Left Back\n"
+        "3:RB - Right Back\n"
+        "4:DMF - Defensive Midfielder\n"
+        "5:CMF - Center Midfielder\n"
+        "6:LMF - Left Midfielder\n"
+        "7:RMF - Right Midfielder\n"
+        "8:AMF - Attacking Midfielder\n"
+        "9:LWF - Left Wing Forward\n"
+        "10:RWF - Right Wing Forward\n"
+        "11:SS - Second Striker\n"
+        "12:CF - Center Forward",
     )
     dd_playing_style = L(
         "0:Nenhum (-)\n"
@@ -756,22 +756,22 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
         DROPDOWNS["Playing Style"],
     )
     dd_growth_curve = L(
-        "0:0 — Precoce (Pico Cedo)\n"
-        "1:1 — Padrão Equilibrado\n"
-        "2:2 — Desenvolvimento Tardio\n"
-        "3:3 — Duradouro / Longevo (Pouco Declínio 30+)\n"
-        "4:4 — Precoce + Duradouro\n"
-        "5:5 — Padrão + Duradouro\n"
-        "6:6 — Tardio + Duradouro (Eterno Craque)\n"
-        "7:7 — Curva Especial Lenda",
-        "0:0 — Early Peak\n"
-        "1:1 — Standard Balanced\n"
-        "2:2 — Late Developer\n"
-        "3:3 — Sustained / Longevity (Minimal 30+ Decline)\n"
-        "4:4 — Early + Sustained\n"
-        "5:5 — Standard + Sustained\n"
-        "6:6 — Late + Sustained (Eternal Prime)\n"
-        "7:7 — Special Legend Curve",
+        "0:0 - Precoce (Pico Cedo)\n"
+        "1:1 - Padrão Equilibrado\n"
+        "2:2 - Desenvolvimento Tardio\n"
+        "3:3 - Duradouro / Longevo (Pouco Declínio 30+)\n"
+        "4:4 - Precoce + Duradouro\n"
+        "5:5 - Padrão + Duradouro\n"
+        "6:6 - Tardio + Duradouro (Eterno Craque)\n"
+        "7:7 - Curva Especial Lenda",
+        "0:0 - Early Peak\n"
+        "1:1 - Standard Balanced\n"
+        "2:2 - Late Developer\n"
+        "3:3 - Sustained / Longevity (Minimal 30+ Decline)\n"
+        "4:4 - Early + Sustained\n"
+        "5:5 - Standard + Sustained\n"
+        "6:6 - Late + Sustained (Eternal Prime)\n"
+        "7:7 - Special Legend Curve",
     )
     dd_bal_skill_ids = L(
         "\n".join([
@@ -804,16 +804,16 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
         ]),
     )
     dd_bal_pos_ids = L(
-        "1:CA (CF) — Centroavante\n2:SA (SS) — Segundo Atacante\n3:PTE (LWF) — Ponta Esquerda\n"
-        "4:PTD (RWF) — Ponta Direita\n5:MAT (AMF) — Meia Atacante\n6:VOL (DMF) — Volante\n"
-        "7:MLG (CMF) — Meia de Ligação\n8:MLE (LMF) — Meia Esquerda\n9:MLD (RMF) — Meia Direita\n"
-        "10:ZAG (CB) — Zagueiro\n11:LE (LB) — Lateral Esquerdo\n12:LD (RB) — Lateral Direito\n"
-        "13:GL (GK) — Goleiro\n108:Nenhuma (Sem Treino de Posição)",
-        "1:CF — Center Forward\n2:SS — Second Striker\n3:LWF — Left Wing Forward\n"
-        "4:RWF — Right Wing Forward\n5:AMF — Attacking Midfielder\n6:DMF — Defensive Midfielder\n"
-        "7:CMF — Center Midfielder\n8:LMF — Left Midfielder\n9:RMF — Right Midfielder\n"
-        "10:CB — Center Back\n11:LB — Left Back\n12:RB — Right Back\n"
-        "13:GK — Goalkeeper\n108:None (No Active Position)",
+        "1:CA (CF) - Centroavante\n2:SA (SS) - Segundo Atacante\n3:PTE (LWF) - Ponta Esquerda\n"
+        "4:PTD (RWF) - Ponta Direita\n5:MAT (AMF) - Meia Atacante\n6:VOL (DMF) - Volante\n"
+        "7:MLG (CMF) - Meia de Ligação\n8:MLE (LMF) - Meia Esquerda\n9:MLD (RMF) - Meia Direita\n"
+        "10:ZAG (CB) - Zagueiro\n11:LE (LB) - Lateral Esquerdo\n12:LD (RB) - Lateral Direito\n"
+        "13:GL (GK) - Goleiro\n108:Nenhuma (Sem Treino de Posição)",
+        "1:CF - Center Forward\n2:SS - Second Striker\n3:LWF - Left Wing Forward\n"
+        "4:RWF - Right Wing Forward\n5:AMF - Attacking Midfielder\n6:DMF - Defensive Midfielder\n"
+        "7:CMF - Center Midfielder\n8:LMF - Left Midfielder\n9:RMF - Right Midfielder\n"
+        "10:CB - Center Back\n11:LB - Left Back\n12:RB - Right Back\n"
+        "13:GK - Goalkeeper\n108:None (No Active Position)",
     )
 
     builder = CTBuilder()
@@ -858,8 +858,8 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
         "4 Bytes",
         "cfgCurrency",
         dropdown=L(
-            "0:Euro (€) — Padrão\n1:Real (R$)\n2:Dólar ($)\n3:Libra (£)",
-            "0:Euro (€) — Default\n1:Brazilian Real (R$)\n2:US Dollar ($)\n3:British Pound (£)",
+            "0:Euro (€) - Padrão\n1:Real (R$)\n2:Dólar ($)\n3:Libra (£)",
+            "0:Euro (€) - Default\n1:Brazilian Real (R$)\n2:US Dollar ($)\n3:British Pound (£)",
         ),
         dropdown_only=True,
         color=COL_AMBER,
@@ -875,7 +875,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     builder.add_script(grp_hooks, L("[ HOOK 2 ] Motor de Taxa de Rescisão Exata (Release Fee Override)", "[ HOOK 2 ] Exact Release Clause Override Engine"), ASM_HOOK_2_RELEASE_FEE, is_core_hook=True)
     builder.add_script(grp_hooks, L("[ HOOK 3 ] Multiplicador Universal de Sub-XP (Treino ML, Base & BAL)", "[ HOOK 3 ] Universal Sub-XP Multiplier (Club, Youth & BAL)"), ASM_HOOK_3_TRAINING_MULT, is_core_hook=True)
     builder.add_script(grp_hooks, L("[ HOOK 4 ] Destravar Limite de 21 Focus Points nas Setas do BAL", "[ HOOK 4 ] Unlock 21 Focus Points Cap on BAL Sliders"), ASM_HOOK_4_BAL_CAP, is_core_hook=True)
-    builder.add_script(grp_hooks, L("[ HOOK 5 ] Partida ao Vivo — Placar, Pênaltis & Relógio (Sider-Safe)", "[ HOOK 5 ] Live Match — Score, Penalties & Clock (Sider-Safe)"), ASM_HOOK_5_MATCH_HUD_CLOCK, is_core_hook=True)
+    builder.add_script(grp_hooks, L("[ HOOK 5 ] Partida ao Vivo - Placar, Pênaltis & Relógio (Sider-Safe)", "[ HOOK 5 ] Live Match - Score, Penalties & Clock (Sider-Safe)"), ASM_HOOK_5_MATCH_HUD_CLOCK, is_core_hook=True)
     builder.add_script(grp_hooks, L("[ HOOK 6 ] Stamina Seletiva em Campo (Casa / Fora / Ambos / Pressão)", "[ HOOK 6 ] Selective Match Stamina (Home / Away / Both / Press)"), ASM_HOOK_6_STAMINA, is_core_hook=True)
 
     builder.add_script(
@@ -886,7 +886,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     )
 
     # =========================================================================
-    # SECTION 2: [ 2. MASTER LEAGUE — FINANCES & SQUAD COMMANDER ]
+    # SECTION 2: [ 2. MASTER LEAGUE - FINANCES & SQUAD COMMANDER ]
     # =========================================================================
     sec_ml = builder.group(
         top_entries,
@@ -912,7 +912,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
 
     grp_squad = builder.group(
         sec_ml,
-        L("Squad Commander — Comandos de 1 Clique em Todo o Meu Elenco", "Squad Commander — 1-Click Actions on Your Entire Squad"),
+        L("Squad Commander - Comandos de 1 Clique em Todo o Meu Elenco", "Squad Commander - 1-Click Actions on Your Entire Squad"),
         COL_BLUE,
         hide_children=False,
     )
@@ -925,11 +925,11 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
 
     grp_ml_scout = builder.group(
         sec_ml,
-        L("Negociações, Radar 30K & Olheiros (RAM Real — 3 Listas + Shortlist)", "Negotiations, Radar 30K & Scouts (Live RAM — 3 Lists + Shortlist)"),
+        L("Negociações, Radar 30K & Olheiros (RAM Real - 3 Listas + Shortlist)", "Negotiations, Radar 30K & Scouts (Live RAM - 3 Lists + Shortlist)"),
         COL_AMBER,
         hide_children=False,
     )
-    builder.add_script(grp_ml_scout, L("[ CENTRAL OLHEIROS ] Abrir Gerenciador Visual dos 3 Olheiros & Favoritos (RAM Real)", "[ SCOUT HUB ] Open Visual Real-RAM Manager for Scouts 1–3 & Shortlist"), make_lua_button_script("PES10.openScoutListsModal()"), color=COL_GREEN)
+    builder.add_script(grp_ml_scout, L("[ CENTRAL OLHEIROS ] Abrir Gerenciador Visual dos 3 Olheiros & Favoritos (RAM Real)", "[ SCOUT HUB ] Open Visual Real-RAM Manager for Scouts 1-3 & Shortlist"), make_lua_button_script("PES10.openScoutListsModal()"), color=COL_GREEN)
     builder.add_script(grp_ml_scout, L("[ RADAR 30K ] Caçador Visual de Joias (Filtrar OVR / Idade / Posição / Contrato)", "[ RADAR 30K ] Visual Wonderkid Finder (Filter OVR / Age / Position / Contract)"), make_lua_button_script("PES10.openScoutFinderModal()"), color=COL_BLUE)
     builder.add_script(grp_ml_scout, L("[ NEGÓCIO 100% ] Negociação Irrecusável (Lista Transf. + Multa € 1k + 1º Contato)", "[ 100% DEAL ] Irresistible Deal (Transfer Listed + € 1k Fee + 1st Round)"), make_lua_button_script("PES10.makeDealIrresistible()"), color=COL_CRIMSON)
     builder.add_script(grp_ml_scout, L("[ LIMPAR ] Limpar as 3 Listas de Observação dos Olheiros na RAM", "[ CLEAR ] Clear All 3 Scout Observation Lists in RAM"), make_lua_button_script("PES10.clearScoutSlots()"), color=COL_BLUE)
@@ -944,8 +944,8 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
 
     grp_ml_date = builder.group(sec_ml, L("Calendário da Carreira (Ano / Mês / Dia)", "Career Calendar (Year / Month / Day)"), COL_GREEN)
     builder.add_record(grp_ml_date, L("Ano Atual", "Current Year"), "2 Bytes", "ptrCareer", ["01642A24"])
-    builder.add_record(grp_ml_date, L("Mês Atual (1–12)", "Current Month (1–12)"), "Byte", "ptrCareer", ["01642A26"])
-    builder.add_record(grp_ml_date, L("Dia Atual (1–31)", "Current Day (1–31)"), "Byte", "ptrCareer", ["01642A27"])
+    builder.add_record(grp_ml_date, L("Mês Atual (1-12)", "Current Month (1-12)"), "Byte", "ptrCareer", ["01642A26"])
+    builder.add_record(grp_ml_date, L("Dia Atual (1-31)", "Current Day (1-31)"), "Byte", "ptrCareer", ["01642A27"])
 
     # =========================================================================
     # SECTION 3: [ 3. PLAYER, OVERALL DNA & CONTRACTS ]
@@ -992,7 +992,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     )
     builder.add_script(
         sec_player,
-        L("[ TEAM ROLE ] Abrir Seletor Visual de Função de Equipe (22 Papéis + Nível 1–3)", "[ TEAM ROLE ] Open Visual Team Role Picker (22 Roles + Level 1–3)"),
+        L("[ TEAM ROLE ] Abrir Seletor Visual de Função de Equipe (22 Papéis + Nível 1-3)", "[ TEAM ROLE ] Open Visual Team Role Picker (22 Roles + Level 1-3)"),
         make_lua_button_script("PES10.openTeamRoleModal()"),
         color=COL_AMBER,
     )
@@ -1047,19 +1047,19 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     builder.add_record(grp_c_bonus, L("Bônus Contratual #3 (Clean Sheet / Extra)", "Clean Sheet / Extra Bonus"), "4 Bytes", "ptrPlayerSquadBonus", ["28"], signed=True, is_money=True)
 
     grp_c_dates = builder.group(grp_contract, L("Datas de Término, Chegada & Última Renovação", "Contract Expiry, Arrival & Last Renewal Dates"), COL_TEAL)
-    builder.add_record(grp_c_dates, L("Término do Contrato — Ano", "Contract Expiry — Year"), "2 Bytes", "ptrPlayer", ["138"])
-    builder.add_record(grp_c_dates, L("Término do Contrato — Mês (1–12)", "Contract Expiry — Month (1–12)"), "Byte", "ptrPlayer", ["13A"])
-    builder.add_record(grp_c_dates, L("Término do Contrato — Dia (1–31)", "Contract Expiry — Day (1–31)"), "Byte", "ptrPlayer", ["13B"])
-    builder.add_record(grp_c_dates, L("Última Assinatura / Renovação — Ano (65535 = Sem Trava)", "Last Signing / Renewal — Year (65535 = Unlocked)"), "2 Bytes", "ptrPlayer", ["16C"])
-    builder.add_record(grp_c_dates, L("Última Assinatura / Renovação — Mês", "Last Signing / Renewal — Month"), "Byte", "ptrPlayer", ["16E"])
-    builder.add_record(grp_c_dates, L("Última Assinatura / Renovação — Dia", "Last Signing / Renewal — Day"), "Byte", "ptrPlayer", ["16F"])
-    builder.add_record(grp_c_dates, L("Chegada ao Clube — Ano", "Club Arrival — Year"), "2 Bytes", "ptrPlayer", ["168"])
-    builder.add_record(grp_c_dates, L("Chegada ao Clube — Mês", "Club Arrival — Month"), "Byte", "ptrPlayer", ["16A"])
-    builder.add_record(grp_c_dates, L("Chegada ao Clube — Dia", "Club Arrival — Day"), "Byte", "ptrPlayer", ["16B"])
+    builder.add_record(grp_c_dates, L("Término do Contrato - Ano", "Contract Expiry - Year"), "2 Bytes", "ptrPlayer", ["138"])
+    builder.add_record(grp_c_dates, L("Término do Contrato - Mês (1-12)", "Contract Expiry - Month (1-12)"), "Byte", "ptrPlayer", ["13A"])
+    builder.add_record(grp_c_dates, L("Término do Contrato - Dia (1-31)", "Contract Expiry - Day (1-31)"), "Byte", "ptrPlayer", ["13B"])
+    builder.add_record(grp_c_dates, L("Última Assinatura / Renovação - Ano (65535 = Sem Trava)", "Last Signing / Renewal - Year (65535 = Unlocked)"), "2 Bytes", "ptrPlayer", ["16C"])
+    builder.add_record(grp_c_dates, L("Última Assinatura / Renovação - Mês", "Last Signing / Renewal - Month"), "Byte", "ptrPlayer", ["16E"])
+    builder.add_record(grp_c_dates, L("Última Assinatura / Renovação - Dia", "Last Signing / Renewal - Day"), "Byte", "ptrPlayer", ["16F"])
+    builder.add_record(grp_c_dates, L("Chegada ao Clube - Ano", "Club Arrival - Year"), "2 Bytes", "ptrPlayer", ["168"])
+    builder.add_record(grp_c_dates, L("Chegada ao Clube - Mês", "Club Arrival - Month"), "Byte", "ptrPlayer", ["16A"])
+    builder.add_record(grp_c_dates, L("Chegada ao Clube - Dia", "Club Arrival - Day"), "Byte", "ptrPlayer", ["16B"])
     builder.add_script(grp_c_dates, L("[ 1-CLIQUE ] Destravar Renegociação Imediata", "[ 1-CLICK ] Unlock Instant Renegotiation"), make_lua_button_script("PES10.runPlayerMacro('unlock_renegotiation')"), color=COL_BLUE)
 
-    grp_c_loan = builder.group(grp_contract, L("Empréstimo, Lista de Transferências & Afeição (0–100%)", "Loan Status, Transfer List & Club Affection (0–100%)"), COL_TEAL)
-    builder.add_record(grp_c_loan, L("Afeição pelo Clube / Treinador (0–100%)", "Club / Manager Affection (0–100%)"), "Binary", "ptrPlayer", ["13E"], bitstart="2", bitlen="7", color=COL_GREEN)
+    grp_c_loan = builder.group(grp_contract, L("Empréstimo, Lista de Transferências & Afeição (0-100%)", "Loan Status, Transfer List & Club Affection (0-100%)"), COL_TEAL)
+    builder.add_record(grp_c_loan, L("Afeição pelo Clube / Treinador (0-100%)", "Club / Manager Affection (0-100%)"), "Binary", "ptrPlayer", ["13E"], bitstart="2", bitlen="7", color=COL_GREEN)
     builder.add_record(grp_c_loan, L("Está Emprestado (Is On Loan)", "Is Currently On Loan"), "Binary", "ptrPlayer", ["14A"], dropdown=dd_yes_no, bitstart="0", bitlen="1")
     builder.add_record(grp_c_loan, L("Clube Detentor do Passe (RAM)", "Parent Club Handle (Live RAM)"), "4 Bytes", "ptrPlayer", ["164"], is_club_handle=True)
     builder.add_record(grp_c_loan, L("Clube Anterior / Origem (RAM)", "Previous / Origin Club Handle (Live RAM)"), "4 Bytes", "ptrPlayer", ["160"], is_club_handle=True)
@@ -1081,13 +1081,13 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     # 3.3 Identity & Clubs
     grp_p_info = builder.group(sec_player, L("3. Identidade, Nomes UTF-8 (60B) & Clubes ao Vivo", "3. Identity, UTF-8 Names (60B) & Live Club Handles"), COL_TEAL)
     builder.add_record(grp_p_info, L("ID do Jogador (Player ID)", "Player ID"), "4 Bytes", "ptrPlayer", ["30"])
-    builder.add_record(grp_p_info, L("Nome do Jogador (UTF-8 — Até 60 Bytes)", "Player Name (UTF-8 — Up to 60 Bytes)"), "String", "ptrPlayer", ["38"], str_len=60, utf8=True)
-    builder.add_record(grp_p_info, L("Nome na Camisa — Clube (UTF-8)", "Shirt Name — Club (UTF-8)"), "String", "ptrPlayer", ["75"], str_len=60, utf8=True)
-    builder.add_record(grp_p_info, L("Nome na Camisa — Seleção (UTF-8)", "Shirt Name — National Team (UTF-8)"), "String", "ptrPlayer", ["B2"], str_len=60, utf8=True)
+    builder.add_record(grp_p_info, L("Nome do Jogador (UTF-8 - Até 60 Bytes)", "Player Name (UTF-8 - Up to 60 Bytes)"), "String", "ptrPlayer", ["38"], str_len=60, utf8=True)
+    builder.add_record(grp_p_info, L("Nome na Camisa - Clube (UTF-8)", "Shirt Name - Club (UTF-8)"), "String", "ptrPlayer", ["75"], str_len=60, utf8=True)
+    builder.add_record(grp_p_info, L("Nome na Camisa - Seleção (UTF-8)", "Shirt Name - National Team (UTF-8)"), "String", "ptrPlayer", ["B2"], str_len=60, utf8=True)
     builder.add_record(grp_p_info, L("Clube Atual (Decodificado ao Vivo na RAM)", "Current Club (Live RAM Decoded)"), "4 Bytes", "ptrPlayer", ["12C"], is_club_handle=True, color=COL_GREEN)
     builder.add_record(grp_p_info, L("Seleção Nacional (Decodificada ao Vivo na RAM)", "National Team (Live RAM Decoded)"), "4 Bytes", "ptrPlayer", ["130"], is_club_handle=True)
     builder.add_record(grp_p_info, L("Nacionalidade / País (221 Países)", "Nationality / Country (221 Countries)"), "2 Bytes", "ptrPlayer", ["144"], dropdown=DROPDOWNS["Nationality"])
-    builder.add_record(grp_p_info, L("Idade (15–50)", "Age (15–50)"), "Binary", "ptrPlayer", ["1C"], bitstart="0", bitlen="6")
+    builder.add_record(grp_p_info, L("Idade (15-50)", "Age (15-50)"), "Binary", "ptrPlayer", ["1C"], bitstart="0", bitlen="6")
     builder.add_record(grp_p_info, L("Altura (cm)", "Height (cm)"), "Binary", "ptrPlayer", ["0"], bitstart="0", bitlen="8")
     builder.add_record(grp_p_info, L("Peso (kg)", "Weight (kg)"), "Binary", "ptrPlayer", ["1"], bitstart="0", bitlen="8")
     builder.add_record(grp_p_info, L("Pé Dominante", "Stronger Foot"), "Binary", "ptrPlayer", ["3"], dropdown=dd_foot, bitstart="7", bitlen="1")
@@ -1096,20 +1096,20 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
 
     # 3.4 Fitness, Form Arrow, Weak Foot & Injuries
     grp_p_cond = builder.group(sec_player, L("4. Condição Física, Seta de Forma, Pé Ruim & Lesões", "4. Fitness, Form Arrow, Weak Foot & Injuries"), COL_TEAL)
-    builder.add_record(grp_p_cond, L("Barra de Fôlego / Stamina (0–100)", "Fatigue / Stamina Gauge (0–100)"), "Binary", "ptrPlayer", ["146"], bitstart="0", bitlen="7")
+    builder.add_record(grp_p_cond, L("Barra de Fôlego / Stamina (0-100)", "Fatigue / Stamina Gauge (0-100)"), "Binary", "ptrPlayer", ["146"], bitstart="0", bitlen="7")
     builder.add_record(grp_p_cond, L("Seta de Forma para a Próxima Partida", "Next Match Form Arrow"), "Binary", "ptrPlayer", ["147"], dropdown=dd_form_arrow, bitstart="0", bitlen="3")
     builder.add_record(grp_p_cond, L("Seta Piscando (Em Destaque)", "Flashing Form Arrow"), "Binary", "ptrPlayer", ["146"], dropdown=dd_yes_no, bitstart="7", bitlen="1")
     builder.add_record(grp_p_cond, L("Dias Indisponível por Lesão (0 = Saudável)", "Injury Duration Remaining (0 = Healthy)"), "Byte", "ptrPlayer", ["148"])
-    builder.add_record(grp_p_cond, L("Uso do Pé Ruim (1–4)", "Weak Foot Usage (1–4)"), "Binary", "ptrPlayer", ["23"], dropdown=DROPDOWNS["Weak Foot Usage"], bitstart="0", bitlen="2")
-    builder.add_record(grp_p_cond, L("Precisão do Pé Ruim (1–4)", "Weak Foot Accuracy (1–4)"), "Binary", "ptrPlayer", ["22"], dropdown=DROPDOWNS["Weak Foot Accuracy"], bitstart="4", bitlen="2")
-    builder.add_record(grp_p_cond, L("Forma Física / Regularidade (1–8)", "Conditioning / Form (1–8)"), "Binary", "ptrPlayer", ["17"], dropdown=DROPDOWNS["Form"], bitstart="4", bitlen="3")
-    builder.add_record(grp_p_cond, L("Resistência a Lesões (1–3)", "Injury Resistance (1–3)"), "Binary", "ptrPlayer", ["22"], dropdown=DROPDOWNS["Injury Resistance"], bitstart="6", bitlen="2")
+    builder.add_record(grp_p_cond, L("Uso do Pé Ruim (1-4)", "Weak Foot Usage (1-4)"), "Binary", "ptrPlayer", ["23"], dropdown=DROPDOWNS["Weak Foot Usage"], bitstart="0", bitlen="2")
+    builder.add_record(grp_p_cond, L("Precisão do Pé Ruim (1-4)", "Weak Foot Accuracy (1-4)"), "Binary", "ptrPlayer", ["22"], dropdown=DROPDOWNS["Weak Foot Accuracy"], bitstart="4", bitlen="2")
+    builder.add_record(grp_p_cond, L("Forma Física / Regularidade (1-8)", "Conditioning / Form (1-8)"), "Binary", "ptrPlayer", ["17"], dropdown=DROPDOWNS["Form"], bitstart="4", bitlen="3")
+    builder.add_record(grp_p_cond, L("Resistência a Lesões (1-3)", "Injury Resistance (1-3)"), "Binary", "ptrPlayer", ["22"], dropdown=DROPDOWNS["Injury Resistance"], bitstart="6", bitlen="2")
 
     # 3.5..3.8 Positions, 25 Attributes, Playing Style + 41 Skills, COM Styles & Team Role
     grp_p_pos = builder.group(sec_player, L("5. Posição de Origem & 13 Posições Jogáveis (C / B / A)", "5. Registered Position & 13 Playable Positions (C / B / A)"), COL_TEAL)
     builder.add_script(grp_p_pos, L("[ 1-CLIQUE ] Promover Todas as Secundárias ('B' → 'A')", "[ 1-CLICK ] Promote All Secondary Positions ('B' → 'A')"), make_lua_button_script("local p=PES10.getSelectedPlayerOrWarn(); if p~=0 then local n=PES10.promoteSecondaryPositionsToA(p); PES10.toast(string.format(PES10.T('%d secundária(s) promovida(s) p/ A!','%d secondary position(s) promoted to A!'), n)) end"), color=COL_GREEN)
     builder.add_script(grp_p_pos, L("[ +1 OVR POSIÇÃO ] Subir +1 OVR em Posição Específica...", "[ +1 POS OVR ] Boost +1 OVR in Specific Position..."), make_lua_button_script("PES10.promptTargetPositionOVRPlusOne()"), color=COL_BLUE)
-    grp_p_attr = builder.group(sec_player, L("6. Todos os 25 Atributos Técnicos, Físicos, Defensivos & GK (40–99)", "6. All 25 Technical, Physical, Defensive & GK Attributes (40–99)"), COL_TEAL)
+    grp_p_attr = builder.group(sec_player, L("6. Todos os 25 Atributos Técnicos, Físicos, Defensivos & GK (40-99)", "6. All 25 Technical, Physical, Defensive & GK Attributes (40-99)"), COL_TEAL)
     grp_p_skills = builder.group(sec_player, L("7. Estilo de Jogo & Todas as 41 Habilidades (Player Skills)", "7. Playing Style & All 41 Player Skills"), COL_TEAL)
     grp_p_com = builder.group(sec_player, L("8. Estilos IA COM & Papel no Time (Team Role)", "8. COM AI Playing Styles & Team Role"), COL_TEAL)
     builder.add_script(grp_p_com, L("[ PRESET ] Tornar LENDA (Nível 3)", "[ PRESET ] Make LEGEND (Level 3)"), make_lua_button_script("local p=PES10.getSelectedPlayerOrWarn(); if p~=0 then PES10.setTeamRole(p,19,3); PES10.toast(PES10.T('Team Role definido: Lenda (Nv.3)!','Team Role set: Legend (Lv.3)!')) end"), color=COL_AMBER)
@@ -1151,7 +1151,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
             builder.add_record(grp_p_skills, lbl, vt, "ptrPlayer", off, dropdown=dd_playing_style, bitstart=bs, bitlen=bl, color=COL_PURPLE)
         elif 57 <= idx <= 97:
             if d == "Heading" and bl == "1":
-                sk_label = L("Cabeceio Preciso — Skill (Heading)", "Heading (Player Skill)")
+                sk_label = L("Cabeceio Preciso - Skill (Heading)", "Heading (Player Skill)")
             else:
                 sk_label = lbl
             builder.add_record(grp_p_skills, sk_label, vt, "ptrPlayer", off, dropdown=dd_yes_no, bitstart=bs, bitlen=bl)
@@ -1183,10 +1183,10 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
         "4 Bytes",
         "cfgTrainingMultMode",
         dropdown=L(
-            "0:1x — Evolução Original\n1:2x — Evolução Dobrada\n2:5x — Evolução Rápida\n"
-            "3:10x — Super Treino\n4:50x — Turbo Extremo\n5:Instantâneo (10.000 XP — Nível / Posição / Skill em 1 Dia!)",
-            "0:1x — Default Progression\n1:2x — Double Speed\n2:5x — Fast Progression\n"
-            "3:10x — Super Training\n4:50x — Extreme Turbo\n5:Instant (10,000 XP — Stat / Position / Skill in 1 Day!)",
+            "0:1x - Evolução Original\n1:2x - Evolução Dobrada\n2:5x - Evolução Rápida\n"
+            "3:10x - Super Treino\n4:50x - Turbo Extremo\n5:Instantâneo (10.000 XP - Nível / Posição / Skill em 1 Dia!)",
+            "0:1x - Default Progression\n1:2x - Double Speed\n2:5x - Fast Progression\n"
+            "3:10x - Super Training\n4:50x - Extreme Turbo\n5:Instant (10,000 XP - Stat / Position / Skill in 1 Day!)",
         ),
         dropdown_only=True,
         color=COL_PURPLE,
@@ -1201,7 +1201,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
 
     grp_bal = builder.group(
         sec_trn_bal,
-        L("Suite Rumo ao Estrelato (Become a Legend — BAL)", "Become a Legend (BAL) Complete Suite"),
+        L("Suite Rumo ao Estrelato (Become a Legend - BAL)", "Become a Legend (BAL) Complete Suite"),
         COL_PURPLE,
         hide_children=False,
     )
@@ -1216,16 +1216,16 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
 
     grp_bal_bars = builder.group(sec_trn_bal, L("As 10 Barras Individuais de Treino do BAL", "All 10 Individual BAL Training Sliders"), COL_PURPLE)
     BAL_BARS = [
-        ("016ECBE0", L("Barra 1 — Chute (Shooting)", "Slider 1 — Shooting")),
-        ("016ECBE1", L("Barra 2 — Passe (Passing)", "Slider 2 — Passing")),
-        ("016ECBE2", L("Barra 3 — Drible (Dribbling)", "Slider 3 — Dribbling")),
-        ("016ECBE3", L("Barra 4 — Destreza / Ataque (Dexterity)", "Slider 4 — Dexterity")),
-        ("016ECBE4", L("Barra 5 — Velocidade / Explosão (Lower Body)", "Slider 5 — Lower Body Strength")),
-        ("016ECBE5", L("Barra 6 — Jogo Aéreo / Físico (Aerial)", "Slider 6 — Aerial Strength")),
-        ("016ECBE6", L("Barra 7 — Defesa (Defending)", "Slider 7 — Defending")),
-        ("016ECBE7", L("Barra 8 — Goleiro (GK)", "Slider 8 — Goalkeeping")),
-        ("016ECBE8", L("Barra 9 — Foco em Habilidade (Skill)", "Slider 9 — Skill Training")),
-        ("016ECBE9", L("Barra 10 — Foco em Posição (Position)", "Slider 10 — Position Training")),
+        ("016ECBE0", L("Barra 1 - Chute (Shooting)", "Slider 1 - Shooting")),
+        ("016ECBE1", L("Barra 2 - Passe (Passing)", "Slider 2 - Passing")),
+        ("016ECBE2", L("Barra 3 - Drible (Dribbling)", "Slider 3 - Dribbling")),
+        ("016ECBE3", L("Barra 4 - Destreza / Ataque (Dexterity)", "Slider 4 - Dexterity")),
+        ("016ECBE4", L("Barra 5 - Velocidade / Explosão (Lower Body)", "Slider 5 - Lower Body Strength")),
+        ("016ECBE5", L("Barra 6 - Jogo Aéreo / Físico (Aerial)", "Slider 6 - Aerial Strength")),
+        ("016ECBE6", L("Barra 7 - Defesa (Defending)", "Slider 7 - Defending")),
+        ("016ECBE7", L("Barra 8 - Goleiro (GK)", "Slider 8 - Goalkeeping")),
+        ("016ECBE8", L("Barra 9 - Foco em Habilidade (Skill)", "Slider 9 - Skill Training")),
+        ("016ECBE9", L("Barra 10 - Foco em Posição (Position)", "Slider 10 - Position Training")),
     ]
     for off_h, bdesc in BAL_BARS:
         builder.add_record(grp_bal_bars, bdesc, "Byte", "ptrCareer", [off_h])
@@ -1261,7 +1261,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
         builder.add_record(grp_subxp_stats, f"Sub-XP: {L(pt_lbl, en_lbl)} (0..10000)", "2 Bytes", "ptrPlayerTraining", [off_hex], signed=True)
 
     # =========================================================================
-    # SECTION 5: [ 5. LIVE MATCH — CLOCK, SCORE & STAMINA ]
+    # SECTION 5: [ 5. LIVE MATCH - CLOCK, SCORE & STAMINA ]
     # =========================================================================
     sec_match = builder.group(
         top_entries,
@@ -1309,12 +1309,12 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     builder.add_record(sec_match, L("Minutos de Acréscimo no Placar (-1 = Sem Acréscimo)", "Added Injury Time Display (-1 = None)"), "4 Bytes", "ptrMatchHud", ["144"], signed=True)
 
     grp_m_score = builder.group(sec_match, L("Placar ao Vivo & Disputa de Pênaltis", "Live Match Score & Penalty Shootout"), COL_CRIMSON, hide_children=False)
-    home_score_id = builder.add_record(grp_m_score, L("Gols — Time Mandante (Casa) [Sincroniza Motor + Placar]", "Goals — Home Team [Syncs Engine + Scoreboard]"), "Byte", "ptrMatchCore", ["9E"], color=COL_GREEN)
-    away_score_id = builder.add_record(grp_m_score, L("Gols — Time Visitante (Fora) [Sincroniza Motor + Placar]", "Goals — Away Team [Syncs Engine + Scoreboard]"), "Byte", "ptrMatchCore", ["9F"], color=COL_GREEN)
+    home_score_id = builder.add_record(grp_m_score, L("Gols - Time Mandante (Casa) [Sincroniza Motor + Placar]", "Goals - Home Team [Syncs Engine + Scoreboard]"), "Byte", "ptrMatchCore", ["9E"], color=COL_GREEN)
+    away_score_id = builder.add_record(grp_m_score, L("Gols - Time Visitante (Fora) [Sincroniza Motor + Placar]", "Goals - Away Team [Syncs Engine + Scoreboard]"), "Byte", "ptrMatchCore", ["9F"], color=COL_GREEN)
     builder.score_sync[home_score_id] = "home"
     builder.score_sync[away_score_id] = "away"
-    builder.add_record(grp_m_score, L("Pênaltis Convertidos — Mandante (Casa)", "Penalty Shootout Goals — Home"), "Byte", "ptrMatchCore", ["12C"])
-    builder.add_record(grp_m_score, L("Pênaltis Convertidos — Visitante (Fora)", "Penalty Shootout Goals — Away"), "Byte", "ptrMatchCore", ["12D"])
+    builder.add_record(grp_m_score, L("Pênaltis Convertidos - Mandante (Casa)", "Penalty Shootout Goals - Home"), "Byte", "ptrMatchCore", ["12C"])
+    builder.add_record(grp_m_score, L("Pênaltis Convertidos - Visitante (Fora)", "Penalty Shootout Goals - Away"), "Byte", "ptrMatchCore", ["12D"])
 
     grp_m_stam = builder.group(sec_match, L("Stamina Seletiva em Campo", "Selective On-Pitch Stamina"), COL_CRIMSON, hide_children=False)
     builder.add_record(
@@ -1324,15 +1324,15 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
         "cfgStaminaMode",
         dropdown=L(
             "0:Desativado (Desgaste Original)\n"
-            "1:Stamina 100% — Apenas Time Mandante (Casa)\n"
-            "2:Stamina 100% — Apenas Time Visitante (Fora)\n"
-            "3:Stamina 100% — Ambos os Times\n"
+            "1:Stamina 100% - Apenas Time Mandante (Casa)\n"
+            "2:Stamina 100% - Apenas Time Visitante (Fora)\n"
+            "3:Stamina 100% - Ambos os Times\n"
             "4:Pressão Total Casa (Casa 100% + Drenar Visitante p/ 5%)\n"
             "5:Pressão Total Fora (Fora 100% + Drenar Casa p/ 5%)",
             "0:Disabled (Default Fatigue)\n"
-            "1:100% Stamina — Home Team Only\n"
-            "2:100% Stamina — Away Team Only\n"
-            "3:100% Stamina — Both Teams\n"
+            "1:100% Stamina - Home Team Only\n"
+            "2:100% Stamina - Away Team Only\n"
+            "3:100% Stamina - Both Teams\n"
             "4:Home Total Press (Home 100% + Drain Away to 5%)\n"
             "5:Away Total Press (Away 100% + Drain Home to 5%)",
         ),

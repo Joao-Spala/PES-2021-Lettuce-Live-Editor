@@ -734,8 +734,8 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
         writeInteger(PES10.symAddr("cfgStaminaMode"), 1)      -- Home 100% Active
         writeInteger(PES10.symAddr("cfgFreezeClock"), 1)      -- Freeze Clock Active
         PES10.toast(PES10.T(
-          "MIKEL MERINO: Overall 86 → 87 (MLG — DNA e estilo preservados)!",
-          "MIKEL MERINO: Overall 86 → 87 (CMF — DNA & style preserved)!"
+          "MIKEL MERINO: Overall 86 → 87 (MLG - DNA e estilo preservados)!",
+          "MIKEL MERINO: Overall 86 → 87 (CMF - DNA & style preserved)!"
         ))
         PES10.openDashboard()
         local st = PES10.dashboardState

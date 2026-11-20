@@ -1,5 +1,5 @@
 -- ============================================================================
--- PES 2021 — v11.0 ULTIMATE STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
+-- PES 2021 - v11.0 ULTIMATE STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
 -- Bilingual Core Engine (PT-BR & EN) + Konami Exact OVR DNA Solver + Canvas GUI
 -- + Visual Studio Modals (Radar 30K, Position Lab, Team Role, Real-RAM Scouts)
 -- + 10-Level Automatic Player Undo Stack
@@ -39,8 +39,8 @@ function PES10.T(ptStr, enStr)
 end
 
 PES10.lastToastMsg = PES10.T(
-  "✓ Pronto — Passe o mouse e clique em qualquer ação rápida.",
-  "✓ Ready — Hover and click any quick action card."
+  "✓ Pronto - Passe o mouse e clique em qualquer ação rápida.",
+  "✓ Ready - Hover and click any quick action card."
 )
 
 -- Supported currencies (Defaults to 0 = Euro €!)
@@ -160,7 +160,7 @@ function PES10.undoLastPlayerEdit(playerAddr)
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
   local ovr, regPos = PES10.calcPlayerOVR(p)
   PES10.toast(string.format(
-    PES10.T("Desfeito (%s) em %s — restaurado para %d %s! (%d no histórico)", "Undid (%s) on %s — restored to %d %s! (%d left)"),
+    PES10.T("Desfeito (%s) em %s - restaurado para %d %s! (%d no histórico)", "Undid (%s) on %s - restored to %d %s! (%d left)"),
     entry.label, pName, ovr, PES10.posShort(regPos), #stack
   ))
   if PES10.dashboardState and PES10.dashboardState.render then
@@ -972,7 +972,7 @@ function PES10.showPlayerDNAReport()
 
   local lines = {}
   lines[#lines + 1] = string.format(
-    PES10.T("★ RAIO-X DE POSIÇÕES & DNA — %s (%d anos)", "★ 13-POSITION & DNA X-RAY — %s (Age %d)"),
+    PES10.T("★ RAIO-X DE POSIÇÕES & DNA - %s (%d anos)", "★ 13-POSITION & DNA X-RAY - %s (Age %d)"),
     pName, age
   )
   lines[#lines + 1] = string.format(
@@ -1266,7 +1266,7 @@ function PES10.stepPlayerOVRProportional(delta)
   local ok, oldO, newO = PES10.scalePlayerToTargetOVR(p, target)
   if ok then
     PES10.toast(string.format(
-      PES10.T("%s: Overall %d → %d (%s — DNA e estilo preservados)!", "%s: Overall %d → %d (%s — DNA & style preserved)!"),
+      PES10.T("%s: Overall %d → %d (%s - DNA e estilo preservados)!", "%s: Overall %d → %d (%s - DNA & style preserved)!"),
       pName, oldO, newO, PES10.posShort(regPos)
     ))
   end
@@ -1549,10 +1549,10 @@ function PES10.promptTargetPositionOVRPlusOne()
     table.insert(lines, string.format("[%2d] %-3s (%-16s): %d [%s]%s%s", idx, pShort, PES10.T(pInfo.pt, pInfo.en), curPosOVR, aptLetter, tag, boostNote))
   end
   table.insert(lines, "----------------------------------------------------")
-  table.insert(lines, PES10.T("Digite o número (1–13) ou a sigla da posição (ex: MAT, CA, VOL):", "Enter number (1–13) or position code (e.g. AMF, CF, DMF):"))
+  table.insert(lines, PES10.T("Digite o número (1-13) ou a sigla da posição (ex: MAT, CA, VOL):", "Enter number (1-13) or position code (e.g. AMF, CF, DMF):"))
 
   local ans = inputQuery(
-    PES10.T("Subir +1 OVR em Posição Específica — ", "Boost +1 OVR in Specific Position — ") .. pName,
+    PES10.T("Subir +1 OVR em Posição Específica - ", "Boost +1 OVR in Specific Position - ") .. pName,
     table.concat(lines, "\n"),
     "1"
   )
@@ -1598,10 +1598,10 @@ function PES10.promptEditPositionAptitude()
     table.insert(lines, string.format("[%2d] %-3s (%-16s): Grau %s%s", idx, pShort, PES10.T(info.pt, info.en), aptLetter, tag))
   end
   table.insert(lines, "----------------------------------------------------")
-  table.insert(lines, PES10.T("Digite 0 (Promover B→A), 99 (Todas A), 1–13 ou sigla (ex: MAT, CA):", "Enter 0 (Upgrade B→A), 99 (All A), 1–13 or code (e.g. AMF, CF):"))
+  table.insert(lines, PES10.T("Digite 0 (Promover B→A), 99 (Todas A), 1-13 ou sigla (ex: MAT, CA):", "Enter 0 (Upgrade B→A), 99 (All A), 1-13 or code (e.g. AMF, CF):"))
 
   local ans = inputQuery(
-    PES10.T("Afinidades de Posição — ", "Position Familiarity — ") .. pName,
+    PES10.T("Afinidades de Posição - ", "Position Familiarity - ") .. pName,
     table.concat(lines, "\n"),
     "0"
   )
@@ -1673,16 +1673,16 @@ function PES10.promptSetTeamRole()
   table.insert(lines, string.format(PES10.T("Função Atual: %s (Nível %d)", "Current Role: %s (Level %d)"), curRoleName, curLvl))
   table.insert(lines, "----------------------------------------------------")
   table.insert(lines, PES10.T("PRESETS RÁPIDOS (Digite o número correspondente):", "QUICK PRESETS (Enter corresponding role number):"))
-  table.insert(lines, PES10.T("19: Tornar LENDA (Nível 3) — Espírito 99 + Bônus XP & Vendas", "19: Make LEGEND (Level 3) — 99 Team Spirit + XP Boost & Sales"))
-  table.insert(lines, PES10.T("18: Tornar BANDEIRA (Nível 3) — Fidelidade & Bônus em Jogos Cruciais", "18: Make BANDIERA (Level 3) — Loyalty & Clutch Match Boost"))
-  table.insert(lines, PES10.T("9:  Tornar MAESTRO (Nível 3) — Maestria Técnica & Visão p/ o Time", "9:  Make MAESTRO (Level 3) — Technical Mastery & Vision for Squad"))
-  table.insert(lines, PES10.T("7:  Tornar GENERAL (Nível 3) — Liderança Tática & Força Defensiva", "7:  Make GENERAL (Level 3) — Tactical Command & Defensive Grit"))
-  table.insert(lines, PES10.T("14: Tornar SUPERESTRELA (Nível 3) — Grande Impacto & Mercadorias", "14: Make SUPERSTAR (Level 3) — Star Appeal & Merchandise"))
+  table.insert(lines, PES10.T("19: Tornar LENDA (Nível 3) - Espírito 99 + Bônus XP & Vendas", "19: Make LEGEND (Level 3) - 99 Team Spirit + XP Boost & Sales"))
+  table.insert(lines, PES10.T("18: Tornar BANDEIRA (Nível 3) - Fidelidade & Bônus em Jogos Cruciais", "18: Make BANDIERA (Level 3) - Loyalty & Clutch Match Boost"))
+  table.insert(lines, PES10.T("9:  Tornar MAESTRO (Nível 3) - Maestria Técnica & Visão p/ o Time", "9:  Make MAESTRO (Level 3) - Technical Mastery & Vision for Squad"))
+  table.insert(lines, PES10.T("7:  Tornar GENERAL (Nível 3) - Liderança Tática & Força Defensiva", "7:  Make GENERAL (Level 3) - Tactical Command & Defensive Grit"))
+  table.insert(lines, PES10.T("14: Tornar SUPERESTRELA (Nível 3) - Grande Impacto & Mercadorias", "14: Make SUPERSTAR (Level 3) - Star Appeal & Merchandise"))
   table.insert(lines, "----------------------------------------------------")
   table.insert(lines, PES10.T("Digite o número da Função (0 a 22) desejada:", "Enter desired Role Number (0 to 22):"))
 
   local ans = inputQuery(
-    PES10.T("Função de Equipe (Team Role) — ", "Team Role & Level — ") .. pName,
+    PES10.T("Função de Equipe (Team Role) - ", "Team Role & Level - ") .. pName,
     table.concat(lines, "\n"),
     "19"
   )
@@ -1690,7 +1690,7 @@ function PES10.promptSetTeamRole()
   local roleNum = tonumber(ans)
   if roleNum and roleNum >= 0 and roleNum <= 22 then
     local lvlAns = inputQuery(
-      PES10.T("Nível da Função (Level 1–3)", "Role Level (1–3)"),
+      PES10.T("Nível da Função (Level 1-3)", "Role Level (1-3)"),
       PES10.T("Digite o Nível da Função (1, 2 ou 3):", "Enter Role Level (1, 2 or 3):"),
       "3"
     )
@@ -1701,7 +1701,7 @@ function PES10.promptSetTeamRole()
     local rInfo = PES10.TEAM_ROLES[roleNum]
     local rText = rInfo and PES10.T(rInfo.pt, rInfo.en) or tostring(roleNum)
     PES10.toast(string.format(
-      PES10.T("%s agora é '%s' (Nível %d) — Bônus de Espírito e Evolução ativos!", "%s is now '%s' (Level %d) — Team Spirit & XP boosts active!"),
+      PES10.T("%s agora é '%s' (Nível %d) - Bônus de Espírito e Evolução ativos!", "%s is now '%s' (Level %d) - Team Spirit & XP boosts active!"),
       pName, rText, lvlNum
     ))
   else
@@ -1899,7 +1899,7 @@ function PES10.promptAddPlayerToScoutList()
   table.insert(lines, PES10.T("Digite 1, 2, 3 (Olheiro), 4 (Favoritos) ou 0 (Limpar):", "Enter 1, 2, 3 (Scout), 4 (Shortlist) or 0 (Clear):"))
 
   local ans = inputQuery(
-    PES10.T("Menu de Observação (Olheiros 1–3) — ", "Scout Observation Menu (1–3) — ") .. pName,
+    PES10.T("Menu de Observação (Olheiros 1-3) - ", "Scout Observation Menu (1-3) - ") .. pName,
     table.concat(lines, "\n"),
     "1"
   )
@@ -1923,8 +1923,8 @@ function PES10.promptTargetOVRProportional()
     PES10.T("Definir Overall Proporcional (", "Set Proportional Overall (") .. pName .. ")",
     string.format(
       PES10.T(
-        "Overall atual: %d (%s). Digite o novo OVR desejado (40–99) mantendo o DNA/estilo:",
-        "Current Overall: %d (%s). Enter target OVR (40–99) preserving player DNA/style:"
+        "Overall atual: %d (%s). Digite o novo OVR desejado (40-99) mantendo o DNA/estilo:",
+        "Current Overall: %d (%s). Enter target OVR (40-99) preserving player DNA/style:"
       ),
       curOVR, PES10.posShort(regPos)
     ),
@@ -2172,7 +2172,7 @@ function PES10.searchCareerPlayerDialog()
   end
 
   local query = inputQuery(
-    PES10.T("PES 2021 v10.2 — Buscar Jogador na Carreira", "PES 2021 v10.2 — Search Career Player"),
+    PES10.T("PES 2021 v10.2 - Buscar Jogador na Carreira", "PES 2021 v10.2 - Search Career Player"),
     PES10.T("Digite parte do Nome (com ou sem acento) ou o Player ID:", "Enter part of the Player Name (accents optional) or Player ID:"),
     ""
   )
@@ -2209,7 +2209,7 @@ function PES10.searchCareerPlayerDialog()
     local m = matches[1]
     writeQword(PES10.symAddr("ptrPlayer"), m.addr)
     PES10.syncAllDynamicPointers()
-    PES10.toast(string.format(PES10.T("Carregado: %s (%d %s — %s)", "Loaded: %s (%d %s — %s)"), m.name, m.ovr, m.pos, m.club))
+    PES10.toast(string.format(PES10.T("Carregado: %s (%d %s - %s)", "Loaded: %s (%d %s - %s)"), m.name, m.ovr, m.pos, m.club))
     return
   end
 
@@ -2229,12 +2229,12 @@ function PES10.searchCareerPlayerDialog()
     local m = matches[idx + 1]
     writeQword(PES10.symAddr("ptrPlayer"), m.addr)
     PES10.syncAllDynamicPointers()
-    PES10.toast(string.format(PES10.T("Carregado: %s (%d %s — %s)", "Loaded: %s (%d %s — %s)"), m.name, m.ovr, m.pos, m.club))
+    PES10.toast(string.format(PES10.T("Carregado: %s (%d %s - %s)", "Loaded: %s (%d %s - %s)"), m.name, m.ovr, m.pos, m.club))
   end
 end
 
 -- ============================================================================
--- SQUAD COMMANDER — FULL USER SQUAD ACTIONS (MASTER LEAGUE)
+-- SQUAD COMMANDER - FULL USER SQUAD ACTIONS (MASTER LEAGUE)
 -- ============================================================================
 function PES10.getUserSquadPlayerAddresses()
   PES10.syncAllDynamicPointers()
@@ -2610,7 +2610,7 @@ function PES10.bindTableHooks()
       local side = PES10.SCORE_SYNC_IDS[id]
       local ans = inputQuery(
         PES10.T("Editar Placar ao Vivo", "Edit Live Score"),
-        PES10.T("Digite o novo número de gols (0–99):", "Enter new goal count (0–99):"),
+        PES10.T("Digite o novo número de gols (0-99):", "Enter new goal count (0-99):"),
         memrec.Value
       )
       if not ans then return true end
@@ -2648,7 +2648,7 @@ function PES10.asyncActionButton(memrec, fn)
 end
 
 -- ============================================================================
--- PES 2021 v11.0 ULTIMATE STUDIO — VISUAL INTERACTIVE MODALS (DPI-AWARE)
+-- PES 2021 v11.0 ULTIMATE STUDIO - VISUAL INTERACTIVE MODALS (DPI-AWARE)
 -- Zero clunky text prompts: 1-click Position Lab, Team Role, Real-RAM Scouts & Radar 30K
 -- ============================================================================
 function PES10.uiScale()
@@ -2711,7 +2711,7 @@ function PES10.openPositionLabModal()
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal("poslab", PES10.T("Laboratório de Posições (Isolamento OVR) — ", "Position Lab (Isolated OVR) — ") .. pName, 670, 560)
+  local f, S, W, H = makeStudioModal("poslab", PES10.T("Laboratório de Posições (Isolamento OVR) - ", "Position Lab (Isolated OVR) - ") .. pName, 670, 560)
 
   local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
   local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20),
@@ -2856,12 +2856,12 @@ function PES10.openTeamRoleModal()
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
-  local f, S, W, H = makeStudioModal("teamrole", PES10.T("Função de Equipe (Team Role) — ", "Team Role & Level — ") .. pName, 560, 470)
+  local f, S, W, H = makeStudioModal("teamrole", PES10.T("Função de Equipe (Team Role) - ", "Team Role & Level - ") .. pName, 560, 470)
 
   local hdr = makeModalLabel(f, S(16), S(12), W - S(32), S(24), "", 11, 0xFCFAF8, true)
   local sub = makeModalLabel(f, S(16), S(38), W - S(32), S(20),
-    PES10.T("Selecione qualquer uma das 22 Funções de Equipe + Nível (1–3) ou use um Preset rápido:",
-            "Select any of the 22 Team Roles + Level (1–3) or click a Quick Preset:"),
+    PES10.T("Selecione qualquer uma das 22 Funções de Equipe + Nível (1-3) ou use um Preset rápido:",
+            "Select any of the 22 Team Roles + Level (1-3) or click a Quick Preset:"),
     8, 0xC4B2A0, false)
 
   local lb = createListBox(f)
@@ -2959,7 +2959,7 @@ function PES10.openScoutListsModal()
       local ovr, rp = PES10.calcPlayerOVR(p)
       hdr.Caption = string.format(PES10.T("Atleta Selecionado: %s (%d %s)", "Selected Player: %s (%d %s)"), nm, ovr, PES10.posShort(rp))
     else
-      hdr.Caption = PES10.T("Nenhum atleta selecionado — Use o Radar 30K ou passe o cursor no jogo", "No player selected — Use Radar 30K or hover a player in-game")
+      hdr.Caption = PES10.T("Nenhum atleta selecionado - Use o Radar 30K ou passe o cursor no jogo", "No player selected - Use Radar 30K or hover a player in-game")
     end
 
     for s = 1, 4 do
@@ -2971,10 +2971,10 @@ function PES10.openScoutListsModal()
 
     curEntries = PES10.getScoutListEntries(curSlot)
     local def = PES10.SCOUT_LISTS[curSlot]
-    sub.Caption = string.format(PES10.T("Exibindo na RAM: %s — %d / %d vagas ocupadas", "Live RAM View: %s — %d / %d slots used"), PES10.T(def.pt, def.en), #curEntries, def.cap)
+    sub.Caption = string.format(PES10.T("Exibindo na RAM: %s - %d / %d vagas ocupadas", "Live RAM View: %s - %d / %d slots used"), PES10.T(def.pt, def.en), #curEntries, def.cap)
     lb.Items.clear()
     if #curEntries == 0 then
-      lb.Items.add(PES10.T("  [ Lista vazia — Clique em '+ Adicionar Atleta Atual' abaixo ]", "  [ List empty — Click '+ Add Current Player' below ]"))
+      lb.Items.add(PES10.T("  [ Lista vazia - Clique em '+ Adicionar Atleta Atual' abaixo ]", "  [ List empty - Click '+ Add Current Player' below ]"))
     else
       for idx, e in ipairs(curEntries) do
         lb.Items.add(string.format("%2d. %-24s | %2d %-3s | %2d %s | %s", idx, e.name, e.ovr, PES10.posShort(e.pos), e.age, PES10.T("a", "y"), e.club))
@@ -3027,7 +3027,7 @@ function PES10.openScoutListsModal()
   makeModalBtn(f, S(320), y2, S(116), S(34), PES10.T("Limpar Lista", "Clear List"), function()
     PES10.clearScoutSlots(curSlot); refreshHub()
   end)
-  makeModalBtn(f, S(442), y2, S(116), S(34), PES10.T("Limpar 1–3", "Clear 1–3"), function()
+  makeModalBtn(f, S(442), y2, S(116), S(34), PES10.T("Limpar 1-3", "Clear 1-3"), function()
     PES10.clearScoutSlots(); refreshHub()
   end)
   makeModalBtn(f, S(564), y2, S(80),  S(34), PES10.T("Fechar", "Close"), function() f.close() end)
@@ -3036,7 +3036,7 @@ function PES10.openScoutListsModal()
   f.show()
 end
 
--- MODAL 4: RADAR 30K — ADVANCED VISUAL SCOUT FINDER (NAME, POS, OVR, AGE, EXPIRING CONTRACT)
+-- MODAL 4: RADAR 30K - ADVANCED VISUAL SCOUT FINDER (NAME, POS, OVR, AGE, EXPIRING CONTRACT)
 function PES10.openScoutFinderModal()
   if not createListBox or not createEdit or not createComboBox or not createButton then
     return PES10.searchCareerPlayerDialog()
@@ -3048,7 +3048,7 @@ function PES10.openScoutFinderModal()
     return
   end
 
-  local f, S, W, H = makeStudioModal("radar30k", PES10.T("Radar 30K — Busca Avançada & Caçador de Joias", "Radar 30K — Advanced Scout & Wonderkid Finder"), 740, 568)
+  local f, S, W, H = makeStudioModal("radar30k", PES10.T("Radar 30K - Busca Avançada & Caçador de Joias", "Radar 30K - Advanced Scout & Wonderkid Finder"), 740, 568)
   makeModalLabel(f, S(16), S(10), S(160), S(16), PES10.T("Nome ou Player ID:", "Name or Player ID:"), 8, 0xC4B2A0, true)
   local edName = createEdit(f)
   edName.Left = S(16); edName.Top = S(28); edName.Width = S(180); edName.Height = S(26); edName.Text = ""
@@ -3160,7 +3160,7 @@ function PES10.openScoutFinderModal()
     end
     if showLimit > 0 then lb.ItemIndex = 0 end
     lblStat.Caption = string.format(
-      PES10.T("Encontrados %d atleta(s) no banco 30K — exibindo Top %d por maior OVR.", "Found %d player(s) across 30K DB — showing Top %d by highest OVR."),
+      PES10.T("Encontrados %d atleta(s) no banco 30K - exibindo Top %d por maior OVR.", "Found %d player(s) across 30K DB - showing Top %d by highest OVR."),
       totalFound, showLimit
     )
   end
@@ -3226,7 +3226,7 @@ function PES10.openScoutFinderModal()
 end
 
 -- ============================================================================
--- PES 2021 v11.0 ULTIMATE STUDIO — DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
+-- PES 2021 v11.0 ULTIMATE STUDIO - DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
 -- Pixel-exact symmetric layout, DPI-aware, stateful active glow & zero clipping
 -- ============================================================================
 function PES10.openDashboard()
@@ -3291,7 +3291,7 @@ function PES10.openDashboard()
   local FOOTER_Y = H - FOOTER_H
 
   local f = createForm(false)
-  f.Caption = "PES 2021 — v11.0 Ultimate Studio (PT-BR / EN)"
+  f.Caption = "PES 2021 - v11.0 Ultimate Studio (PT-BR / EN)"
   pcall(function() f.BorderStyle = "bsSingle" end)
   f.Color = C_BG
   f.DoubleBuffered = true
@@ -3432,8 +3432,8 @@ function PES10.openDashboard()
         fn=function() PES10.runSquadCommander("shield_contracts") end },
       { col=1, row=4, accent=C_GREEN,
         tag_pt="OLHEIROS", tag_en="SCOUT HUB",
-        title_pt="Central de Olheiros (1, 2, 3 & Fav.)", title_en="Scout Observation Hub (1–3 & Fav)",
-        sub_pt="Gerencia na RAM real os 3 Olheiros + Shortlist", sub_en="Live RAM manager for Scouts 1–3 & Shortlist",
+        title_pt="Central de Olheiros (1, 2, 3 & Fav.)", title_en="Scout Observation Hub (1-3 & Fav)",
+        sub_pt="Gerencia na RAM real os 3 Olheiros + Shortlist", sub_en="Live RAM manager for Scouts 1-3 & Shortlist",
         fn=function() PES10.openScoutListsModal() end },
       { col=2, row=4, accent=C_CRIMSON,
         tag_pt="ELENCO +1", tag_en="SQUAD +1",
@@ -3456,7 +3456,7 @@ function PES10.openDashboard()
       { col=1, row=2, accent=C_GOLD,
         tag_pt="OVR ALVO", tag_en="TARGET OVR",
         title_pt="Definir Overall Exato (c/ DNA)...", title_en="Set Exact Target Overall (DNA)...",
-        sub_pt="Escolher qualquer OVR (40–99) mantendo proporções", sub_en="Scale player to any OVR (40–99) keeping DNA ratios",
+        sub_pt="Escolher qualquer OVR (40-99) mantendo proporções", sub_en="Scale player to any OVR (40-99) keeping DNA ratios",
         fn=function() PES10.promptTargetOVRProportional() end },
       { col=2, row=2, accent=C_GOLD,
         tag_pt="TEAM ROLE", tag_en="TEAM ROLE",
@@ -3709,7 +3709,7 @@ function PES10.openDashboard()
       toast    = PES10.lastToastMsg,
       hdrSub   = "",
       mlTop    = PES10.T("FINANÇAS DO CLUBE & CALENDÁRIO MASTER LEAGUE", "CLUB FINANCES & MASTER LEAGUE CALENDAR"),
-      mlMain   = PES10.T("Nenhuma Carreira carregada — Abra sua Master League ou BAL.", "No Career loaded — Open your Master League or BAL save."),
+      mlMain   = PES10.T("Nenhuma Carreira carregada - Abra sua Master League ou BAL.", "No Career loaded - Open your Master League or BAL save."),
       pHas     = false,
       pOVR     = 0,
       pPos     = "OVR",
@@ -3736,7 +3736,7 @@ function PES10.openDashboard()
       local cleanClub = clubStr:gsub("%s*%(ID %d+%)", "")
       shortMode = "ML: " .. cleanClub
     elseif clubStr ~= "" then
-      shortMode = modeStr .. " — " .. clubStr:gsub("%s*%(ID %d+%)", "")
+      shortMode = modeStr .. " - " .. clubStr:gsub("%s*%(ID %d+%)", "")
     end
     local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
     local pSummary = PES10.T("Sem Atleta", "No Player")
