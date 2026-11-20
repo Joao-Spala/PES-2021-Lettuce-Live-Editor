@@ -566,6 +566,90 @@ function PES10.getCareerModeAndClubInfo()
   return "Master League", clubName, career
 end
 
+function PES10.getUserClubHandle(career)
+  if not career or career == 0 then return 0 end
+  -- Primary: Master League active user club handle at career + 0x01642A2C (verified live)
+  local uc = PES10.readU32(career + 0x01642A2C)
+  if uc ~= 0 and uc ~= 0xFFFFFFFF then return uc end
+  -- Fallback 1: ML Squad slot 0 handle at career + 0x016EE854
+  local h0 = PES10.readU64(career + 0x016EE854)
+  if h0 ~= 0 and math.floor(h0 / 0x100000000) ~= 0 then
+    local lo = h0 % 0x100000000
+    if lo < 30000 then
+      local c0 = PES10.readU32(career + lo * 0x17C + 0x12C)
+      if c0 ~= 0 and c0 ~= 0xFFFFFFFF then return c0 end
+    end
+  end
+  -- Fallback 2: BAL player handle at career + 0x01819540
+  local balH = PES10.readU64(career + 0x01819540)
+  if balH ~= 0 and math.floor(balH / 0x100000000) ~= 0 then
+    local lo = balH % 0x100000000
+    if lo < 30000 then
+      local c1 = PES10.readU32(career + lo * 0x17C + 0x12C)
+      if c1 ~= 0 and c1 ~= 0xFFFFFFFF then return c1 end
+    end
+  end
+  return 0
+end
+
+-- Exact Konami Available Salary Budget (0x14156D170): Gross (0x016ECC08) - Active Squad Wages
+PES10._wageCacheTime = 0
+PES10._wageCacheCareer = 0
+PES10._wageCacheSum = 0
+
+function PES10.getAvailableSalaryBudget(career, forceRefresh)
+  if not career or career == 0 then return 0, 0, 0 end
+  local gross = PES10.readI32(career + 0x016ECC08)
+  local now = (os and os.clock and os.clock()) or 0
+  if not forceRefresh and PES10._wageCacheCareer == career and (now - PES10._wageCacheTime) < 2.5 then
+    return gross - PES10._wageCacheSum, gross, PES10._wageCacheSum
+  end
+  local uc = PES10.getUserClubHandle(career)
+  if uc == 0 then
+    PES10._wageCacheCareer = career
+    PES10._wageCacheTime = now
+    PES10._wageCacheSum = 0
+    return gross, gross, 0
+  end
+  -- Pending/override salary table (34 entries * 12 bytes at career + 0x016F0764)
+  local overrides = {}
+  local ovSum = 0
+  for i = 0, 33 do
+    local base = career + 0x016F0764 + i * 12
+    local ph = PES10.readU64(base)
+    if ph ~= 0 and (ph % 0x10000) ~= 0xFFFF and math.floor(ph / 0x100000000) ~= 0 then
+      local ov = PES10.readI32(base + 8)
+      overrides[ph] = ov
+      ovSum = ovSum + ov
+    end
+  end
+  -- Fast squad scan via ML squad slot list (career + 0x016EE854, up to 40 slots) when populated, else full DB
+  local sumSal = 0
+  local seen = {}
+  local count = PES10.readU32(career + 0x00D0BCE8)
+  if count == 0 or count > 30001 then count = 30000 end
+  for i = 0, count - 1 do
+    local p = career + i * 0x17C
+    if PES10.readU32(p + 0x12C) == uc then
+      local pid = PES10.readU32(p + 0x30)
+      if pid ~= 0 and pid ~= 0xFFFFFFFF then
+        local ph = PES10.readU64(p + 0x2C)
+        if not seen[ph] then
+          seen[ph] = true
+          if not (overrides[ph] and overrides[ph] ~= 0) then
+            sumSal = sumSal + PES10.readI32(p + 0x15C)
+          end
+        end
+      end
+    end
+  end
+  sumSal = sumSal + ovSum
+  PES10._wageCacheCareer = career
+  PES10._wageCacheTime = now
+  PES10._wageCacheSum = sumSal
+  return gross - sumSal, gross, sumSal
+end
+
 -- ============================================================================
 -- pes10State INITIALIZATION & RIP-RELATIVE SINGLETON DISCOVERY
 -- ============================================================================
@@ -4136,7 +4220,7 @@ function PES10.openFinancesModal()
   local c = PES10.getCurrentCurrency()
   local f, S, W, H, hdrBar = makeStudioModal("finances", PES10.T("Central Financeira - Master League", "Finances Hub - Master League"), 540, 324, M_GOLD, 58)
   makeModalLabel(hdrBar, S(16), S(10), W - S(32), S(22), PES10.T("Orçamentos da Master League (" .. c.symbol .. ")", "Master League Budgets (" .. c.symbol .. ")"), 11, M_TEXT, true)
-  makeModalLabel(hdrBar, S(16), S(34), W - S(32), S(18), PES10.T("Digite qualquer valor (ex: 25M, 500k, 1.5B ou 0) para subir ou reduzir:", "Type any amount (e.g. 25M, 500k, 1.5B or 0) to raise or lower:"), 8, M_SUBTEXT, false)
+  local subFin = makeModalLabel(hdrBar, S(16), S(34), W - S(32), S(18), PES10.T("Digite qualquer valor (ex: 25M, 500k, 1.5B ou 0) para subir ou reduzir:", "Type any amount (e.g. 25M, 500k, 1.5B or 0) to raise or lower:"), 8, M_SUBTEXT, false)
 
   local applyFin = nil
   local function onEnterFin() if applyFin then applyFin() end end
@@ -4144,12 +4228,19 @@ function PES10.openFinancesModal()
   makeModalLabel(f, S(16), S(82), S(210), S(20), PES10.T("Orçamento de Transferências:", "Transfer Budget:"), 9, M_SUBTEXT, false)
   local edTrf = makeDarkEdit(f, S(232), S(76), S(292), S(32), "", onEnterFin, true)
 
-  makeModalLabel(f, S(16), S(124), S(210), S(20), PES10.T("Verba de Salários:", "Wage Budget:"), 9, M_SUBTEXT, false)
+  makeModalLabel(f, S(16), S(124), S(210), S(20), PES10.T("Salários Disponíveis:", "Available Wage Budget:"), 9, M_SUBTEXT, false)
   local edWag = makeDarkEdit(f, S(232), S(118), S(292), S(32), "", onEnterFin, true)
 
+  local curWageBill = 0
   local function reloadFin()
     edTrf.Text = PES10.formatMoneyFromRaw(PES10.readI32(career + 0x016ECBF4))
-    edWag.Text = PES10.formatMoneyFromRaw(PES10.readI32(career + 0x016ECC08))
+    local availSal, _, squadWages = PES10.getAvailableSalaryBudget(career, true)
+    curWageBill = squadWages
+    edWag.Text = PES10.formatMoneyFromRaw(availSal)
+    subFin.Caption = string.format(
+      PES10.T("Folha anual do elenco: %s  •  Aceita 25M, 500k, 0, etc.", "Current squad wage bill: %s  •  Accepts 25M, 500k, 0, etc."),
+      PES10.formatMoneyFromRaw(squadWages)
+    )
     if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
   end
 
@@ -4165,7 +4256,11 @@ function PES10.openFinancesModal()
     local tRaw = PES10.parseHumanMoneyToRaw(edTrf.Text)
     if tRaw ~= nil then writeInteger(career + 0x016ECBF4, math.max(0, math.min(2147483647, tRaw))) end
     local wRaw = PES10.parseHumanMoneyToRaw(edWag.Text)
-    if wRaw ~= nil then writeInteger(career + 0x016ECC08, math.max(0, math.min(2147483647, wRaw))) end
+    if wRaw ~= nil then
+      -- Convert desired Available Salary Budget back to Konami Gross Salary Cap (avail + squadWages)
+      local newGross = math.max(0, math.min(2147483647, wRaw + curWageBill))
+      writeInteger(career + 0x016ECC08, newGross)
+    end
     PES10.toast(PES10.T("Orçamentos atualizados!", "Budgets updated!"))
     reloadFin()
   end
@@ -4193,14 +4288,7 @@ function PES10.openSquadRosterModal()
     PES10.toast(PES10.T("Carregue um save de Master League primeiro!", "Load a Master League save first!"))
     return
   end
-  local userClub = PES10.readU32(career + 0x016ECBE0)
-  if userClub == 0 or userClub == 0xFFFFFFFF then
-    local balH = PES10.readU64(career + 0x01819540)
-    local lo = balH % 0x100000000
-    if balH ~= 0 and lo < 30000 then
-      userClub = PES10.readU32(career + lo * 0x17C + 0x12C)
-    end
-  end
+  local userClub = PES10.getUserClubHandle(career)
   if userClub == 0 or userClub == 0xFFFFFFFF then
     PES10.toast(PES10.T("Clube do usuário não encontrado na RAM.", "User club handle not found in RAM."))
     return
@@ -4968,7 +5056,8 @@ function PES10.openDashboard()
 
     if career ~= 0 then
       local tb = PES10.formatMoneyFromRaw(PES10.readI32(career + 0x016ECBF4))
-      local sb = PES10.formatMoneyFromRaw(PES10.readI32(career + 0x016ECC08))
+      local availSal = PES10.getAvailableSalaryBudget(career, false)
+      local sb = PES10.formatMoneyFromRaw(availSal)
       local yr = PES10.readU16(career + 0x01642A24)
       local mo = PES10.readU8(career + 0x01642A26)
       local dy = PES10.readU8(career + 0x01642A27)
