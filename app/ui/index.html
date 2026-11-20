@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PES 2021 Workbench</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -86,6 +89,15 @@
         <button class="btn btn-sm" id="btn-undo" type="button" disabled data-i18n-title="tip_undo">
           <span data-i18n="btn_undo">Desfazer</span> <span id="undo-badge">(0)</span>
         </button>
+        <select class="select font-select" id="sel-font" data-i18n-title="tip_font">
+          <option value="inter">Aa Inter</option>
+          <option value="jakarta">Aa Plus Jakarta</option>
+          <option value="barlow">Aa Barlow (Sport)</option>
+          <option value="space">Aa Space Grotesk</option>
+          <option value="bahnschrift">Aa Bahnschrift</option>
+          <option value="mono">Aa JetBrains Mono</option>
+          <option value="segoe">Aa Segoe UI</option>
+        </select>
         <button class="btn btn-sm" id="btn-currency" type="button" data-i18n-title="tip_currency">€ EUR</button>
         <button class="btn btn-sm" id="btn-lang" type="button">PT-BR</button>
         <button class="conn-pill" id="conn-pill" type="button" data-i18n-title="tip_reconnect">

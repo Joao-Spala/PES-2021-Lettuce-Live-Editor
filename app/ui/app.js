@@ -16,6 +16,20 @@ let CUR_IDX = (function () {
   catch (e) { return 0; }
 })();
 
+const FONTS = {
+  inter:       '"Inter", "Segoe UI", system-ui, sans-serif',
+  jakarta:     '"Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif',
+  barlow:      '"Barlow", "Bahnschrift", "Segoe UI", sans-serif',
+  space:       '"Space Grotesk", "Bahnschrift", "Segoe UI", sans-serif',
+  bahnschrift: '"Bahnschrift", "Segoe UI", sans-serif',
+  mono:        '"JetBrains Mono", "Cascadia Code", Consolas, monospace',
+  segoe:       '"Segoe UI Variable", "Segoe UI", system-ui, sans-serif',
+};
+let CUR_FONT = (function () {
+  try { const f = localStorage.getItem("pes21_studio_font") || "inter"; return FONTS[f] ? f : "inter"; }
+  catch (e) { return "inter"; }
+})();
+
 const TACTICAL_ORDER = [12, 11, 9, 10, 8, 6, 5, 7, 4, 2, 1, 3, 0];
 
 let CURRENT_VIEW = "dashboard";
@@ -79,6 +93,7 @@ const I18N = {
     tip_open_player: "Abrir editor do jogador atual",
     tip_back: "Voltar para a tela anterior (Alt+←)",
     tip_undo: "Desfazer última edição do atleta (Ctrl+Z)",
+    tip_font: "Escolher fonte da interface",
     tip_currency: "Alternar moeda de exibição",
     tip_reconnect: "Clique para reconectar ao PES 2021 / Football Life",
     btn_back: "Voltar",
@@ -270,6 +285,7 @@ const I18N = {
     tip_open_player: "Open Current Player editor",
     tip_back: "Go back to previous view (Alt+←)",
     tip_undo: "Undo last edit on this player (Ctrl+Z)",
+    tip_font: "Choose UI font family",
     tip_currency: "Cycle display currency",
     tip_reconnect: "Click to reconnect to PES 2021 / Football Life",
     btn_back: "Back",
@@ -560,6 +576,15 @@ function populateLocalizedSelects() {
     `<option value="3">${escapeHtml(tKey("scout_3"))}</option>`,
   ].join("");
   scSel.value = curSc;
+}
+
+function applyFont(key) {
+  const k = FONTS[key] ? key : "inter";
+  CUR_FONT = k;
+  document.documentElement.style.setProperty("--font-main", FONTS[k]);
+  const sel = document.getElementById("sel-font");
+  if (sel) sel.value = k;
+  try { localStorage.setItem("pes21_studio_font", k); } catch (e) {}
 }
 
 function updateCurrencyBtn() {
@@ -1549,6 +1574,7 @@ async function bootstrap() {
   document.getElementById("bio-nat").innerHTML = META.nationalities.map(n => `<option value="${n.id}">${escapeHtml(n.name)}</option>`).join("");
   document.getElementById("p-playing-style").innerHTML = META.playing_styles.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
 
+  applyFont(CUR_FONT);
   applyLanguage();
 
   // Sidebar, Back button & tabs
@@ -1858,15 +1884,22 @@ async function bootstrap() {
       pollStatus();
     } else toast(fmtCodeMsg(res), "err");
   });
+  document.getElementById("sel-font").addEventListener("change", e => {
+    applyFont(e.target.value);
+    const label = e.target.options[e.target.selectedIndex].textContent.replace(/^Aa\s+/, "");
+    toast(T(`Fonte alterada para ${label}`, `Font switched to ${label}`));
+  });
   document.getElementById("btn-currency").addEventListener("click", () => {
     CUR_IDX = (CUR_IDX + 1) % CURRENCIES.length;
     try { localStorage.setItem("pes21_studio_cur", String(CUR_IDX)); } catch (e) {}
-    applyLanguage();
+    applyFont(CUR_FONT);
+  applyLanguage();
   });
   document.getElementById("btn-lang").addEventListener("click", () => {
     LANG = LANG === "pt" ? "en" : "pt";
     try { localStorage.setItem("pes21_studio_lang", LANG); } catch (e) {}
-    applyLanguage();
+    applyFont(CUR_FONT);
+  applyLanguage();
     toast(LANG === "pt" ? "Idioma alterado para Português (PT-BR)" : "Language switched to English (EN)");
   });
 
