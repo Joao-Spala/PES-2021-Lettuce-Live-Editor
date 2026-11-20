@@ -1180,6 +1180,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
 
     all_stat_bits = []
     all_skill_bits = []
+    all_skill_items = []
 
     for idx, pe in enumerate(legacy["player_entries"]):
         d = pe["desc"]
@@ -1200,11 +1201,16 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
             builder.add_record(grp_p_skills, lbl, vt, "ptrPlayer", off, dropdown=dd_playing_style, bitstart=bs, bitlen=bl, color=COL_PURPLE)
         elif 57 <= idx <= 97:
             if d == "Heading" and bl == "1":
+                sk_pt = "Cabeceio Preciso (Heading)"
+                sk_en = "Heading (Player Skill)"
                 sk_label = L("Cabeceio Preciso - Skill (Heading)", "Heading (Player Skill)")
             else:
+                sk_pt = PT_PLAYER_LABELS.get(d, d)
+                sk_en = EN_PLAYER_LABELS.get(d, d)
                 sk_label = lbl
             builder.add_record(grp_p_skills, sk_label, vt, "ptrPlayer", off, dropdown=dd_yes_no, bitstart=bs, bitlen=bl)
             all_skill_bits.append((int(off[0], 16), int(bs)))
+            all_skill_items.append((int(off[0], 16), int(bs), sk_pt, sk_en))
         elif d in COM_DESCS:
             builder.add_record(grp_p_com, lbl, vt, "ptrPlayer", off, dropdown=dd_yes_no, bitstart=bs, bitlen=bl)
         elif d in ROLE_DESCS:
@@ -1394,6 +1400,16 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     score_map_lua = "{ " + ", ".join(f'[{k}]="{v}"' for k, v in builder.score_sync.items()) + " }"
     stats_bits_lua = "{ " + ", ".join(f"{{0x{o:02X},{b}}}" for o, b in all_stat_bits) + " }"
     skills_bits_lua = "{ " + ", ".join(f"{{0x{o:02X},{b}}}" for o, b in all_skill_bits) + " }"
+    skills_items_lua = "{ " + ", ".join(
+        f'{{0x{o:02X},{b},{json.dumps(pt, ensure_ascii=False)},{json.dumps(en, ensure_ascii=False)}}}'
+        for o, b, pt, en in all_skill_items
+    ) + " }"
+    ps_pairs = []
+    for line in DROPDOWNS.get("Playing Style", "").splitlines():
+        if ":" in line:
+            k, v = line.split(":", 1)
+            ps_pairs.append(f'[{int(k)}]={json.dumps(v.strip(), ensure_ascii=False)}')
+    playing_styles_lua = "{ " + ", ".join(ps_pairs) + " }"
     hook_map_lua = "{ " + ", ".join(f"[{idx+1}]={hid}" for idx, hid in enumerate(builder.hook_ids)) + " }"
 
     lua_config_injection = f"""
@@ -1401,6 +1417,8 @@ PES10.TOP_FORM_VALUE = 4
 PES10.HOOK_IDS_BY_NUM = {hook_map_lua}
 PES10.PLAYER_STAT_BITS = {stats_bits_lua}
 PES10.ALL_SKILL_BITS = {skills_bits_lua}
+PES10.ALL_SKILL_ITEMS = {skills_items_lua}
+PES10.PLAYING_STYLE_NAMES = {playing_styles_lua}
 PES10.MONEY_DESC_TAGS = {money_map_lua}
 PES10.CLUB_HANDLE_IDS = {club_map_lua}
 PES10.CLOCK_RECORD_ID = {builder.clock_id}
