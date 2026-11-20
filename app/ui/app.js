@@ -1892,14 +1892,12 @@ async function bootstrap() {
   document.getElementById("btn-currency").addEventListener("click", () => {
     CUR_IDX = (CUR_IDX + 1) % CURRENCIES.length;
     try { localStorage.setItem("pes21_studio_cur", String(CUR_IDX)); } catch (e) {}
-    applyFont(CUR_FONT);
-  applyLanguage();
+    applyLanguage();
   });
   document.getElementById("btn-lang").addEventListener("click", () => {
     LANG = LANG === "pt" ? "en" : "pt";
     try { localStorage.setItem("pes21_studio_lang", LANG); } catch (e) {}
-    applyFont(CUR_FONT);
-  applyLanguage();
+    applyLanguage();
     toast(LANG === "pt" ? "Idioma alterado para Português (PT-BR)" : "Language switched to English (EN)");
   });
 

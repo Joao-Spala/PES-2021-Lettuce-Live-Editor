@@ -36,9 +36,9 @@ def main() -> None:
         title="PES 2021 Workbench v12.0",
         url=get_ui_path(),
         js_api=api,
-        width=1180,
-        height=760,
-        min_size=(960, 620),
+        width=1240,
+        height=780,
+        min_size=(840, 580),
         background_color="#080c14",
         text_select=False,
     )

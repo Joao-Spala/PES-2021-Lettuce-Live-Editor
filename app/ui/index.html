@@ -71,14 +71,14 @@
 
     <!-- Persistent Top Header -->
     <header class="topbar">
-      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-        <button class="btn btn-sm" id="btn-nav-back" type="button" style="display:none;" data-i18n-title="tip_back">
+      <div class="topbar-left">
+        <button class="btn btn-sm" id="btn-nav-back" type="button" style="display:none; flex-shrink:0;" data-i18n-title="tip_back">
           <span>←</span> <span id="nav-back-label" data-i18n="btn_back">Voltar</span>
         </button>
         <button class="active-player-pill" id="top-player-pill" type="button" data-i18n-title="tip_open_player">
           <span class="ovr-badge ovr-low" id="top-p-ovr">--</span>
           <span class="pos-chip pos-mid" id="top-p-pos">---</span>
-          <div style="display:flex; flex-direction:column; line-height:1.2; overflow:hidden;">
+          <div style="display:flex; flex-direction:column; line-height:1.2; overflow:hidden; min-width:0;">
             <span id="top-p-name" style="font-weight:700; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" data-i18n="no_player">Nenhum atleta selecionado</span>
             <span id="top-p-meta" style="font-size:11px; color:var(--subtext); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" data-i18n="no_player_sub">Destaque um jogador no jogo ou na lista</span>
           </div>
@@ -90,13 +90,13 @@
           <span data-i18n="btn_undo">Desfazer</span> <span id="undo-badge">(0)</span>
         </button>
         <select class="select font-select" id="sel-font" data-i18n-title="tip_font">
-          <option value="inter">Aa Inter</option>
-          <option value="jakarta">Aa Plus Jakarta</option>
-          <option value="barlow">Aa Barlow (Sport)</option>
-          <option value="space">Aa Space Grotesk</option>
-          <option value="bahnschrift">Aa Bahnschrift</option>
-          <option value="mono">Aa JetBrains Mono</option>
-          <option value="segoe">Aa Segoe UI</option>
+          <option value="inter">Inter</option>
+          <option value="jakarta">Plus Jakarta</option>
+          <option value="barlow">Barlow</option>
+          <option value="space">Space Grotesk</option>
+          <option value="bahnschrift">Bahnschrift</option>
+          <option value="mono">JetBrains Mono</option>
+          <option value="segoe">Segoe UI</option>
         </select>
         <button class="btn btn-sm" id="btn-currency" type="button" data-i18n-title="tip_currency">€ EUR</button>
         <button class="btn btn-sm" id="btn-lang" type="button">PT-BR</button>
@@ -137,7 +137,7 @@
               <button class="btn btn-xs" id="btn-inline-trf" type="button" data-i18n="btn_edit">Editar</button>
             </div>
             <div id="dash-trf-edit" style="display:none; gap:6px; margin-top:4px; align-items:center;">
-              <input class="input" id="inp-inline-trf" style="flex:1; padding:4px 8px; font-size:12px;" placeholder="ex: 50M" />
+              <input class="input" id="inp-inline-trf" style="flex:1; min-width:0; padding:4px 8px; font-size:12px;" placeholder="ex: 50M" />
               <button class="btn btn-xs btn-primary" id="btn-inline-trf-ok" type="button">OK</button>
               <button class="btn btn-xs" id="btn-inline-trf-cancel" type="button">X</button>
             </div>
@@ -151,7 +151,7 @@
               <button class="btn btn-xs" id="btn-inline-sal" type="button" data-i18n="btn_edit">Editar</button>
             </div>
             <div id="dash-sal-edit" style="display:none; gap:6px; margin-top:4px; align-items:center;">
-              <input class="input" id="inp-inline-sal" style="flex:1; padding:4px 8px; font-size:12px;" placeholder="ex: 15M" />
+              <input class="input" id="inp-inline-sal" style="flex:1; min-width:0; padding:4px 8px; font-size:12px;" placeholder="ex: 15M" />
               <button class="btn btn-xs btn-primary" id="btn-inline-sal-ok" type="button">OK</button>
               <button class="btn btn-xs" id="btn-inline-sal-cancel" type="button">X</button>
             </div>
@@ -603,7 +603,7 @@
               <span id="fin-bar-lbl-free">---</span>
             </div>
           </div>
-          <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="form-grid" style="grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));">
             <div class="field">
               <label data-i18n="lbl_trf_input">Orçamento de Transferências (ex: 50M, 500k)</label>
               <input class="input" id="fin-transfer-inp" />
