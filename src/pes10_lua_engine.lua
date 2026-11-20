@@ -3018,9 +3018,17 @@ local function makeDarkListBox(parent, x, y, w, h, fontName, fontSize)
   return lb
 end
 
+local function makeDarkFooter(parent, W, H, barH)
+  if not createPanel then return parent, H - barH + 12 end
+  local ftr = makeDarkBox(parent, 0, H - barH, W, barH, M_HDR)
+  makeDarkBox(ftr, 0, 0, W, 1, M_DIVIDER)
+  return ftr, math.floor((barH - 34) / 2)
+end
+
 -- Zero-White Custom Dark Dropdown (panel + floating dark popup listbox)
-local function makeDarkCombo(parent, x, y, w, h, itemsList, initIdx, onChange)
+local function makeDarkCombo(parent, x, y, w, h, itemsList, initIdx, onChange, popupHost)
   local S = PES10.uiScale()
+  local host = popupHost or parent
   local curIdx = math.max(0, math.min(#itemsList - 1, initIdx or 0))
   local popup = nil
 
@@ -3043,7 +3051,7 @@ local function makeDarkCombo(parent, x, y, w, h, itemsList, initIdx, onChange)
       pcall(function() popup.Visible = false; popup.destroy() end)
       popup = nil
       outer.Color = M_BORDER
-      if parent._activeComboClose == closePopup then parent._activeComboClose = nil end
+      if host._activeComboClose == closePopup then host._activeComboClose = nil end
     end
   end
 
@@ -3056,16 +3064,16 @@ local function makeDarkCombo(parent, x, y, w, h, itemsList, initIdx, onChange)
 
   local function togglePopup()
     if popup then closePopup(); return end
-    if parent._activeComboClose and parent._activeComboClose ~= closePopup then
-      pcall(parent._activeComboClose)
+    if host._activeComboClose and host._activeComboClose ~= closePopup then
+      pcall(host._activeComboClose)
     end
-    parent._activeComboClose = closePopup
+    host._activeComboClose = closePopup
     outer.Color = M_BLUE
     local popH = math.min(#itemsList * S(21) + S(8), S(190))
-    local formH = parent.ClientHeight or parent.Height or S(500)
+    local formH = host.ClientHeight or host.Height or S(500)
     local popY = y + h + S(2)
     if popY + popH > formH - S(8) then popY = math.max(S(6), y - popH - S(2)) end
-    popup = makeDarkBox(parent, x, popY, w, popH, M_BLUE)
+    popup = makeDarkBox(host, x, popY, w, popH, M_BLUE)
     local pIn = makeDarkBox(popup, 1, 1, math.max(2, w - 2), math.max(2, popH - 2), M_SURFACE)
     local plb = createListBox(pIn)
     plb.Left = S(2); plb.Top = S(2); plb.Width = math.max(8, w - S(6)); plb.Height = math.max(8, popH - S(6))
@@ -3120,10 +3128,9 @@ function PES10.openDarkPrompt(title, subtitle, defaultVal, accentCol, onConfirm)
   end
   ed = makeDarkEdit(f, S(16), S(74), W - S(32), S(34), tostring(defaultVal or ""), submit, false)
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  makeModalBtn(f, W - S(226), H - S(46), S(102), S(34), PES10.T("Cancelar", "Cancel"), function() f.close() end, "subtle")
-  makeModalBtn(f, W - S(116), H - S(46), S(100), S(34), PES10.T("Aplicar", "Apply"), submit, "primary")
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, W - S(226), yF, S(102), S(34), PES10.T("Cancelar", "Cancel"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Aplicar", "Apply"), submit, "primary")
 
   f.show()
   pcall(function() ed.setFocus(); ed.selectAll() end)
@@ -3142,12 +3149,11 @@ function PES10.openDarkTextModal(modalKey, title, subtitle, linesTbl, accentCol,
   local lb = makeDarkListBox(f, S(16), S(70), W - S(32), H - S(142), "Consolas", 9)
   for _, ln in ipairs(linesTbl) do lb.Items.add(ln) end
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
   if extraBtnTxt and extraBtnFn then
-    makeModalBtn(f, S(16), H - S(46), S(200), S(34), extraBtnTxt, function() f.close(); extraBtnFn() end, "primary")
+    makeModalBtn(ftr, S(16), yF, S(200), S(34), extraBtnTxt, function() f.close(); extraBtnFn() end, "primary")
   end
-  makeModalBtn(f, W - S(116), H - S(46), S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
   f.show()
 end
 
@@ -3505,19 +3511,19 @@ function PES10.openScoutFinderModal()
   local function triggerSearch() if runSearch then runSearch() end end
 
   makeModalLabel(hdrBar, S(16), S(8), S(180), S(16), PES10.T("Nome ou Player ID:", "Name or Player ID:"), 8, M_SUBTEXT, true)
-  local edName = makeDarkEdit(f, S(16), S(26), S(186), S(30), "", triggerSearch, false)
+  local edName = makeDarkEdit(hdrBar, S(16), S(26), S(186), S(30), "", triggerSearch, false)
 
   makeModalLabel(hdrBar, S(210), S(8), S(96), S(16), PES10.T("Posição:", "Position:"), 8, M_SUBTEXT, true)
   local posOrder = {12, 11, 9, 10, 8, 6, 7, 5, 4, 2, 3, 1, 0}
   local posLabels = { PES10.T("Todas", "All") }
   for _, pIdx in ipairs(posOrder) do posLabels[#posLabels + 1] = PES10.posShort(pIdx) end
-  local cbPos = makeDarkCombo(f, S(210), S(26), S(96), S(30), posLabels, 0)
+  local cbPos = makeDarkCombo(hdrBar, S(210), S(26), S(96), S(30), posLabels, 0, nil, f)
 
   makeModalLabel(hdrBar, S(314), S(8), S(68), S(16), PES10.T("OVR Mín:", "Min OVR:"), 8, M_SUBTEXT, true)
-  local edOvr = makeDarkEdit(f, S(314), S(26), S(64), S(30), "80", triggerSearch, true)
+  local edOvr = makeDarkEdit(hdrBar, S(314), S(26), S(64), S(30), "80", triggerSearch, true)
 
   makeModalLabel(hdrBar, S(386), S(8), S(74), S(16), PES10.T("Idade Máx:", "Max Age:"), 8, M_SUBTEXT, true)
-  local edAge = makeDarkEdit(f, S(386), S(26), S(64), S(30), "45", triggerSearch, true)
+  local edAge = makeDarkEdit(hdrBar, S(386), S(26), S(64), S(30), "45", triggerSearch, true)
 
   makeModalLabel(hdrBar, S(458), S(8), S(160), S(16), PES10.T("Filtro:", "Filter:"), 8, M_SUBTEXT, true)
   local specLabels = {
@@ -3526,7 +3532,7 @@ function PES10.openScoutFinderModal()
     PES10.T("Lista de Transferência", "Transfer Listed"),
     PES10.T("Sem Clube / Livre", "Free Agents"),
   }
-  local cbSpec = makeDarkCombo(f, S(458), S(26), S(164), S(30), specLabels, 0)
+  local cbSpec = makeDarkCombo(hdrBar, S(458), S(26), S(164), S(30), specLabels, 0, nil, f)
 
   local lblStat = makeModalLabel(f, S(16), S(114), W - S(32), S(18),
     PES10.T("Filtre ou clique em um preset abaixo (Duplo-clique carrega no Studio):",
@@ -3624,7 +3630,7 @@ function PES10.openScoutFinderModal()
     if m then PES10.toast(string.format(PES10.T("Carregado: %s (%d %s)", "Loaded: %s (%d %s)"), m.name, m.ovr, PES10.posShort(m.pos))) end
   end
 
-  makeModalBtn(f, S(630), S(26), S(106), S(30), PES10.T("Filtrar", "Search"), runSearch, "primary")
+  makeModalBtn(hdrBar, S(630), S(26), S(106), S(30), PES10.T("Filtrar", "Search"), runSearch, "primary")
 
   local yPre = S(76)
   makeModalBtn(f, S(16),  yPre, S(174), S(28), PES10.T("Joias Sub-21 (74+)", "Wonderkids U21 (74+)"), function()
@@ -3785,9 +3791,9 @@ function PES10.openSkillsStyleModal()
     psItems[#psItems + 1] = string.format("%2d: %s", i, psMap[i] or ("Style " .. tostring(i)))
   end
   local curPs = PES10.getBitsInDword(p + 0x1D, 3, 5)
-  local cbStyle = makeDarkCombo(f, S(160), S(13), S(300), S(32), psItems, math.max(0, math.min(21, curPs)))
+  local cbStyle = makeDarkCombo(hdrBar, S(160), S(13), S(300), S(32), psItems, math.max(0, math.min(21, curPs)), nil, f)
 
-  makeModalBtn(f, S(468), S(13), S(136), S(32), PES10.T("Aplicar Estilo", "Apply Style"), function()
+  makeModalBtn(hdrBar, S(468), S(13), S(136), S(32), PES10.T("Aplicar Estilo", "Apply Style"), function()
     local sel = cbStyle.getIndex() or 0
     PES10.pushPlayerUndo(p, "Playing Style")
     PES10.setBitsInDword(p + 0x1D, 3, 5, sel)
@@ -4007,8 +4013,10 @@ function PES10.openBioConditionModal()
     return makeDarkEdit(f, x + S(172), y, wEdit or S(108), S(30), tostring(val), onEnterBio, mono ~= false)
   end
 
-  local edName  = addPair(S(16),  S(68),  PES10.T("Nome do Jogador:", "Player Name:"),           pName,  S(120), false)
-  local edShirt = addPair(S(320), S(68),  PES10.T("Nome na Camisa:", "Shirt Name:"),             pShirt, S(112), false)
+  makeModalLabel(f, S(16), S(74), S(118), S(18), PES10.T("Nome Jogador:", "Player Name:"), 9, M_SUBTEXT, false)
+  local edName  = makeDarkEdit(f, S(138), S(68), S(168), S(30), pName, onEnterBio, false)
+  makeModalLabel(f, S(320), S(74), S(114), S(18), PES10.T("Nome Camisa:", "Shirt Name:"), 9, M_SUBTEXT, false)
+  local edShirt = makeDarkEdit(f, S(438), S(68), S(166), S(30), pShirt, onEnterBio, false)
   local edAge   = addPair(S(16),  S(106), PES10.T("Idade (15-50):", "Age (15-50):"),             PES10.readU8(p + 0x1C) & 0x3F)
   local edHgt   = addPair(S(320), S(106), PES10.T("Altura (cm):", "Height (cm):"),               PES10.readU8(p + 0x00))
   local edWgt   = addPair(S(16),  S(144), PES10.T("Peso (kg):", "Weight (kg):"),                 PES10.readU8(p + 0x01))
@@ -4251,10 +4259,11 @@ function PES10.openSquadRosterModal()
     else
       for idx, r in ipairs(list) do
         local injTxt = (r.inj > 0) and string.format("%dd", r.inj) or "OK"
+        local yrTxt = (r.expY >= 2019 and r.expY <= 2150) and tostring(r.expY) or "----"
         lb.Items.add(string.format(
-          "%2d. %2d %s | %s | %2d%s | %4d | %s | %3d%% | %s",
+          "%2d. %2d %s | %s | %2d%s | %4s | %s | %3d%% | %s",
           idx, r.ovr, padRightUtf8(PES10.posShort(r.pos), 3), padRightUtf8(r.name, 22),
-          r.age, PES10.T("a", "y"), r.expY, padRightUtf8(r.sal, 10), r.stam, injTxt
+          r.age, PES10.T("a", "y"), yrTxt, padRightUtf8(r.sal, 10), r.stam, injTxt
         ))
       end
       lb.ItemIndex = 0

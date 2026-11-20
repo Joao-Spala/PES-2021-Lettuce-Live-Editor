@@ -957,6 +957,9 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     local editCount, listCount, rawBtnCount = 0, 0, 0
     for _, ctrl in ipairs(MOCK_CREATED_CONTROLS) do
       if ctrl.kind == "Button" then rawBtnCount = rawBtnCount + 1 end
+      if ctrl.kind == "Label" and ctrl.parent and ctrl.parent.kind == "Form" and (ctrl.Top or 999) < 56 then
+        error("Header Label parented directly to Form instead of hdrBar (would be hidden behind header panel)!")
+      end
       if ctrl.kind == "Edit" then
         editCount = editCount + 1
         assert(ctrl.Color ~= 0xFFFFFF, "White Edit detected in modal!")
