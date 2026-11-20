@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## [11.2.0] - 2026-11-20 - Full Dark Studio UI & Complete Control
+
+### Added / Adicionado
+- **Unified Zero-White Dark Studio UI Kit (14 Interactive Modals)**: Replaced all Win32 white `TEdit`, gray `TButton`, white `TComboBox`, `inputQuery`, and `showMessage` dialogs with custom flat dark controls, semantic accent buttons, focus-highlighted recessed inputs, custom dark dropdowns, and ESC-to-close support.
+- **Central do Meu Elenco (`Squad Studio`, Tab 1)**: Live club roster viewer sorted by OVR with 4 filters (*All*, *Expiring <= 1 Yr*, *Injured*, *U23*), UTF-8 aligned columns, double-click to load straight into Studio, and quick squad actions.
+- **Central Financeira (`Finances Hub`, Tab 1)**: Free exact Transfer Budget and Wage Budget editing (raise or lower to any amount, including `0`, `15M`, `500k`, `1.5B`) plus quick adjustments.
+- **Granular Training Speed (`1x, 2x, 5x, 10x, 50x, Instant`) & All 6 Live Match Stamina Modes** (`Normal`, `Home 100%`, `Away 100%`, `Both 100%`, `Home Press`, `Away Press`) directly inside the Studio GUI.
+- **7 COM AI Playing Styles + Player Name & Shirt Name**: Added all 7 COM AI styles to the Skills modal and UTF-8 Player Name / Shirt Name editing to the Profile modal.
+
+### Fixed / Corrigido
+- **Modal Header Visibility**: Parented modal title/subtitle labels inside the dark header panel so Win32 `TLabel` controls always paint on top of the header bar.
+- **UTF-8 Monospaced Column Alignment**: Added `padRightUtf8()` across all tables (`Attributes`, `Position Lab`, `Scout Hub`, `Radar 30K`, `Squad Studio`) so Portuguese accented names align with exact column precision, plus modern `█` attribute progress bars.
+- **Dashboard Hover Bleed-Through & Dropdown Overlap**: Blocked background hover highlights when any modal or external window is active/covering the cursor, and auto-closed open dark dropdowns when opening another.
+
+---
+
 ## [11.1.0] - 2026-11-20 - Universal Capture & Full Studio Control
 
 ### Added / Adicionado
