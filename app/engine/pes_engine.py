@@ -1042,40 +1042,117 @@ class PESEngine:
         w_sec = self._get_pos_weights(target_pos)
         fids = GK_FIDS if target_pos == 0 else OUTFIELD_FIDS
 
-        def score_fid(f: int) -> float:
-            return w_sec.get(f, 0.0) / (w_pri.get(f, 0.0) + 0.005)
+        # Exact Konami 0x141E640A0 sensitivity:
+        # Primary OVR = 60% position weighted score (u1) + 40% curve_100(avg22)
+        # Secondary OVR = 100% position weighted score (u1) + Grade bonus (A:+4/+5, B:+2/+3, C:0), 0% avg22
+        up_base = sorted(
+            [f for f in fids if w_sec.get(f, 0.0) > 0.0],
+            key=lambda f: (w_sec.get(f, 0.0) - 0.6 * w_pri.get(f, 0.0), w_sec.get(f, 0.0)),
+            reverse=True,
+        ) or list(fids)
 
-        ranked = sorted([f for f in fids if w_sec.get(f, 0.0) > 0.0], key=score_fid, reverse=True)
-        if not ranked:
-            ranked = list(fids)
+        # Counterbalance pool: stats that move Primary (via w_pri or avg22) with w_sec < w_sec[f_up].
+        # Priority: 1) w_sec == 0 & w_pri > 0 (pure primary), 2) w_sec == 0 & w_pri == 0 (pure avg22), 3) w_pri > w_sec
+        cb_pool = list(OUTFIELD_FIDS) if reg_pos != 0 else list(GK_FIDS) + list(OUTFIELD_FIDS)
+        cb_ranked = sorted(
+            cb_pool,
+            key=lambda f: (
+                1 if w_sec.get(f, 0.0) == 0.0 else 0,
+                w_pri.get(f, 0.0) - w_sec.get(f, 0.0),
+                -w_sec.get(f, 0.0),
+            ),
+            reverse=True,
+        )
 
         ba = bytearray(buf)
         best_ba = bytearray(buf)
         best_sec = orig_sec
 
-        for _ in range(900):
+        for _ in range(1500):
             cur_sec, _ = calc_ovr_from_buf(ba, target_pos, False)
             if cur_sec == target:
                 break
             moved = False
-            for fid in ranked:
-                cur_v = get_fid_from_buf(ba, fid)
-                nv = cur_v + direction
+
+            # Natural spread: prefer strong secondary advantage stats with room to grow
+            up_ranked = sorted(
+                up_base,
+                key=lambda f: (
+                    (w_sec.get(f, 0.0) - 0.6 * w_pri.get(f, 0.0)) * 2.0
+                    - (get_fid_from_buf(ba, f) * direction * 0.15)
+                ),
+                reverse=True,
+            )
+
+            # Stage 1: Pure single-stat nudge (zero primary drift, zero counterbalance needed)
+            for f in up_ranked:
+                cv = get_fid_from_buf(ba, f)
+                nv = cv + direction
                 if not (40 <= nv <= 99):
                     continue
-                set_fid_in_buf(ba, fid, nv)
-                test_pri, _ = calc_ovr_from_buf(ba, reg_pos, False)
-                test_sec, _ = calc_ovr_from_buf(ba, target_pos, False)
-                overshoot = (direction > 0 and test_sec > target) or (direction < 0 and test_sec < target)
-                if test_pri == orig_pri and not overshoot:
+                set_fid_in_buf(ba, f, nv)
+                tp, _ = calc_ovr_from_buf(ba, reg_pos, False)
+                ts, _ = calc_ovr_from_buf(ba, target_pos, False)
+                overshoot = (direction > 0 and ts > target) or (direction < 0 and ts < target)
+                if tp == orig_pri and not overshoot:
                     moved = True
-                    if (direction > 0 and test_sec > best_sec) or (direction < 0 and test_sec < best_sec):
-                        best_sec = test_sec
+                    if (direction > 0 and ts > best_sec) or (direction < 0 and ts < best_sec):
+                        best_sec = ts
                         best_ba = bytearray(ba)
-                    if test_sec == target:
+                    break
+                set_fid_in_buf(ba, f, cv)
+
+            if moved:
+                continue
+
+            # Stage 2: Exact Konami multi-stat counterbalance (works even on identical mirror positions LE<->LD, PTE<->PTD, MLE<->MLD!)
+            for f_up in up_ranked:
+                cv_u = get_fid_from_buf(ba, f_up)
+                nv_u = cv_u + direction
+                if not (40 <= nv_u <= 99):
+                    continue
+                ws_u = w_sec.get(f_up, 0.0)
+                snap = bytearray(ba[:0x28])
+                set_fid_in_buf(ba, f_up, nv_u)
+                tp, _ = calc_ovr_from_buf(ba, reg_pos, False)
+                if tp == orig_pri:
+                    ba[:0x28] = snap
+                    continue
+                cb_live = sorted(
+                    [f for f in cb_ranked if f != f_up and w_sec.get(f, 0.0) < ws_u],
+                    key=lambda f: (
+                        1 if w_sec.get(f, 0.0) == 0.0 else 0,
+                        (w_pri.get(f, 0.0) - w_sec.get(f, 0.0)) * 2.0 + (get_fid_from_buf(ba, f) * direction * 0.15),
+                    ),
+                    reverse=True,
+                )
+                fixed = False
+                for _step in range(8):
+                    step_done = False
+                    for f_cb in cb_live:
+                        cv_c = get_fid_from_buf(ba, f_cb)
+                        nv_c = cv_c - direction
+                        if not (40 <= nv_c <= 99):
+                            continue
+                        set_fid_in_buf(ba, f_cb, nv_c)
+                        tp, _ = calc_ovr_from_buf(ba, reg_pos, False)
+                        step_done = True
+                        if tp == orig_pri:
+                            fixed = True
+                            break
+                    if fixed or not step_done:
                         break
-                else:
-                    set_fid_in_buf(ba, fid, cur_v)
+                if fixed:
+                    ts, _ = calc_ovr_from_buf(ba, target_pos, False)
+                    overshoot = (direction > 0 and ts > target) or (direction < 0 and ts < target)
+                    if not overshoot and (direction * (ts - cur_sec) >= 0):
+                        moved = True
+                        if (direction > 0 and ts > best_sec) or (direction < 0 and ts < best_sec):
+                            best_sec = ts
+                            best_ba = bytearray(ba)
+                        break
+                ba[:0x28] = snap
+
             if not moved:
                 break
 
@@ -1085,6 +1162,8 @@ class PESEngine:
             return {
                 "action_ok": False,
                 "code": "iso_limit",
+                "pos": target_pos,
+                "reg_pos": reg_pos,
                 "orig": orig_sec,
                 "final": orig_sec,
                 "pri": orig_pri,
@@ -1096,6 +1175,8 @@ class PESEngine:
         return {
             "action_ok": True,
             "code": "pos_partial" if best_sec != target else "pos_updated",
+            "pos": target_pos,
+            "reg_pos": reg_pos,
             "orig": orig_sec,
             "final": best_sec,
             "pri": orig_pri,

@@ -472,14 +472,29 @@ function fmtCodeMsg(res) {
     case "hook_failed": return T("Não foi possível ativar o hook x64 neste executável.", "Could not activate x64 hook on this executable.");
     case "already_at_ovr": return T(`Já está em ${res.ovr} OVR.`, `Already at ${res.ovr} OVR.`);
     case "pri_updated": return T(`OVR Principal: ${res.orig} -> ${res.final}`, `Primary OVR: ${res.orig} -> ${res.final}`);
-    case "pos_updated": return T(`Posição ajustada: ${res.orig} -> ${res.final} (Principal mantido em ${res.pri})`, `Position updated: ${res.orig} -> ${res.final} (Primary kept at ${res.pri})`);
+    case "pos_updated": {
+      const sp = res.pos != null ? posShort(res.pos) : T("Posição", "Position");
+      const rp = res.reg_pos != null ? posShort(res.reg_pos) : T("Principal", "Primary");
+      return T(`${sp}: ${res.orig} -> ${res.final} OVR (${rp} mantido em ${res.pri})`, `${sp}: ${res.orig} -> ${res.final} OVR (${rp} kept at ${res.pri})`);
+    }
     case "pos_partial": {
-      const hint = res.needs_grade ? T(" - suba o Grau para A para ir além", " - raise Grade to A to go higher") : "";
-      return T(`Posição: ${res.orig} -> ${res.final} (teto isolado sem alterar principal ${res.pri}${hint})`, `Position: ${res.orig} -> ${res.final} (isolated cap without changing primary ${res.pri}${hint})`);
+      const sp = res.pos != null ? posShort(res.pos) : T("Posição", "Position");
+      const rp = res.reg_pos != null ? posShort(res.reg_pos) : T("Principal", "Primary");
+      const hint = res.needs_grade ? T(" Suba o Grau para A para liberar mais OVR.", " Raise Grade to A to unlock more OVR.") : "";
+      return T(`${sp}: ${res.orig} -> ${res.final} OVR (máximo sem alterar ${rp} ${res.pri}).${hint}`, `${sp}: ${res.orig} -> ${res.final} OVR (max without changing ${rp} ${res.pri}).${hint}`);
     }
     case "iso_limit": {
-      const hint = res.needs_grade ? T(" (suba o Grau para B ou A para liberar mais OVR)", " (raise Grade to B or A to unlock more OVR)") : "";
-      return T(`Limite isolado atingido (${res.orig} OVR, principal mantido em ${res.pri})${hint}`, `Isolated limit reached (${res.orig} OVR, primary kept at ${res.pri})${hint}`);
+      const rp = res.reg_pos != null ? posShort(res.reg_pos) : T("principal", "primary");
+      if (res.needs_grade) {
+        return T(
+          `Não dá para subir mais sem alterar ${rp} (${res.pri} OVR). Suba o Grau para B ou A primeiro.`,
+          `Cannot raise further without changing ${rp} (${res.pri} OVR). Raise Grade to B or A first.`
+        );
+      }
+      return T(
+        `Teto máximo atingido (${res.orig} OVR) mantendo ${rp} em ${res.pri} OVR.`,
+        `Maximum possible reached (${res.orig} OVR) while keeping ${rp} at ${res.pri} OVR.`
+      );
     }
     case "scout_added": return T("Adicionado na lista nativa!", "Added to native list!");
     case "scout_dup": return T("Jogador já está nesta lista.", "Player is already in this list.");
