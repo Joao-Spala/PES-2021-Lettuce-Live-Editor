@@ -2839,6 +2839,9 @@ local function makeStudioModal(modalKey, title, logW, logH, accentCol, hdrHLog)
     makeDarkBox(f, 0, hh, W, 1, M_DIVIDER)
   end
   if modalKey and PES10.openModals then PES10.openModals[modalKey] = f end
+  if PES10.dashboardState and PES10.dashboardState.hoverAt then
+    pcall(function() PES10.dashboardState.hoverAt(-1, -1) end)
+  end
   return f, S, W, H
 end
 
@@ -4914,6 +4917,24 @@ function PES10.openDashboard()
     handleClickAt(cx, cy)
   end
 
+  local function isHoverBlocked(mx, my)
+    if f.Active == false then return true end
+    if PES10.openModals then
+      for _, m in pairs(PES10.openModals) do
+        if m then
+          local okVis, vis = pcall(function() return m.Visible end)
+          if okVis and vis then
+            local okRect, ml, mt, mw, mh = pcall(function() return m.Left, m.Top, m.Width, m.Height end)
+            if okRect and ml and mt and mw and mh and mx >= ml and mx < (ml + mw) and my >= mt and my < (mt + mh) then
+              return true
+            end
+          end
+        end
+      end
+    end
+    return false
+  end
+
   local tickCounter = 0
   local uiTimer = createTimer(f, true)
   uiTimer.Interval = 75
@@ -4922,11 +4943,15 @@ function PES10.openDashboard()
     if getMousePos then
       local mx, my = getMousePos()
       if mx and my then
-        local cx, cy = surface.screenToClient(mx, my)
-        if cx and cy and cx >= 0 and cx < W and cy >= 0 and cy < H then
-          updateHoverAt(cx, cy)
-        elseif hoverId ~= nil then
-          updateHoverAt(-1, -1)
+        if isHoverBlocked(mx, my) then
+          if hoverId ~= nil then updateHoverAt(-1, -1) end
+        else
+          local cx, cy = surface.screenToClient(mx, my)
+          if cx and cy and cx >= 0 and cx < W and cy >= 0 and cy < H then
+            updateHoverAt(cx, cy)
+          elseif hoverId ~= nil then
+            updateHoverAt(-1, -1)
+          end
         end
       end
     end
