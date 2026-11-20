@@ -8987,183 +8987,183 @@ function PES10.openDashboard()
   end
 
   local TAB_DEFS = {
-    { pt = "1. Master League &amp; Elenco",   en = "1. Master League &amp; Squad",     accent = C_GREEN },
-    { pt = "2. Jogador, DNA &amp; Contratos", en = "2. Player, DNA &amp; Contracts",   accent = C_BLUE },
-    { pt = "3. Treino ML &amp; Estrelato",    en = "3. Training &amp; BAL Suite",      accent = C_PURPLE },
-    { pt = "4. Partida ao Vivo",          en = "4. Live Match Control",        accent = C_CRIMSON },
+    { pt = "1. Master League", en = "1. Master League", accent = C_GREEN },
+    { pt = "2. Jogador",       en = "2. Player",        accent = C_BLUE },
+    { pt = "3. Treino &amp; BAL",  en = "3. Training &amp; BAL",accent = C_PURPLE },
+    { pt = "4. Partida",       en = "4. Live Match",    accent = C_CRIMSON },
   }
 
   local CARDS_BY_TAB = {
     [1] = {
       { col=1, row=1, accent=C_GREEN,
         tag_pt="+50M", tag_en="+50M",
-        title_pt="+ 50 Milhões (Transferências)", title_en="+ 50 Million (Transfer Budget)",
-        sub_pt="Adiciona +50M imediatos ao caixa de contratações", sub_en="Instantly adds +50M to your club transfer funds",
+        title_pt="+50M Transferências", title_en="+50M Transfer Budget",
+        sub_pt="Soma +50M ao caixa de contratações", sub_en="Adds +50M to transfer funds",
         fn=function()
           local c = PES10.readU64(PES10.symAddr("ptrCareer"))
           if c == 0 then PES10.toast(PES10.T("Carregue sua Master League primeiro!", "Load your Master League save first!")); return end
           writeInteger(c + 0x016ECBF4, math.min(2147483647, PES10.readI32(c + 0x016ECBF4) + 500000))
-          PES10.toast(PES10.T("+50 Milhões adicionados em Transferências!", "+50 Million added to Transfer Budget!"))
+          PES10.toast(PES10.T("+50M adicionados em Transferências!", "+50M added to Transfer Budget!"))
         end },
       { col=2, row=1, accent=C_GOLD,
-        tag_pt="BILIONÁRIO", tag_en="TYCOON",
-        title_pt="Pacote +500M Transf. / +50M Sal.", title_en="Tycoon Pack (+500M Transf / +50M Wage)",
-        sub_pt="Injeta +500M em Transferências e +50M em Salários", sub_en="Injects +500M into Transfers and +50M into Wages",
+        tag_pt="CAIXA", tag_en="TYCOON",
+        title_pt="+500M Transf. / +50M Sal.", title_en="+500M Transf / +50M Wage",
+        sub_pt="Injeta caixa imediato nos dois orçamentos", sub_en="Boosts both transfer and wage budgets",
         fn=function()
           local c = PES10.readU64(PES10.symAddr("ptrCareer"))
           if c == 0 then PES10.toast(PES10.T("Carregue sua Master League primeiro!", "Load your Master League save first!")); return end
           writeInteger(c + 0x016ECBF4, math.min(2147483647, PES10.readI32(c + 0x016ECBF4) + 5000000))
           writeInteger(c + 0x016ECC08, math.min(2147483647, PES10.readI32(c + 0x016ECC08) + 500000))
-          PES10.toast(PES10.T("+500M Transferências e +50M Salários adicionados!", "+500M Transfer &amp; +50M Wage funds added!"))
+          PES10.toast(PES10.T("+500M Transf. e +50M Salários!", "+500M Transfer &amp; +50M Wage added!"))
         end },
       { col=1, row=2, accent=C_BLUE,
         tag_pt="ELENCO", tag_en="SQUAD",
-        title_pt="100% Fôlego em Todo o Elenco", title_en="100% Stamina for Entire Squad",
-        sub_pt="Descansa 100% da barra de Stamina de todo o time", sub_en="Restores 100% fatigue bar for every club player",
+        title_pt="100% Fôlego no Elenco", title_en="100% Squad Stamina",
+        sub_pt="Restaura fadiga de todo o time", sub_en="Restores fatigue for all players",
         fn=function() PES10.runSquadCommander("stamina_100") end },
       { col=2, row=2, accent=C_BLUE,
-        tag_pt="TOP FORM", tag_en="TOP FORM",
-        title_pt="Seta Azul em Todo o Elenco", title_en="Flashing Blue Arrow for Squad",
-        sub_pt="Ativa condição excelente piscando p/ próximo jogo", sub_en="Sets flashing Top Form arrow for the next match",
+        tag_pt="FORMA", tag_en="FORM",
+        title_pt="Seta Azul no Elenco", title_en="Top Form Arrow (Squad)",
+        sub_pt="Condição máxima no próximo jogo", sub_en="Flashing blue arrow for next match",
         fn=function() PES10.runSquadCommander("blue_form") end },
       { col=1, row=3, accent=C_GREEN,
         tag_pt="SAÚDE", tag_en="HEALTH",
-        title_pt="Curar Lesões + Afeição 100%", title_en="Heal All Injuries + 100% Affection",
-        sub_pt="Zera departamento médico e eleva afeição ao topo", sub_en="Clears all injuries and maxes squad club affection",
+        title_pt="Curar Lesões + Afeição 100%", title_en="Heal Injuries + 100% Affection",
+        sub_pt="Zera lesões e maximiza afeição", sub_en="Clears injuries and maxes affection",
         fn=function() PES10.runSquadCommander("heal_affection") end },
       { col=2, row=3, accent=C_GOLD,
-        tag_pt="+5 ANOS", tag_en="+5 YEARS",
-        title_pt="Blindar Contratos do Elenco", title_en="Shield All Squad Contracts",
-        sub_pt="Estende vínculos em +5 anos e remove multas", sub_en="Extends contracts by +5 yrs &amp; removes release fees",
+        tag_pt="+5 ANOS", tag_en="+5 YRS",
+        title_pt="Blindar Contratos (+5 Anos)", title_en="Shield Contracts (+5 Yrs)",
+        sub_pt="Estende vínculos e remove multas", sub_en="Extends deals and removes clauses",
         fn=function() PES10.runSquadCommander("shield_contracts") end },
       { col=1, row=4, accent=C_GREEN,
-        tag_pt="OLHEIROS", tag_en="SCOUT HUB",
-        title_pt="Central de Olheiros (1, 2, 3 &amp; Fav.)", title_en="Scout Observation Hub (1-3 &amp; Fav)",
-        sub_pt="Gerencia na RAM real os 3 Olheiros + Shortlist", sub_en="Live RAM manager for Scouts 1-3 &amp; Shortlist",
+        tag_pt="OLHEIROS", tag_en="SCOUTS",
+        title_pt="Olheiros (1-3 &amp; Favoritos)", title_en="Scout Lists (1-3 &amp; Shortlist)",
+        sub_pt="Adiciona/remove jogadores na RAM", sub_en="Live RAM scout &amp; shortlist hub",
         fn=function() PES10.openScoutListsModal() end },
       { col=2, row=4, accent=C_CRIMSON,
-        tag_pt="ELENCO +1", tag_en="SQUAD +1",
-        title_pt="Subir +1 OVR DNA em Todo o Elenco", title_en="Boost +1 OVR DNA Across Squad",
-        sub_pt="Evolui todo o seu time em +1 mantendo o estilo", sub_en="Evolves your entire squad by +1 keeping DNA",
+        tag_pt="+1 OVR", tag_en="+1 OVR",
+        title_pt="Elenco +1 OVR (DNA)", title_en="Squad +1 OVR (DNA)",
+        sub_pt="Sobe +1 no time mantendo estilos", sub_en="Boosts squad by +1 keeping DNA",
         fn=function() PES10.runSquadCommander("plus_one_ovr_dna") end },
     },
 
     [2] = {
       { col=1, row=1, accent=C_LIME,
-        tag_pt="POS LAB", tag_en="POS LAB",
-        title_pt="Lab de Posições (OVR Isolado / A-B-C)", title_en="Position Lab (Isolated OVR / A-B-C)",
-        sub_pt="Subir, descer ou igualar OVR por posição + Grau A/B/C", sub_en="Raise, lower or match position OVR + Grade A/B/C",
+        tag_pt="POSIÇÕES", tag_en="POSITIONS",
+        title_pt="Lab de Posições", title_en="Position Lab",
+        sub_pt="OVR isolado (+/- / alvo) e Grau A/B/C", sub_en="Isolated OVR (+/- / target) &amp; A/B/C",
         fn=function() PES10.openPositionLabModal() end },
       { col=2, row=1, accent=C_BLUE,
         tag_pt="25 STATS", tag_en="25 STATS",
-        title_pt="Editor de 25 Atributos (40-99)", title_en="25 Attributes Editor (40-99)",
-        sub_pt="Ajuste livre (-5/-1/+1/+5/exato) com OVR ao vivo", sub_en="Free edit (-5/-1/+1/+5/exact) with live OVR",
+        title_pt="Atributos (40-99)", title_en="Attributes (40-99)",
+        sub_pt="Edição livre dos 25 atributos", sub_en="Free edit of all 25 stats",
         fn=function() PES10.openAttributesModal() end },
       { col=1, row=2, accent=C_PURPLE,
         tag_pt="SKILLS", tag_en="SKILLS",
-        title_pt="Estilo de Jogo &amp; 41 Habilidades", title_en="Playing Style &amp; 41 Player Skills",
-        sub_pt="Troque Playing Style e ligue/desligue cada Skill", sub_en="Change Playing Style and toggle each Skill on/off",
+        title_pt="Estilo &amp; 41 Habilidades", title_en="Style &amp; 41 Skills",
+        sub_pt="Playing Style e toggle por Skill", sub_en="Playing Style &amp; per-skill toggle",
         fn=function() PES10.openSkillsStyleModal() end },
       { col=2, row=2, accent=C_GOLD,
-        tag_pt="TEAM ROLE", tag_en="TEAM ROLE",
-        title_pt="Função de Equipe (22 Team Roles)", title_en="Team Role &amp; Level (22 Roles)",
-        sub_pt="Seletor visual: Lenda, Bandeira, Maestro, General", sub_en="Visual picker: Legend, Bandiera, Maestro, General",
+        tag_pt="PAPEL", tag_en="ROLE",
+        title_pt="Team Role (22 Papéis)", title_en="Team Role (22 Roles)",
+        sub_pt="Função de equipe e nível (1-3)", sub_en="Squad role and level (1-3)",
         fn=function() PES10.openTeamRoleModal() end },
       { col=1, row=3, accent=C_GREEN,
         tag_pt="CONTRATO", tag_en="CONTRACT",
-        title_pt="Contrato, Salário &amp; Multa Exata", title_en="Contract, Salary &amp; Release Fee",
-        sub_pt="Salário, Valor, Multa (50M/1k), Afeição e Negócio", sub_en="Salary, Value, Clause (50M/1k), Affection &amp; Deal",
+        title_pt="Contrato &amp; Finanças", title_en="Contract &amp; Finances",
+        sub_pt="Salário, valor, multa e negociação", sub_en="Wage, value, clause &amp; deal flags",
         fn=function() PES10.openContractModal() end },
       { col=2, row=3, accent=C_BLUE,
         tag_pt="PERFIL", tag_en="PROFILE",
-        title_pt="Perfil, Físico, Condição &amp; JSON", title_en="Profile, Physical, Form &amp; JSON",
-        sub_pt="Idade, Altura, Pé Ruim, Forma, Auge 38a e Backup", sub_en="Age, Height, Weak Foot, Form, Peak 38y &amp; Backup",
+        title_pt="Perfil, Físico &amp; JSON", title_en="Profile, Form &amp; JSON",
+        sub_pt="Idade, pé ruim, forma, auge e backup", sub_en="Age, weak foot, form, peak &amp; backup",
         fn=function() PES10.openBioConditionModal() end },
       { col=1, row=4, accent=C_GOLD,
-        tag_pt="OVR ALVO", tag_en="TARGET OVR",
-        title_pt="Definir Overall Exato (40-99 DNA)", title_en="Set Exact Overall (40-99 DNA)",
-        sub_pt="Escala o OVR principal mantendo estilo e proporções", sub_en="Scales primary OVR preserving DNA and proportions",
+        tag_pt="OVR ALVO", tag_en="TARGET",
+        title_pt="Overall Alvo (40-99)", title_en="Target Overall (40-99)",
+        sub_pt="Escala OVR principal mantendo DNA", sub_en="Scales primary OVR keeping DNA",
         fn=function() PES10.promptTargetOVRProportional() end },
       { col=2, row=4, accent=C_CRIMSON,
-        tag_pt="COMPLETO", tag_en="ALL-IN-ONE",
-        title_pt="41 Habilidades + 13 Posições 'A'", title_en="41 Skills + All 13 Positions 'A'",
-        sub_pt="Libera todas as Skills, Posições A, Pé 4/4 e Forma 8", sub_en="Unlocks all 41 Skills, 'A' Positions, WF 4/4 &amp; Form 8",
+        tag_pt="FULL", tag_en="FULL",
+        title_pt="41 Skills + 13 Posições 'A'", title_en="41 Skills + All 'A' Pos",
+        sub_pt="Skills, posições A, pé 4/4 e forma 8", sub_en="All skills, 'A' pos, WF 4/4 &amp; Form 8",
         fn=function()
           local p = PES10.getSelectedPlayerOrWarn()
           if p == 0 then return end
           PES10.runPlayerMacro("all_positions_a")
           PES10.runPlayerMacro("all_39_skills")
           PES10.runPlayerMacro("perfect_wf_form_injury")
-          PES10.toast(PES10.T("Pacote Completo (Posições A + 41 Skills + Pé 4/4) aplicado!", "Complete Pro Pack (All 'A' + 41 Skills + WF 4/4) applied!"))
+          PES10.toast(PES10.T("Pacote Completo aplicado!", "Full Pack applied!"))
         end },
     },
 
     [3] = {
       { col=1, row=1, accent=C_GREEN,
         tag_pt="10X XP", tag_en="10X XP",
-        title_pt="Multiplicador de Treino: 10x", title_en="Training XP Multiplier: 10x",
-        sub_pt="Evolução 10x mais rápida p/ seu clube, base e BAL", sub_en="10x faster Sub-XP growth for your club, youth &amp; BAL",
+        title_pt="Treino 10x", title_en="10x Training",
+        sub_pt="Evolução 10x no seu clube/base/BAL", sub_en="10x Sub-XP for club, youth &amp; BAL",
         isActive=function(tel) return tel.trnMode == 3 end,
         fn=function()
           local a = PES10.symAddr("cfgTrainingMultMode")
-          if a ~= 0 then writeInteger(a, 3); PES10.ensureHookActive(3); PES10.toast(PES10.T("Multiplicador de Treino 10x ATIVADO!", "10x Training Multiplier ACTIVATED!")) end
+          if a ~= 0 then writeInteger(a, 3); PES10.ensureHookActive(3); PES10.toast(PES10.T("Treino 10x ativado!", "10x Training active!")) end
         end },
       { col=2, row=1, accent=C_GOLD,
-        tag_pt="1 DIA", tag_en="1-DAY MAX",
-        title_pt="Treino Instantâneo (10.000 XP)", title_en="Instant Training (10,000 XP/Day)",
-        sub_pt="Sobe atributo, Skill e Posição em apenas 1 avanço!", sub_en="Completes stat, Skill &amp; Position growth in 1 day!",
+        tag_pt="1 DIA", tag_en="1-DAY",
+        title_pt="Treino Instantâneo", title_en="Instant Training",
+        sub_pt="10.000 XP/dia (sobe em 1 avanço)", sub_en="10,000 XP/day (level up in 1 day)",
         isActive=function(tel) return tel.trnMode == 5 end,
         fn=function()
           local a = PES10.symAddr("cfgTrainingMultMode")
-          if a ~= 0 then writeInteger(a, 5); PES10.ensureHookActive(3); PES10.toast(PES10.T("Treino Instantâneo (10.000 XP/dia) ATIVADO!", "Instant Training (10,000 XP/day) ACTIVATED!")) end
+          if a ~= 0 then writeInteger(a, 5); PES10.ensureHookActive(3); PES10.toast(PES10.T("Treino Instantâneo ativado!", "Instant Training active!")) end
         end },
       { col=1, row=2, accent=C_BLUE,
-        tag_pt="PADRÃO", tag_en="DEFAULT",
-        title_pt="Multiplicador Normal (1x)", title_en="Normal Training Speed (1x)",
-        sub_pt="Restaura velocidade original de evolução no treino", sub_en="Restores default Konami training progression rate",
+        tag_pt="1X", tag_en="1X",
+        title_pt="Treino Normal (1x)", title_en="Normal Training (1x)",
+        sub_pt="Restaura velocidade original", sub_en="Restores default training speed",
         isActive=function(tel) return tel.attached and tel.trnMode == 0 end,
         fn=function()
           local a = PES10.symAddr("cfgTrainingMultMode")
-          if a ~= 0 then writeInteger(a, 0); PES10.toast(PES10.T("Treino restaurado para 1x (Original).", "Training restored to 1x (Default).")) end
+          if a ~= 0 then writeInteger(a, 0); PES10.toast(PES10.T("Treino restaurado (1x).", "Training restored (1x).")) end
         end },
       { col=2, row=2, accent=C_PURPLE,
-        tag_pt="99,9% XP", tag_en="99.9% XP",
-        title_pt="Encher Sub-XP do Selecionado", title_en="Fill Selected Player Sub-XP",
-        sub_pt="Deixa as 25 barras do atleta atual em 9.999 / 10.000", sub_en="Sets all 25 Sub-XP bars of current player to 9,999",
+        tag_pt="99% XP", tag_en="99% XP",
+        title_pt="Encher Sub-XP do Atleta", title_en="Fill Player Sub-XP",
+        sub_pt="25 barras em 9.999 / 10.000", sub_en="All 25 bars set to 9,999",
         fn=function() PES10.runPlayerMacro("instant_subxp_player") end },
       { col=1, row=3, accent=C_BLUE,
-        tag_pt="MEU PRO", tag_en="MY PRO",
-        title_pt="BAL: Selecionar Meu Jogador", title_en="BAL: Select My Legend Player",
-        sub_pt="Carrega seu atleta do Estrelato no painel e editor", sub_en="Loads your BAL pro directly into Studio &amp; Editor",
+        tag_pt="BAL", tag_en="BAL",
+        title_pt="Selecionar Meu Pro (BAL)", title_en="Select My BAL Pro",
+        sub_pt="Carrega seu atleta do Estrelato", sub_en="Loads your BAL player",
         fn=function() PES10.pointToBALMyPlayer() end },
       { col=2, row=3, accent=C_GOLD,
         tag_pt="99 PTS", tag_en="99 PTS",
-        title_pt="BAL: 10 Barras + 99 Pontos", title_en="BAL: Max 10 Sliders + 99 Points",
-        sub_pt="Remove trava de 21 pontos e enche todas as barras", sub_en="Bypasses 21-pt cap and maxes all 10 training bars",
+        title_pt="BAL: 10 Barras + 99 Pts", title_en="BAL: Max Sliders + 99 Pts",
+        sub_pt="Libera trava de 21 Focus Points", sub_en="Unlocks 21-pt cap &amp; maxes bars",
         fn=function() PES10.runPlayerMacro("bal_max_sliders") end },
       { col=1, row=4, accent=C_GREEN,
         tag_pt="SKILL", tag_en="SKILL",
-        title_pt="BAL: Aprender Skill Agora", title_en="BAL: Learn Active Skill Now",
-        sub_pt="Completa em 99,99% a Habilidade em treino no BAL", sub_en="Brings currently trained BAL Skill to 99.99% XP",
+        title_pt="BAL: Concluir Skill", title_en="BAL: Finish Skill",
+        sub_pt="Skill em treino vai para 99,99%", sub_en="Active skill XP to 99.99%",
         fn=function() PES10.runPlayerMacro("bal_instant_skill") end },
       { col=2, row=4, accent=C_GREEN,
-        tag_pt="POSIÇÃO", tag_en="POSITION",
-        title_pt="BAL: Aprender Posição Agora", title_en="BAL: Learn Active Position Now",
-        sub_pt="Completa em 99,99% a nova Posição em treino no BAL", sub_en="Brings currently trained BAL Position to 99.99% XP",
+        tag_pt="POS", tag_en="POS",
+        title_pt="BAL: Concluir Posição", title_en="BAL: Finish Position",
+        sub_pt="Posição em treino vai para 99,99%", sub_en="Active position XP to 99.99%",
         fn=function() PES10.runPlayerMacro("bal_instant_pos") end },
     },
 
     [4] = {
       { col=1, row=1, accent=C_GOLD,
-        tag_pt="RELÓGIO", tag_en="CLOCK",
-        title_pt="Escolher Minuto Exato...", title_en="Jump to Exact Minute...",
-        sub_pt="Pula p/ qualquer minuto (15, 44, 88) sem crash FNV", sub_en="Jump to any match minute (15, 44, 88) crash-free",
+        tag_pt="MINUTO", tag_en="CLOCK",
+        title_pt="Definir Minuto Exato", title_en="Set Exact Minute",
+        sub_pt="Pula p/ qualquer minuto (15, 44, 88)", sub_en="Jump to any minute (15, 44, 88)",
         fn=function()
           local info = PES10.getMatchClockInfo()
-          if not info then PES10.toast(PES10.T("Entre em uma partida ao vivo primeiro!", "Enter a live match first!")); return end
+          if not info then PES10.toast(PES10.T("Entre em uma partida primeiro!", "Enter a live match first!")); return end
           local ans = inputQuery(
-            PES10.T("Escolher Minuto da Partida", "Set Match Minute"),
-            PES10.T("Digite o minuto desejado (ex: 15, 44, 88 ou 44:30):", "Enter desired minute (e.g. 15, 44, 88 or 44:30):"),
+            PES10.T("Minuto da Partida", "Match Minute"),
+            PES10.T("Digite o minuto (ex: 15, 44, 88 ou 44:30):", "Enter minute (e.g. 15, 44, 88 or 44:30):"),
             tostring(info.mm)
           )
           if ans then
@@ -9173,38 +9173,38 @@ function PES10.openDashboard()
           end
         end },
       { col=2, row=1, accent=C_BLUE,
-        tag_pt="44' / 88'", tag_en="44' / 88'",
-        title_pt="Pular p/ Fim do Tempo (44' / 88')", title_en="Jump Near Half End (44' / 88')",
-        sub_pt="No 1ºT avança p/ 44:00  •  No 2ºT avança p/ 88:00", sub_en="In 1st Half jumps to 44:00  •  In 2nd Half to 88:00",
+        tag_pt="44/88", tag_en="44/88",
+        title_pt="Pular p/ Fim (44' / 88')", title_en="Jump to End (44' / 88')",
+        sub_pt="1ºT -&gt; 44:00  •  2ºT -&gt; 88:00", sub_en="1st -&gt; 44:00  •  2nd -&gt; 88:00",
         fn=function()
           local info = PES10.getMatchClockInfo()
-          if not info then PES10.toast(PES10.T("Entre em uma partida ao vivo primeiro!", "Enter a live match first!")); return end
+          if not info then PES10.toast(PES10.T("Entre em uma partida primeiro!", "Enter a live match first!")); return end
           PES10.setExactMatchMinute(info.period == 1 and 44 or 88)
         end },
       { col=1, row=2, accent=C_BLUE,
         tag_pt="00:00", tag_en="00:00",
         title_pt="Reiniciar Tempo Atual", title_en="Restart Current Half",
-        sub_pt="Volta o cronômetro para o início da etapa atual", sub_en="Resets match timer to the start of current half",
+        sub_pt="Zera cronômetro da etapa atual", sub_en="Resets current half clock",
         fn=function() PES10.resetCurrentHalfNow() end },
       { col=2, row=2, accent=C_CRIMSON,
-        tag_pt="APITO", tag_en="WHISTLE",
-        title_pt="Encerrar Tempo Atual Agora", title_en="End Current Half Now",
-        sub_pt="Avança o cronômetro para o apito imediatamente", sub_en="Advances timer to trigger the referee whistle now",
+        tag_pt="APITO", tag_en="END",
+        title_pt="Encerrar Tempo Agora", title_en="End Half Now",
+        sub_pt="Aciona o apito imediatamente", sub_en="Triggers referee whistle now",
         fn=function() PES10.endCurrentHalfNow() end },
       { col=1, row=3, accent=C_GREEN,
-        tag_pt="GOLS", tag_en="SCORE",
-        title_pt="Alterar Placar ao Vivo...", title_en="Edit Live Match Score...",
-        sub_pt="Define gols de Casa e Fora sincronizando placar", sub_en="Set Home &amp; Away goals syncing engine + scoreboard",
+        tag_pt="PLACAR", tag_en="SCORE",
+        title_pt="Editar Placar ao Vivo", title_en="Edit Live Score",
+        sub_pt="Define gols de Casa x Fora", sub_en="Set Home - Away goals",
         fn=function()
           PES10.ensureHookActive(5)
           local mCore = PES10.readU64(PES10.symAddr("ptrMatchCore"))
           local mHud = PES10.readU64(PES10.symAddr("ptrMatchHud"))
-          if mCore == 0 and mHud == 0 then PES10.toast(PES10.T("Entre em uma partida ao vivo primeiro!", "Enter a live match first!")); return end
+          if mCore == 0 and mHud == 0 then PES10.toast(PES10.T("Entre em uma partida primeiro!", "Enter a live match first!")); return end
           local hCur = (mCore ~= 0) and PES10.readU8(mCore + 0x9E) or 0
           local aCur = (mCore ~= 0) and PES10.readU8(mCore + 0x9F) or 0
           local ans = inputQuery(
-            PES10.T("Placar ao Vivo (Casa x Fora)", "Live Match Score (Home - Away)"),
-            PES10.T("Digite no formato CASA-FORA (ex: 3-0 ou 2-1):", "Enter as HOME-AWAY (e.g. 3-0 or 2-1):"),
+            PES10.T("Placar (Casa x Fora)", "Score (Home - Away)"),
+            PES10.T("Formato CASA-FORA (ex: 3-0):", "Format HOME-AWAY (e.g. 3-0):"),
             string.format("%d-%d", hCur, aCur)
           )
           if ans then
@@ -9213,14 +9213,14 @@ function PES10.openDashboard()
               local hi, ai = tonumber(hg), tonumber(ag)
               if mCore ~= 0 then writeBytes(mCore + 0x9E, hi); writeBytes(mCore + 0x9F, ai) end
               if mHud ~= 0 then writeInteger(mHud + 0x120, hi); writeInteger(mHud + 0x124, ai) end
-              PES10.toast(string.format(PES10.T("Placar atualizado para %d x %d!", "Live score updated to %d - %d!"), hi, ai))
+              PES10.toast(string.format(PES10.T("Placar: %d x %d!", "Score: %d - %d!"), hi, ai))
             end
           end
         end },
       { col=2, row=3, accent=C_PURPLE,
         tag_pt="PAUSA", tag_en="FREEZE",
-        title_pt="Congelar / Descongelar Relógio", title_en="Freeze / Unfreeze Match Clock",
-        sub_pt="Alterna pausa exata dos segundos sem travar jogo", sub_en="Toggles exact match clock freeze without lag",
+        title_pt="Congelar Relógio", title_en="Freeze Clock",
+        sub_pt="Pausa ou retoma o cronômetro", sub_en="Toggles match clock pause",
         isActive=function(tel) return tel.frzMode == 1 end,
         fn=function()
           local a = PES10.symAddr("cfgFreezeClock")
@@ -9231,42 +9231,42 @@ function PES10.openDashboard()
           if cur == 0 then
             writeFloat(PES10.symAddr("valFrozenTotalTicks"), info.halfTicks)
             writeInteger(a, 1)
-            PES10.toast(PES10.T("Relógio CONGELADO em ", "Match clock FROZEN at ") .. info.formatted)
+            PES10.toast(PES10.T("Relógio congelado em ", "Clock frozen at ") .. info.formatted)
           else
             writeInteger(a, 0)
-            PES10.toast(PES10.T("Relógio DESCONGELADO!", "Match clock UNFROZEN!"))
+            PES10.toast(PES10.T("Relógio descongelado!", "Clock unfrozen!"))
           end
         end },
       { col=1, row=4, accent=C_GREEN,
-        tag_pt="CASA 100%", tag_en="HOME 100%",
-        title_pt="Stamina 100%: Só Mandante", title_en="100% Stamina: Home Team Only",
-        sub_pt="Clique p/ ativar ou desligar fôlego infinito Casa", sub_en="Click to toggle infinite stamina for Home side",
+        tag_pt="CASA", tag_en="HOME",
+        title_pt="Stamina 100% (Casa)", title_en="100% Stamina (Home)",
+        sub_pt="Liga ou desliga fôlego infinito", sub_en="Toggle infinite Home stamina",
         isActive=function(tel) return tel.stamMode == 1 end,
         fn=function()
           local a = PES10.symAddr("cfgStaminaMode")
           if a == 0 then return end
           if PES10.readU32(a) == 1 then
             writeInteger(a, 0)
-            PES10.toast(PES10.T("Stamina em campo restaurada para Original.", "Match Stamina restored to Default."))
+            PES10.toast(PES10.T("Stamina restaurada.", "Stamina restored."))
           else
             writeInteger(a, 1); PES10.ensureHookActive(6)
-            PES10.toast(PES10.T("Stamina 100% ativada APENAS para Casa!", "100% Stamina active for HOME team only!"))
+            PES10.toast(PES10.T("Stamina 100% (Casa) ativa!", "Home 100% Stamina active!"))
           end
         end },
       { col=2, row=4, accent=C_GREEN,
-        tag_pt="FORA 100%", tag_en="AWAY 100%",
-        title_pt="Stamina 100%: Só Visitante", title_en="100% Stamina: Away Team Only",
-        sub_pt="Clique p/ ativar ou desligar fôlego infinito Fora", sub_en="Click to toggle infinite stamina for Away side",
+        tag_pt="FORA", tag_en="AWAY",
+        title_pt="Stamina 100% (Fora)", title_en="100% Stamina (Away)",
+        sub_pt="Liga ou desliga fôlego infinito", sub_en="Toggle infinite Away stamina",
         isActive=function(tel) return tel.stamMode == 2 end,
         fn=function()
           local a = PES10.symAddr("cfgStaminaMode")
           if a == 0 then return end
           if PES10.readU32(a) == 2 then
             writeInteger(a, 0)
-            PES10.toast(PES10.T("Stamina em campo restaurada para Original.", "Match Stamina restored to Default."))
+            PES10.toast(PES10.T("Stamina restaurada.", "Stamina restored."))
           else
             writeInteger(a, 2); PES10.ensureHookActive(6)
-            PES10.toast(PES10.T("Stamina 100% ativada APENAS para Fora!", "100% Stamina active for AWAY team only!"))
+            PES10.toast(PES10.T("Stamina 100% (Fora) ativa!", "Away 100% Stamina active!"))
           end
         end },
     },
