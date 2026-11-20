@@ -867,6 +867,8 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     v11_test = """
     local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
     assert(p ~= 0, "Mock player must be selected")
+    -- Reset to deterministic 85 OVR after click_test mutated player across 3 DPIs
+    PES10.scalePlayerToTargetOVR(p, 85, nil, true)
     -- 1. Undo stack test on +1 OVR
     local ovrBefore = PES10.calcPlayerOVR(p)
     PES10.stepPlayerOVRProportional(1)
