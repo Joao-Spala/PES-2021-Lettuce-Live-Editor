@@ -385,6 +385,11 @@ class HookManager:
             cb.jmp_abs(s_clk + 8)
             ok_clk = self._install_jmp("hook5", s_clk, self._alloc_cave(cb.finalize()), 8)
 
+        if not ok_clk and "hook5" in self.patches:
+            # Roll back partial HUD patch if clock tap failed so no stale JMP remains
+            for site, orig in self.patches.pop("hook5"):
+                self.mem.write_code_bytes(site, orig)
+
         self.active_hooks[5] = ok_clk
         return ok_clk
 

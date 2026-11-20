@@ -535,16 +535,22 @@ class PESEngine:
             career, _, _ = self.sync_pointers()
             if not career:
                 return {"ok": False, "code": "no_career"}
+            t_raw = None
             if transfer_str is not None and str(transfer_str).strip() != "":
                 t_raw = parse_human_money_to_raw(transfer_str)
-                if t_raw is not None:
-                    self.mem.write_i32(career + 0x016ECBF4, t_raw)
+                if t_raw is None:
+                    return {"ok": False, "code": "invalid_money"}
+            w_raw = None
             if salary_avail_str is not None and str(salary_avail_str).strip() != "":
                 w_raw = parse_human_money_to_raw(salary_avail_str)
-                if w_raw is not None:
-                    _, _, wages = self.get_available_salary_budget(career, force_refresh=True)
-                    new_gross = max(0, min(2_147_483_647, w_raw + wages))
-                    self.mem.write_i32(career + 0x016ECC08, new_gross)
+                if w_raw is None:
+                    return {"ok": False, "code": "invalid_money"}
+            if t_raw is not None:
+                self.mem.write_i32(career + 0x016ECBF4, t_raw)
+            if w_raw is not None:
+                _, _, wages = self.get_available_salary_budget(career, force_refresh=True)
+                new_gross = max(0, min(2_147_483_647, w_raw + wages))
+                self.mem.write_i32(career + 0x016ECC08, new_gross)
             return self.get_finances()
 
     def add_finance_delta(self, kind: str, raw_delta: int) -> Dict[str, Any]:
@@ -689,6 +695,8 @@ class PESEngine:
             market_raw = struct.unpack_from("<i", buf, 0x174)[0]
             team_role = _get_bits_buf(buf, 0x150, 0, 5)
             team_role_lvl = _get_bits_buf(buf, 0x143, 6, 2)
+            transfer_listed = _get_bits_buf(buf, 0x14A, 1, 1) == 1
+            loan_listed = _get_bits_buf(buf, 0x14A, 2, 1) == 1
 
             stats = {str(s["fid"]): get_fid_from_buf(buf, s["fid"]) for s in STAT_DEFS}
 
@@ -736,6 +744,8 @@ class PESEngine:
                 "market_raw": market_raw,
                 "team_role": team_role,
                 "team_role_lvl": team_role_lvl,
+                "transfer_listed": transfer_listed,
+                "loan_listed": loan_listed,
                 "stats": stats,
                 "positions": positions,
                 "skills": skills,
@@ -744,12 +754,17 @@ class PESEngine:
             }
 
     def set_player_quick_condition(
-        self, stamina: Optional[int] = None, arrow: Optional[int] = None, heal: bool = False
+        self,
+        stamina: Optional[int] = None,
+        arrow: Optional[int] = None,
+        heal: bool = False,
+        addr: Optional[int] = None,
     ) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
                 return {"ok": False, "code": "not_connected"}
-            _, p, _ = self.sync_pointers()
+            _, cur_p, _ = self.sync_pointers()
+            p = _safe_int(addr) or cur_p
             if not p:
                 return {"ok": False, "code": "no_player"}
             self.push_undo(p, "condition")
@@ -796,10 +811,24 @@ class PESEngine:
             cyr = _safe_int(payload.get("contract_yr"))
             if cyr is not None:
                 self.mem.write_u16(p + 0x138, max(2019, min(2150, cyr)))
+            sr = None
             if payload.get("salary_str") is not None and str(payload["salary_str"]).strip() != "":
                 sr = parse_human_money_to_raw(str(payload["salary_str"]))
-                if sr is not None:
-                    self.mem.write_i32(p + 0x15C, sr)
+                if sr is None:
+                    return {"ok": False, "code": "invalid_money"}
+            mr = None
+            if payload.get("market_str") is not None and str(payload["market_str"]).strip() != "":
+                mr = parse_human_money_to_raw(str(payload["market_str"]))
+                if mr is None:
+                    return {"ok": False, "code": "invalid_money"}
+            if sr is not None:
+                self.mem.write_i32(p + 0x15C, sr)
+            if mr is not None:
+                self.mem.write_i32(p + 0x174, mr)
+            if "transfer_listed" in payload and payload["transfer_listed"] is not None:
+                self.mem.set_bits(p + 0x14A, 1, 1, 1 if payload["transfer_listed"] else 0)
+            if "loan_listed" in payload and payload["loan_listed"] is not None:
+                self.mem.set_bits(p + 0x14A, 2, 1, 1 if payload["loan_listed"] else 0)
             wfu = _safe_int(payload.get("wf_usage"))
             if wfu is not None:
                 self.mem.set_bits(p + 0x23, 0, 2, max(0, min(3, wfu - 1)))
@@ -1073,6 +1102,23 @@ class PESEngine:
             "needs_grade": needs_grade,
         }
 
+    def step_player_ovr(self, delta: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "code": "not_connected"}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False, "code": "no_player"}
+            buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+            if not buf:
+                return {"ok": False, "code": "read_failed"}
+            cur_ovr, _ = calc_ovr_from_buf(buf)
+            dl = _safe_int(delta, 0) or 0
+            info = self._scale_primary_ovr(p, cur_ovr + dl)
+            res = self.get_player_details(p)
+            res.update(info)
+            return res
+
     def step_position_ovr(self, pos_idx: int, delta: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
@@ -1181,7 +1227,9 @@ class PESEngine:
                     self.mem.write_u8(p + 0x148, 0)
                 elif mode == "contract":
                     self.push_undo(p, "squad_contract")
-                    self.mem.write_u16(p + 0x138, cur_year + 5)
+                    cur_exp = self.mem.read_u16(p + 0x138)
+                    new_exp = max(cur_exp if 2019 <= cur_exp <= 2150 else cur_year, cur_year + 5)
+                    self.mem.write_u16(p + 0x138, min(2150, new_exp))
                 elif mode == "ovr1":
                     buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
                     if buf:
@@ -1368,6 +1416,19 @@ class PESEngine:
                     self.mem.write_u64(career + sl["base"] + i * 8, SCOUT_EMPTY_SENTINEL)
                     return {"ok": True}
             return {"ok": False, "code": "not_found"}
+
+    def clear_scout_list(self, slot_num: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "code": "not_connected"}
+            career, _, _ = self.sync_pointers()
+            sn = _safe_int(slot_num, -1)
+            sl = next((x for x in SCOUT_LISTS if x["slot"] == sn), None)
+            if not career or not sl:
+                return {"ok": False, "code": "invalid_arg"}
+            empty_buf = struct.pack("<Q", SCOUT_EMPTY_SENTINEL) * sl["cap"]
+            self.mem.write_bytes(career + sl["base"], empty_buf)
+            return {"ok": True, "slot": sn}
 
     # ------------------------------------------------------------------
     # TRAINING, BAL & MATCH HOOK CONTROLS

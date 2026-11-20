@@ -39,7 +39,7 @@ def main() -> None:
         width=1180,
         height=760,
         min_size=(960, 620),
-        background_color="#0b0f17",
+        background_color="#080c14",
         text_select=False,
     )
 

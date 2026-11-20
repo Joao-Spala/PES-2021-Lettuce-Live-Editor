@@ -19,37 +19,41 @@
       </div>
 
       <div class="nav-section-label" data-i18n="nav_career">CARREIRA</div>
-      <button class="nav-btn active" data-view="dashboard">
+      <button class="nav-btn active" type="button" data-view="dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
         <span data-i18n="nav_overview">Visão Geral</span>
       </button>
-      <button class="nav-btn" data-view="squad">
+      <button class="nav-btn" type="button" data-view="squad">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span data-i18n="nav_squad">Meu Elenco</span>
       </button>
-      <button class="nav-btn" data-view="finances">
+      <button class="nav-btn" type="button" data-view="finances">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         <span data-i18n="nav_finances">Finanças</span>
       </button>
 
       <div class="nav-section-label" data-i18n="nav_player_sec">ATLETA</div>
-      <button class="nav-btn" data-view="player">
+      <button class="nav-btn" type="button" data-view="player">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span data-i18n="nav_player">Jogador Atual</span>
       </button>
-      <button class="nav-btn" data-view="search">
+      <button class="nav-btn" type="button" data-view="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <span data-i18n="nav_search">Buscar Jogador</span>
       </button>
-      <button class="nav-btn" data-view="scouts">
+      <button class="nav-btn" type="button" data-view="scouts">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         <span data-i18n="nav_scouts">Olheiros & Favoritos</span>
       </button>
 
-      <div class="nav-section-label" data-i18n="nav_engine_sec">JOGO & HOOKS</div>
-      <button class="nav-btn" data-view="match">
+      <div class="nav-section-label" data-i18n="nav_engine_sec">MOTOR & JOGO</div>
+      <button class="nav-btn" type="button" data-view="match">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span data-i18n="nav_match_live">Partida Ao Vivo</span>
+      </button>
+      <button class="nav-btn" type="button" data-view="training">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        <span data-i18n="nav_match">Partida, Treino & BAL</span>
+        <span data-i18n="nav_training_bal">Treino & BAL</span>
       </button>
 
       <div class="sidebar-footer">
@@ -95,7 +99,10 @@
             <div class="page-title" data-i18n="dash_title">Visão Geral do Studio</div>
             <div class="page-sub" data-i18n="dash_sub">Controle em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.</div>
           </div>
-          <button class="btn btn-primary" id="btn-dash-refresh" type="button" data-i18n="btn_refresh">Atualizar</button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span class="live-badge" id="dash-match-badge"><span class="dot"></span><span id="dash-match-text" data-i18n="match_idle">Fora de Partida</span></span>
+            <button class="btn btn-primary" id="btn-dash-refresh" type="button" data-i18n="btn_refresh">Atualizar</button>
+          </div>
         </div>
 
         <div class="grid-3">
@@ -124,6 +131,36 @@
           </div>
         </div>
 
+        <div class="grid-2">
+          <!-- Live Active Player Quick Card -->
+          <div class="card">
+            <div class="card-title">
+              <span data-i18n="dash_active_player">Atleta em Foco (Ao Vivo)</span>
+              <button class="btn btn-xs btn-primary" type="button" onclick="switchView('player')" data-i18n="btn_open_editor">Abrir Editor</button>
+            </div>
+            <div id="dash-player-box" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="ovr-badge ovr-low" id="dp-ovr" style="min-width:40px; height:32px; font-size:15px;">--</span>
+                <div>
+                  <div style="font-weight:700; font-size:14px;" id="dp-name" data-i18n="no_player">Nenhum atleta selecionado</div>
+                  <div style="font-size:11.5px; color:var(--subtext);" id="dp-meta">---</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button class="btn btn-xs btn-green" id="btn-dp-stam" type="button" data-i18n="cmd_stam_short">100% Fôlego</button>
+                <button class="btn btn-xs btn-primary" id="btn-dp-arrow" type="button" data-i18n="cmd_arrow_short">Seta Azul</button>
+                <button class="btn btn-xs btn-green" id="btn-dp-heal" type="button" data-i18n="btn_heal_one">Curar Lesão</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Native x64 Hooks Status -->
+          <div class="card">
+            <div class="card-title" data-i18n="dash_active_hooks">Status dos Recursos x64</div>
+            <div id="dash-hooks-list" style="display:flex; flex-direction:column; gap:7px; font-size:12px;"></div>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-title">
             <span data-i18n="dash_squad_cmd">Comandante do Elenco (Ações em Massa)</span>
@@ -135,22 +172,6 @@
             <button class="btn btn-green" type="button" onclick="runSquadCmd('heal')" data-i18n="cmd_heal_squad">Curar Todas Lesões</button>
             <button class="btn btn-gold" type="button" onclick="runSquadCmd('contract')" data-i18n="cmd_contract_squad">Renovar Contratos +5 Anos</button>
             <button class="btn" type="button" onclick="runSquadCmd('ovr1')" data-i18n="cmd_ovr1_squad">+1 OVR no Elenco</button>
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title" data-i18n="dash_active_hooks">Status dos Hooks Nativos x64</div>
-            <div id="dash-hooks-list" style="display:flex; flex-direction:column; gap:8px; font-size:12.5px;"></div>
-          </div>
-          <div class="card">
-            <div class="card-title" data-i18n="dash_quick_shortcuts">Atalhos Rápidos</div>
-            <div style="display:flex; flex-wrap:wrap; gap:8px;">
-              <button class="btn" type="button" onclick="switchView('player')" data-i18n="short_player">Editar Jogador Atual</button>
-              <button class="btn" type="button" onclick="switchView('squad')" data-i18n="short_squad">Abrir Meu Elenco</button>
-              <button class="btn" type="button" onclick="switchView('search')" data-i18n="short_search">Buscar nos 30.000+ Atletas</button>
-              <button class="btn" type="button" onclick="switchView('match')" data-i18n="short_match">Treino / Fôlego em Partida</button>
-            </div>
           </div>
         </div>
       </section>
@@ -176,17 +197,18 @@
         </div>
 
         <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center;">
-          <div class="tabs" style="border-bottom:none; padding-bottom:0;" id="squad-filters">
-            <button class="tab-btn active" type="button" data-filter="all" data-i18n="flt_all">Todos</button>
-            <button class="tab-btn" type="button" data-filter="exp" data-i18n="flt_exp">Fim de Contrato</button>
-            <button class="tab-btn" type="button" data-filter="inj" data-i18n="flt_inj">Lesionados</button>
-            <button class="tab-btn" type="button" data-filter="u23" data-i18n="flt_u23">Sub-23</button>
+          <div class="pill-tabs" id="squad-filters">
+            <button class="pill-tab active" type="button" data-filter="all"><span data-i18n="flt_all">Todos</span><span class="count-badge" id="cnt-all">0</span></button>
+            <button class="pill-tab" type="button" data-filter="exp"><span data-i18n="flt_exp">Fim de Contrato</span><span class="count-badge" id="cnt-exp">0</span></button>
+            <button class="pill-tab" type="button" data-filter="inj"><span data-i18n="flt_inj">Lesionados</span><span class="count-badge" id="cnt-inj">0</span></button>
+            <button class="pill-tab" type="button" data-filter="u23"><span data-i18n="flt_u23">Sub-23</span><span class="count-badge" id="cnt-u23">0</span></button>
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <button class="btn btn-sm btn-green" type="button" onclick="runSquadCmd('stamina')" data-i18n="cmd_stam_short">100% Fôlego</button>
             <button class="btn btn-sm btn-primary" type="button" onclick="runSquadCmd('arrow')" data-i18n="cmd_arrow_short">Seta Azul</button>
             <button class="btn btn-sm btn-green" type="button" onclick="runSquadCmd('heal')" data-i18n="cmd_heal_short">Curar Lesões</button>
             <button class="btn btn-sm btn-gold" type="button" onclick="runSquadCmd('contract')" data-i18n="cmd_contract_short">Contratos +5a</button>
+            <button class="btn btn-sm" type="button" onclick="runSquadCmd('ovr1')">+1 OVR</button>
           </div>
         </div>
 
@@ -194,18 +216,20 @@
           <table class="studio-table" id="squad-table">
             <thead>
               <tr>
-                <th data-sort="ovr">OVR<span class="sort-arrow"></span></th>
-                <th data-sort="pos"><span data-i18n="th_pos">POS</span><span class="sort-arrow"></span></th>
+                <th class="ctr-col" data-sort="ovr">OVR<span class="sort-arrow"></span></th>
+                <th class="ctr-col" data-sort="pos"><span data-i18n="th_pos">POS</span><span class="sort-arrow"></span></th>
                 <th data-sort="name"><span data-i18n="th_player">ATLETA</span><span class="sort-arrow"></span></th>
-                <th data-sort="age"><span data-i18n="th_age">IDADE</span><span class="sort-arrow"></span></th>
-                <th data-sort="exp_y"><span data-i18n="th_contract">CONTRATO</span><span class="sort-arrow"></span></th>
-                <th data-sort="salary_raw"><span data-i18n="th_salary">SALÁRIO</span><span class="sort-arrow"></span></th>
+                <th class="num-col" data-sort="age"><span data-i18n="th_age">IDADE</span><span class="sort-arrow"></span></th>
+                <th class="num-col" data-sort="exp_y"><span data-i18n="th_contract">CONTRATO</span><span class="sort-arrow"></span></th>
+                <th class="num-col" data-sort="salary_raw"><span data-i18n="th_salary">SALÁRIO</span><span class="sort-arrow"></span></th>
+                <th class="ctr-col" data-sort="arrow"><span data-i18n="th_form">FORMA</span><span class="sort-arrow"></span></th>
                 <th data-sort="stamina"><span data-i18n="th_stamina">FÔLEGO</span><span class="sort-arrow"></span></th>
-                <th data-sort="injury"><span data-i18n="th_health">SAÚDE</span><span class="sort-arrow"></span></th>
+                <th class="ctr-col" data-sort="injury"><span data-i18n="th_health">SAÚDE</span><span class="sort-arrow"></span></th>
+                <th class="act-col" data-i18n="th_actions">AÇÕES</th>
               </tr>
             </thead>
             <tbody id="squad-tbody">
-              <tr><td colspan="8" class="empty-state" data-i18n="empty_squad">Carregue uma Master League para visualizar o elenco.</td></tr>
+              <tr><td colspan="10" class="empty-state" data-i18n="empty_squad">Carregue uma Master League para visualizar o elenco.</td></tr>
             </tbody>
           </table>
         </div>
@@ -235,7 +259,10 @@
                 <div class="hero-meta-row" id="p-hero-sub"></div>
               </div>
             </div>
-            <div style="display:flex; gap:8px; align-items:center;">
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+              <button class="btn btn-sm" id="btn-hero-ovr-m1" type="button">-1 OVR</button>
+              <button class="btn btn-sm btn-primary" id="btn-hero-ovr-p1" type="button">+1 OVR</button>
+              <button class="btn btn-sm btn-green" id="btn-hero-fav" type="button" data-i18n="btn_add_fav">+ Favoritos</button>
               <button class="btn btn-sm" id="btn-export-json" type="button" data-i18n="btn_export_json">Exportar JSON</button>
               <button class="btn btn-sm" id="btn-import-json" type="button" data-i18n="btn_import_json">Importar JSON</button>
             </div>
@@ -253,7 +280,10 @@
           <div class="ptab-pane" id="ptab-bio">
             <div class="grid-2" style="margin-bottom:14px;">
               <div class="card">
-                <div class="card-title" data-i18n="card_quick_stam">Fôlego & Saúde Rápida</div>
+                <div class="card-title">
+                  <span data-i18n="card_quick_stam">Fôlego & Saúde Rápida</span>
+                  <span id="p-inj-pill" class="pill-ok">OK</span>
+                </div>
                 <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                   <button class="btn btn-green" id="btn-p-stam100" type="button" data-i18n="cmd_stam_short">100% Fôlego</button>
                   <button class="btn btn-green" id="btn-p-heal" type="button" data-i18n="btn_heal_one">Curar Lesão</button>
@@ -278,7 +308,11 @@
             <div class="card">
               <div class="card-title">
                 <span data-i18n="card_bio">Dados Biográficos & Contrato</span>
-                <button class="btn btn-sm btn-primary" id="btn-save-bio" type="button" data-i18n="btn_save">Salvar Alterações</button>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <button class="btn btn-xs btn-gold" id="btn-bio-rejuv" type="button" data-i18n="btn_rejuv_3">-3 Anos</button>
+                  <button class="btn btn-xs" id="btn-bio-age18" type="button" data-i18n="btn_age_18">Idade 18</button>
+                  <button class="btn btn-sm btn-primary" id="btn-save-bio" type="button" data-i18n="btn_save">Salvar Alterações</button>
+                </div>
               </div>
               <div class="form-grid">
                 <div class="field"><label data-i18n="lbl_name">Nome do Jogador</label><input class="input" id="bio-name" /></div>
@@ -290,11 +324,20 @@
                 <div class="field"><label data-i18n="lbl_foot">Pé Preferido</label><select class="select" id="bio-foot"></select></div>
                 <div class="field"><label data-i18n="lbl_contract_yr">Fim do Contrato (Ano)</label><input class="input" type="number" min="2019" max="2150" id="bio-contract" /></div>
                 <div class="field"><label data-i18n="lbl_salary_yr">Salário Anual (ex: 2.5M)</label><input class="input" id="bio-salary" /></div>
+                <div class="field"><label data-i18n="lbl_market_val">Valor de Mercado (ex: 30M)</label><input class="input" id="bio-market" /></div>
                 <div class="field"><label data-i18n="lbl_inj_days">Dias Lesionado (0 = OK)</label><input class="input" type="number" min="0" max="255" id="bio-injury" /></div>
                 <div class="field"><label data-i18n="lbl_wfu">Uso Pé Ruim (1-4)</label><input class="input" type="number" min="1" max="4" id="bio-wfu" /></div>
                 <div class="field"><label data-i18n="lbl_wfa">Precisão Pé Ruim (1-4)</label><input class="input" type="number" min="1" max="4" id="bio-wfa" /></div>
                 <div class="field"><label data-i18n="lbl_form">Estabilidade / Forma (1-8)</label><input class="input" type="number" min="1" max="8" id="bio-form" /></div>
                 <div class="field"><label data-i18n="lbl_injres">Resistência a Lesões (1-3)</label><input class="input" type="number" min="1" max="3" id="bio-injres" /></div>
+              </div>
+              <div style="display:flex; gap:18px; flex-wrap:wrap; padding-top:4px; border-top:1px solid var(--border);">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--subtext); font-size:12px;">
+                  <input type="checkbox" id="bio-tlist" /> <span data-i18n="lbl_transfer_listed">Listado para Transferência</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--subtext); font-size:12px;">
+                  <input type="checkbox" id="bio-llist" /> <span data-i18n="lbl_loan_listed">Listado para Empréstimo</span>
+                </label>
               </div>
             </div>
           </div>
@@ -302,7 +345,7 @@
           <!-- Subtab: Attributes + Live 6-Axis Radar -->
           <div class="ptab-pane" id="ptab-stats" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-              <span style="color:var(--subtext); font-size:12px;" data-i18n="stats_hint">Ajuste qualquer atributo em tempo real. O OVR recalcula instantaneamente.</span>
+              <span style="color:var(--subtext); font-size:12px;" data-i18n="stats_hint">Ajuste qualquer atributo em tempo real. O OVR e o radar recalculam instantaneamente.</span>
               <div style="display:flex; gap:8px;">
                 <button class="btn btn-sm btn-green" type="button" onclick="presetStats(99)" data-i18n="btn_all_99">Tudo 99</button>
                 <button class="btn btn-sm btn-primary" type="button" onclick="presetStats(90)" data-i18n="btn_all_90">Tudo 90</button>
@@ -329,9 +372,9 @@
                 </div>
                 <svg id="poslab-pitch-svg" class="pitch-svg" viewBox="0 0 220 320"></svg>
                 <div style="display:flex; gap:10px; font-size:11px; color:var(--subtext);">
-                  <span><b style="color:var(--green);">●</b> Grau A</span>
-                  <span><b style="color:var(--gold);">●</b> Grau B</span>
-                  <span><b style="color:var(--muted);">●</b> Grau C</span>
+                  <span><b style="color:var(--green);">●</b> <span data-i18n="grade_a">Grau A</span></span>
+                  <span><b style="color:var(--gold);">●</b> <span data-i18n="grade_b">Grau B</span></span>
+                  <span><b style="color:var(--muted);">●</b> <span data-i18n="grade_c">Grau C</span></span>
                 </div>
               </div>
               <div class="card">
@@ -339,15 +382,15 @@
                   <span data-i18n="poslab_title">Lab de Posições (Precisão Cirúrgica)</span>
                   <span style="font-size:11px; color:var(--subtext);" data-i18n="poslab_hint">OVR já inclui bônus do Grau. +1/-1 move 1 por vez e a posição principal nunca é alterada.</span>
                 </div>
-                <div class="table-wrap" style="max-height:calc(100vh - 340px);">
+                <div class="table-wrap" id="poslab-scroll" style="max-height:calc(100vh - 340px);">
                   <table class="studio-table">
                     <thead>
                       <tr>
                         <th data-i18n="th_position">POSIÇÃO</th>
-                        <th>OVR</th>
-                        <th data-i18n="th_grade">GRAU</th>
+                        <th class="ctr-col">OVR</th>
+                        <th class="ctr-col" data-i18n="th_grade">GRAU</th>
                         <th data-i18n="th_isolated_step">AJUSTE ISOLADO (1 EM 1)</th>
-                        <th data-i18n="th_actions">AÇÕES</th>
+                        <th class="act-col" data-i18n="th_actions">AÇÕES</th>
                       </tr>
                     </thead>
                     <tbody id="poslab-tbody"></tbody>
@@ -361,7 +404,7 @@
           <div class="ptab-pane" id="ptab-skills" style="display:none;">
             <div class="card" style="margin-bottom:14px;">
               <div class="card-title" data-i18n="card_playing_style">Estilo de Jogo (Playing Style)</div>
-              <select class="select" id="p-playing-style" style="max-width:320px;"></select>
+              <select class="select" id="p-playing-style" style="max-width:340px;"></select>
             </div>
             <div class="card" style="margin-bottom:14px;">
               <div class="card-title">
@@ -381,7 +424,7 @@
 
           <!-- Subtab: Team Role -->
           <div class="ptab-pane" id="ptab-role" style="display:none;">
-            <div class="card" style="max-width:520px;">
+            <div class="card" style="max-width:540px;">
               <div class="card-title" data-i18n="card_team_role">Função de Equipe (Team Role)</div>
               <div class="field">
                 <label data-i18n="lbl_role">Função</label>
@@ -406,6 +449,10 @@
             <div class="page-title" data-i18n="srch_title">Buscar Jogador (Base Completa)</div>
             <div class="page-sub" id="srch-sub" data-i18n="srch_sub">Pesquise instantaneamente entre todos os 30.000+ jogadores carregados na Master League.</div>
           </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:11.5px; color:var(--subtext);" data-i18n="lbl_send_to">Enviar para:</span>
+            <select class="select" id="srch-target-scout" style="padding:5px 10px; font-size:12px;"></select>
+          </div>
         </div>
 
         <div class="card">
@@ -418,17 +465,18 @@
               <label data-i18n="th_position">Posição</label>
               <select class="select" id="srch-pos"></select>
             </div>
-            <div class="field" style="width:95px;">
+            <div class="field" style="width:88px;">
               <label data-i18n="lbl_min_ovr">OVR Mín.</label>
               <input class="input" type="number" id="srch-ovr" value="75" min="40" max="99" />
             </div>
-            <div class="field" style="width:95px;">
+            <div class="field" style="width:88px;">
               <label data-i18n="lbl_max_age">Idade Máx.</label>
               <input class="input" type="number" id="srch-age" value="45" min="15" max="50" />
             </div>
             <label style="display:flex; align-items:center; gap:6px; padding-bottom:9px; cursor:pointer; color:var(--subtext);">
               <input type="checkbox" id="srch-free" /> <span data-i18n="lbl_free_agent">Sem Clube</span>
             </label>
+            <button class="btn" id="btn-clear-search" type="button" data-i18n="btn_clear">Limpar</button>
             <button class="btn btn-primary" id="btn-do-search" type="button" data-i18n="btn_search">Pesquisar</button>
           </div>
         </div>
@@ -437,17 +485,18 @@
           <table class="studio-table" id="search-table">
             <thead>
               <tr>
-                <th data-ssort="ovr">OVR<span class="sort-arrow"></span></th>
-                <th data-ssort="pos"><span data-i18n="th_pos">POS</span><span class="sort-arrow"></span></th>
+                <th class="ctr-col" data-ssort="ovr">OVR<span class="sort-arrow"></span></th>
+                <th class="ctr-col" data-ssort="pos"><span data-i18n="th_pos">POS</span><span class="sort-arrow"></span></th>
                 <th data-ssort="name"><span data-i18n="th_player">ATLETA</span><span class="sort-arrow"></span></th>
-                <th data-ssort="age"><span data-i18n="th_age">IDADE</span><span class="sort-arrow"></span></th>
+                <th class="num-col" data-ssort="age"><span data-i18n="th_age">IDADE</span><span class="sort-arrow"></span></th>
                 <th data-ssort="club"><span data-i18n="th_club">CLUBE</span><span class="sort-arrow"></span></th>
-                <th data-ssort="salary_raw"><span data-i18n="th_salary">SALÁRIO</span><span class="sort-arrow"></span></th>
-                <th data-i18n="th_actions">AÇÕES</th>
+                <th class="num-col" data-ssort="exp_y"><span data-i18n="th_contract">CONTRATO</span><span class="sort-arrow"></span></th>
+                <th class="num-col" data-ssort="salary_raw"><span data-i18n="th_salary">SALÁRIO</span><span class="sort-arrow"></span></th>
+                <th class="act-col" data-i18n="th_actions">AÇÕES</th>
               </tr>
             </thead>
             <tbody id="search-tbody">
-              <tr><td colspan="7" class="empty-state" data-i18n="empty_search">Use os filtros acima e clique em Pesquisar.</td></tr>
+              <tr><td colspan="8" class="empty-state" data-i18n="empty_search">Use os filtros acima e clique em Pesquisar.</td></tr>
             </tbody>
           </table>
         </div>
@@ -460,15 +509,18 @@
             <div class="page-title" data-i18n="scouts_title">Olheiros & Favoritos (Nativo)</div>
             <div class="page-sub" data-i18n="scouts_sub">Grava apenas o ponteiro nativo na lista da Master League, sem alterar contratos ou cláusulas.</div>
           </div>
-          <button class="btn btn-primary" id="btn-scouts-refresh" type="button" data-i18n="btn_refresh_lists">Atualizar Listas</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-red" id="btn-scout-clear" type="button" data-i18n="btn_clear_list">Limpar Lista</button>
+            <button class="btn btn-primary" id="btn-scouts-refresh" type="button" data-i18n="btn_refresh_lists">Atualizar Listas</button>
+          </div>
         </div>
 
         <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center;">
-          <div class="tabs" style="border-bottom:none; padding-bottom:0;" id="scout-tabs">
-            <button class="tab-btn active" type="button" data-slot="4" data-i18n="scout_shortlist">Favoritos (Shortlist)</button>
-            <button class="tab-btn" type="button" data-slot="1" data-i18n="scout_1">Olheiro 1</button>
-            <button class="tab-btn" type="button" data-slot="2" data-i18n="scout_2">Olheiro 2</button>
-            <button class="tab-btn" type="button" data-slot="3" data-i18n="scout_3">Olheiro 3</button>
+          <div class="pill-tabs" id="scout-tabs">
+            <button class="pill-tab active" type="button" data-slot="4"><span data-i18n="scout_shortlist">Favoritos (Shortlist)</span><span class="count-badge" id="sc-cnt-4">0/100</span></button>
+            <button class="pill-tab" type="button" data-slot="1"><span data-i18n="scout_1">Olheiro 1</span><span class="count-badge" id="sc-cnt-1">0/30</span></button>
+            <button class="pill-tab" type="button" data-slot="2"><span data-i18n="scout_2">Olheiro 2</span><span class="count-badge" id="sc-cnt-2">0/30</span></button>
+            <button class="pill-tab" type="button" data-slot="3"><span data-i18n="scout_3">Olheiro 3</span><span class="count-badge" id="sc-cnt-3">0/30</span></button>
           </div>
           <button class="btn btn-green" id="btn-scout-add-cur" type="button" data-i18n="btn_scout_add_cur">+ Adicionar Jogador Atual nesta Lista</button>
         </div>
@@ -477,12 +529,12 @@
           <table class="studio-table">
             <thead>
               <tr>
-                <th>OVR</th>
-                <th data-i18n="th_pos">POS</th>
+                <th class="ctr-col">OVR</th>
+                <th class="ctr-col" data-i18n="th_pos">POS</th>
                 <th data-i18n="th_player">ATLETA</th>
-                <th data-i18n="th_age">IDADE</th>
+                <th class="num-col" data-i18n="th_age">IDADE</th>
                 <th data-i18n="th_club">CLUBE</th>
-                <th data-i18n="th_actions">AÇÕES</th>
+                <th class="act-col" data-i18n="th_actions">AÇÕES</th>
               </tr>
             </thead>
             <tbody id="scout-tbody">
@@ -492,7 +544,7 @@
         </div>
       </section>
 
-      <!-- 6. FINANCES -->
+      <!-- 6. FINANCES (Full-Width 4-KPI Layout) -->
       <section class="view-panel" id="view-finances">
         <div class="page-header">
           <div>
@@ -502,7 +554,14 @@
           <button class="btn" id="btn-fin-refresh" type="button" data-i18n="btn_reload">Recarregar</button>
         </div>
 
-        <div class="card" style="max-width:680px;">
+        <div class="grid-4">
+          <div class="kpi-card"><div class="stat-label" data-i18n="lbl_transfer_budget">Transferências</div><div class="kpi-val num" style="color:var(--green);" id="fin-kpi-trf">€ 0</div></div>
+          <div class="kpi-card"><div class="stat-label" data-i18n="lbl_salary_avail">Salários Disponíveis</div><div class="kpi-val num" style="color:var(--gold);" id="fin-kpi-avail">€ 0</div></div>
+          <div class="kpi-card"><div class="stat-label" data-i18n="kpi_wage_bill">Folha Anual Ativa</div><div class="kpi-val num" style="color:#f87171;" id="fin-kpi-wages">€ 0</div></div>
+          <div class="kpi-card"><div class="stat-label" data-i18n="kpi_gross_cap">Teto Salarial Bruto</div><div class="kpi-val num" id="fin-kpi-gross">€ 0</div></div>
+        </div>
+
+        <div class="card">
           <div class="card-title">
             <span data-i18n="card_edit_budgets">Editar Orçamentos</span>
             <span id="fin-wage-bill" class="num" style="font-size:12px; color:var(--subtext);">€ 0</span>
@@ -537,12 +596,43 @@
         </div>
       </section>
 
-      <!-- 7. MATCH, TRAINING & BAL -->
+      <!-- 7. LIVE MATCH -->
       <section class="view-panel" id="view-match">
         <div class="page-header">
           <div>
-            <div class="page-title" data-i18n="match_title">Partida, Treino & Rumo ao Estrelato</div>
-            <div class="page-sub" data-i18n="match_sub">Hooks nativos x64 ativados sob demanda e restaurados automaticamente ao fechar o app.</div>
+            <div class="page-title" data-i18n="match_live_title">Partida Ao Vivo</div>
+            <div class="page-sub" data-i18n="match_live_sub">Controles em tempo real durante a partida (hooks x64 ativados sob demanda e restaurados ao fechar).</div>
+          </div>
+          <span class="live-badge" id="match-view-badge"><span class="dot"></span><span id="match-view-badge-text" data-i18n="match_idle">Fora de Partida</span></span>
+        </div>
+
+        <div class="card">
+          <div class="card-title" data-i18n="card_match_stam">Fôlego Seletivo em Partida</div>
+          <div class="mode-grid" id="stamina-mode-grid">
+            <button class="mode-card" type="button" data-smode="0"><div class="mode-card-title" data-i18n="sm_0">Normal</div><div class="mode-card-desc" data-i18n="sm_0_d">Desgaste padrão</div></button>
+            <button class="mode-card" type="button" data-smode="1"><div class="mode-card-title" data-i18n="sm_1">Casa 100%</div><div class="mode-card-desc" data-i18n="sm_1_d">Time da casa infinito</div></button>
+            <button class="mode-card" type="button" data-smode="2"><div class="mode-card-title" data-i18n="sm_2">Fora 100%</div><div class="mode-card-desc" data-i18n="sm_2_d">Visitante infinito</div></button>
+            <button class="mode-card" type="button" data-smode="3"><div class="mode-card-title" data-i18n="sm_3">Ambos 100%</div><div class="mode-card-desc" data-i18n="sm_3_d">Todos em campo 100%</div></button>
+            <button class="mode-card" type="button" data-smode="4"><div class="mode-card-title" data-i18n="sm_4">Casa 100% / Fora 5%</div><div class="mode-card-desc" data-i18n="sm_4_d">Pressão total em casa</div></button>
+            <button class="mode-card" type="button" data-smode="5"><div class="mode-card-title" data-i18n="sm_5">Fora 100% / Casa 5%</div><div class="mode-card-desc" data-i18n="sm_5_d">Pressão total visitante</div></button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" data-i18n="card_clock">Relógio da Partida</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+            <span style="color:var(--subtext);" data-i18n="clock_desc">Congelar cronômetro durante a partida</span>
+            <button class="btn" id="btn-freeze-clock" type="button" data-i18n="clock_off">Congelar: OFF</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. TRAINING & BAL -->
+      <section class="view-panel" id="view-training">
+        <div class="page-header">
+          <div>
+            <div class="page-title" data-i18n="training_bal_title">Treino & Rumo ao Estrelato (BAL)</div>
+            <div class="page-sub" data-i18n="training_bal_sub">Acelere a evolução de Sub-XP na Master League/BAL e desbloqueie o limite de 21 Pontos de Foco no BAL.</div>
           </div>
         </div>
 
@@ -559,34 +649,16 @@
         </div>
 
         <div class="card">
-          <div class="card-title" data-i18n="card_match_stam">Fôlego Seletivo em Partida</div>
-          <div class="mode-grid" id="stamina-mode-grid">
-            <button class="mode-card" type="button" data-smode="0"><div class="mode-card-title" data-i18n="sm_0">Normal</div><div class="mode-card-desc" data-i18n="sm_0_d">Desgaste padrão</div></button>
-            <button class="mode-card" type="button" data-smode="1"><div class="mode-card-title" data-i18n="sm_1">Casa 100%</div><div class="mode-card-desc" data-i18n="sm_1_d">Time da casa infinito</div></button>
-            <button class="mode-card" type="button" data-smode="2"><div class="mode-card-title" data-i18n="sm_2">Fora 100%</div><div class="mode-card-desc" data-i18n="sm_2_d">Visitante infinito</div></button>
-            <button class="mode-card" type="button" data-smode="3"><div class="mode-card-title" data-i18n="sm_3">Ambos 100%</div><div class="mode-card-desc" data-i18n="sm_3_d">Todos em campo 100%</div></button>
-            <button class="mode-card" type="button" data-smode="4"><div class="mode-card-title" data-i18n="sm_4">Casa 100% / Fora 5%</div><div class="mode-card-desc" data-i18n="sm_4_d">Pressão total em casa</div></button>
-            <button class="mode-card" type="button" data-smode="5"><div class="mode-card-title" data-i18n="sm_5">Fora 100% / Casa 5%</div><div class="mode-card-desc" data-i18n="sm_5_d">Pressão total visitante</div></button>
+          <div class="card-title">
+            <span data-i18n="card_bal">Pontos de Foco (Rumo ao Estrelato / BAL)</span>
+            <span id="bal-unsaved" style="display:none; font-size:11px; color:var(--gold);" data-i18n="lbl_unsaved">Alterações não salvas</span>
           </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title" data-i18n="card_clock">Relógio da Partida</div>
-            <div style="display:flex; align-items:center; justify-content:space-between;">
-              <span style="color:var(--subtext);" data-i18n="clock_desc">Congelar cronômetro durante a partida</span>
-              <button class="btn" id="btn-freeze-clock" type="button" data-i18n="clock_off">Congelar: OFF</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title" data-i18n="card_bal">Pontos de Foco (Rumo ao Estrelato / BAL)</div>
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-              <input class="input" type="number" id="bal-focus-inp" min="0" max="99" value="21" style="width:86px;" />
-              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--subtext);">
-                <input type="checkbox" id="bal-lock-chk" /> <span data-i18n="lbl_lock_99">Travar valor</span>
-              </label>
-              <button class="btn btn-primary" id="btn-bal-apply" type="button" data-i18n="btn_apply">Aplicar</button>
-            </div>
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <input class="input" type="number" id="bal-focus-inp" min="0" max="99" value="21" style="width:92px;" />
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--subtext);">
+              <input type="checkbox" id="bal-lock-chk" /> <span data-i18n="lbl_lock_99">Travar valor</span>
+            </label>
+            <button class="btn btn-primary" id="btn-bal-apply" type="button" data-i18n="btn_apply">Aplicar</button>
           </div>
         </div>
       </section>
@@ -610,9 +682,13 @@
 
   <!-- Command Palette Modal (Ctrl+K) -->
   <div class="modal-overlay" id="cmd-modal">
-    <div class="modal-box" style="width:480px;">
+    <div class="modal-box" style="width:490px;">
       <input class="input" id="cmd-input" data-i18n-placeholder="ph_cmd" placeholder="Digite um comando ou tela..." />
       <div class="cmd-list" id="cmd-list"></div>
+      <div class="cmd-footer">
+        <span data-i18n="cmd_nav_hint">↑↓ Navegar • ↵ Executar • Esc Fechar</span>
+        <span>PES 2021 Studio</span>
+      </div>
     </div>
   </div>
 

@@ -1,4 +1,4 @@
-/* PES 2021 Ultimate Studio - Senior Overhauled Frontend (AAA Studio + 100% PT-BR / EN) */
+/* PES 2021 Ultimate Studio - Round 2 Senior Frontend (AAA Studio + 100% PT-BR / EN) */
 
 let META = null;
 let LANG = (function () {
@@ -16,12 +16,16 @@ let CUR_IDX = (function () {
   catch (e) { return 0; }
 })();
 
+const TACTICAL_ORDER = [12, 11, 9, 10, 8, 6, 5, 7, 4, 2, 1, 3, 0];
+
 let CURRENT_VIEW = "dashboard";
 let CURRENT_PTAB = "bio";
 let LAST_STATUS = null;
+let LAST_CAREER = 0;
 let LAST_FINANCES = null;
 let LAST_PLAYER_ADDR = 0;
 let CURRENT_PLAYER = null;
+let HIGHLIGHTED_POS = null;
 let SQUAD_DATA = [];
 let SQUAD_CLUB = "";
 let SQUAD_FILTER = "all";
@@ -34,7 +38,10 @@ let ACTIVE_SCOUT_SLOT = 4;
 let FREEZE_CLOCK = false;
 let JSON_MODAL_MODE = "export";
 let IS_POLLING = false;
+let IS_SEARCHING = false;
+let IS_SQUAD_BUSY = false;
 let BAL_DIRTY = false;
+let CMD_SELECTED = 0;
 
 const api = () => (window.pywebview && window.pywebview.api) || null;
 const T = (pt, en) => (LANG === "en" ? en : pt);
@@ -58,10 +65,12 @@ const I18N = {
     nav_player: "Jogador Atual",
     nav_search: "Buscar Jogador",
     nav_scouts: "Olheiros & Favoritos",
-    nav_engine_sec: "JOGO & HOOKS",
-    nav_match: "Partida, Treino & BAL",
+    nav_engine_sec: "MOTOR & JOGO",
+    nav_match_live: "Partida Ao Vivo",
+    nav_training_bal: "Treino & BAL",
     cmd_palette_btn: "Comandos Rápidos",
     ph_cmd: "Digite um comando ou tela...",
+    cmd_nav_hint: "↑↓ Navegar • ↵ Executar • Esc Fechar",
     waiting_game: "Aguardando PES 2021...",
     disconnected: "Desconectado",
     no_player: "Nenhum atleta selecionado",
@@ -73,15 +82,23 @@ const I18N = {
     btn_undo: "Desfazer",
     btn_refresh: "Atualizar",
     btn_edit: "Editar",
+    btn_open_editor: "Abrir Editor",
     btn_reload: "Recarregar",
     btn_save: "Salvar Alterações",
     btn_apply: "Aplicar",
     btn_cancel: "Cancelar",
+    btn_clear: "Limpar",
+    btn_clear_list: "Limpar Lista",
     btn_search: "Pesquisar",
+    btn_add_fav: "+ Favoritos",
+    btn_rejuv_3: "-3 Anos",
+    btn_age_18: "Idade 18",
     btn_export_json: "Exportar JSON",
     btn_import_json: "Importar JSON",
     dash_title: "Visão Geral do Studio",
     dash_sub: "Controle em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.",
+    dash_active_player: "Atleta em Foco (Ao Vivo)",
+    match_idle: "Fora de Partida",
     lbl_club_mode: "Modo & Clube",
     lbl_transfer_budget: "Orçamento de Transferências",
     lbl_salary_avail: "Salários Disponíveis",
@@ -92,17 +109,16 @@ const I18N = {
     cmd_heal_squad: "Curar Todas Lesões",
     cmd_contract_squad: "Renovar Contratos +5 Anos",
     cmd_ovr1_squad: "+1 OVR no Elenco",
-    dash_active_hooks: "Status dos Hooks Nativos x64",
-    dash_quick_shortcuts: "Atalhos Rápidos",
-    short_player: "Editar Jogador Atual",
+    dash_active_hooks: "Status dos Recursos x64",
     short_squad: "Abrir Meu Elenco",
     short_search: "Buscar nos 30.000+ Atletas",
-    short_match: "Treino / Fôlego em Partida",
     squad_sub: "Clique em qualquer coluna para ordenar. Clique no atleta para abrir no Editor.",
     kpi_players: "Atletas",
     kpi_avg_ovr: "OVR Médio",
     kpi_avg_age: "Idade Média",
     kpi_alerts: "Lesionados / Fim Contr.",
+    kpi_wage_bill: "Folha Anual Ativa",
+    kpi_gross_cap: "Teto Salarial Bruto",
     ph_filter_name: "Filtrar nome...",
     flt_all: "Todos",
     flt_exp: "Fim de Contrato",
@@ -117,6 +133,7 @@ const I18N = {
     th_age: "IDADE",
     th_contract: "CONTRATO",
     th_salary: "SALÁRIO",
+    th_form: "FORMA",
     th_stamina: "FÔLEGO",
     th_health: "SAÚDE",
     th_club: "CLUBE",
@@ -148,14 +165,20 @@ const I18N = {
     lbl_foot: "Pé Preferido",
     lbl_contract_yr: "Fim do Contrato (Ano)",
     lbl_salary_yr: "Salário Anual (ex: 2.5M)",
+    lbl_market_val: "Valor de Mercado (ex: 30M)",
     lbl_inj_days: "Dias Lesionado (0 = OK)",
     lbl_wfu: "Uso Pé Ruim (1-4)",
     lbl_wfa: "Precisão Pé Ruim (1-4)",
     lbl_form: "Estabilidade / Forma (1-8)",
     lbl_injres: "Resistência a Lesões (1-3)",
+    lbl_transfer_listed: "Listado para Transferência",
+    lbl_loan_listed: "Listado para Empréstimo",
     stats_hint: "Ajuste qualquer atributo em tempo real. O OVR e o radar recalculam instantaneamente.",
     radar_title: "Perfil Técnico (6 Eixos)",
     pitch_title: "Mapa Tático (13 Posições)",
+    grade_a: "Grau A",
+    grade_b: "Grau B",
+    grade_c: "Grau C",
     btn_all_99: "Tudo 99",
     btn_all_90: "Tudo 90",
     btn_all_80: "Tudo 80",
@@ -171,6 +194,7 @@ const I18N = {
     btn_apply_role: "Aplicar Função de Equipe",
     srch_title: "Buscar Jogador (Base Completa)",
     srch_sub: "Pesquise instantaneamente entre todos os 30.000+ jogadores carregados na Master League.",
+    lbl_send_to: "Enviar para:",
     ph_search: "Ex: Messi, Vinicius, Endrick...",
     lbl_min_ovr: "OVR Mín.",
     lbl_max_age: "Idade Máx.",
@@ -195,8 +219,10 @@ const I18N = {
     btn_p100m_trf: "+100M Transf.",
     btn_p10m_sal: "+10M Salários",
     btn_p50m_sal: "+50M Salários",
-    match_title: "Partida, Treino & Rumo ao Estrelato",
-    match_sub: "Hooks nativos x64 ativados sob demanda e restaurados automaticamente ao fechar o app.",
+    match_live_title: "Partida Ao Vivo",
+    match_live_sub: "Controles em tempo real durante a partida (hooks x64 ativados sob demanda e restaurados ao fechar).",
+    training_bal_title: "Treino & Rumo ao Estrelato (BAL)",
+    training_bal_sub: "Acelere a evolução de Sub-XP na Master League/BAL e desbloqueie o limite de 21 Pontos de Foco no BAL.",
     card_training_xp: "Velocidade de Treino (Multiplicador Sub-XP)",
     tm_0: "Normal (1x)", tm_0_d: "Evolução padrão do jogo",
     tm_1: "Rápido (2x)", tm_1_d: "Dobro de XP por treino",
@@ -216,6 +242,7 @@ const I18N = {
     clock_off: "Congelar: OFF",
     card_bal: "Pontos de Foco (Rumo ao Estrelato / BAL)",
     lbl_lock_99: "Travar valor",
+    lbl_unsaved: "Alterações não salvas",
   },
   en: {
     nav_career: "CAREER",
@@ -226,10 +253,12 @@ const I18N = {
     nav_player: "Current Player",
     nav_search: "Search Player",
     nav_scouts: "Scouts & Shortlist",
-    nav_engine_sec: "GAME & HOOKS",
-    nav_match: "Match, Training & BAL",
+    nav_engine_sec: "ENGINE & GAME",
+    nav_match_live: "Live Match",
+    nav_training_bal: "Training & BAL",
     cmd_palette_btn: "Quick Commands",
     ph_cmd: "Type a command or view...",
+    cmd_nav_hint: "↑↓ Navigate • ↵ Run • Esc Close",
     waiting_game: "Waiting for PES 2021...",
     disconnected: "Disconnected",
     no_player: "No player selected",
@@ -241,15 +270,23 @@ const I18N = {
     btn_undo: "Undo",
     btn_refresh: "Refresh",
     btn_edit: "Edit",
+    btn_open_editor: "Open Editor",
     btn_reload: "Reload",
     btn_save: "Save Changes",
     btn_apply: "Apply",
     btn_cancel: "Cancel",
+    btn_clear: "Clear",
+    btn_clear_list: "Clear List",
     btn_search: "Search",
+    btn_add_fav: "+ Shortlist",
+    btn_rejuv_3: "-3 Years",
+    btn_age_18: "Age 18",
     btn_export_json: "Export JSON",
     btn_import_json: "Import JSON",
     dash_title: "Studio Overview",
     dash_sub: "Real-time control of Master League, Become a Legend, and Matches without Cheat Engine.",
+    dash_active_player: "Active Player (Live)",
+    match_idle: "Not in Match",
     lbl_club_mode: "Mode & Club",
     lbl_transfer_budget: "Transfer Budget",
     lbl_salary_avail: "Available Salary Budget",
@@ -260,17 +297,16 @@ const I18N = {
     cmd_heal_squad: "Heal All Injuries",
     cmd_contract_squad: "Extend Contracts +5 Years",
     cmd_ovr1_squad: "+1 OVR to Squad",
-    dash_active_hooks: "Native x64 Hooks Status",
-    dash_quick_shortcuts: "Quick Shortcuts",
-    short_player: "Edit Current Player",
+    dash_active_hooks: "Native x64 Features Status",
     short_squad: "Open My Squad",
     short_search: "Search 30,000+ Players",
-    short_match: "Training / Match Stamina",
     squad_sub: "Click any column header to sort. Click a player to open in the Editor.",
     kpi_players: "Players",
     kpi_avg_ovr: "Avg OVR",
     kpi_avg_age: "Avg Age",
     kpi_alerts: "Injured / Expiring",
+    kpi_wage_bill: "Active Annual Wages",
+    kpi_gross_cap: "Gross Salary Cap",
     ph_filter_name: "Filter by name...",
     flt_all: "All",
     flt_exp: "Expiring Contract",
@@ -285,6 +321,7 @@ const I18N = {
     th_age: "AGE",
     th_contract: "CONTRACT",
     th_salary: "SALARY",
+    th_form: "FORM",
     th_stamina: "STAMINA",
     th_health: "HEALTH",
     th_club: "CLUB",
@@ -316,14 +353,20 @@ const I18N = {
     lbl_foot: "Stronger Foot",
     lbl_contract_yr: "Contract Expiry (Year)",
     lbl_salary_yr: "Annual Salary (e.g. 2.5M)",
+    lbl_market_val: "Market Value (e.g. 30M)",
     lbl_inj_days: "Injury Days (0 = OK)",
     lbl_wfu: "Weak Foot Usage (1-4)",
     lbl_wfa: "Weak Foot Accuracy (1-4)",
     lbl_form: "Form Stability (1-8)",
     lbl_injres: "Injury Resistance (1-3)",
+    lbl_transfer_listed: "Transfer Listed",
+    lbl_loan_listed: "Loan Listed",
     stats_hint: "Adjust any attribute in real time. Overall and radar recalculate immediately.",
     radar_title: "Technical Profile (6 Axes)",
     pitch_title: "Tactical Pitch (13 Positions)",
+    grade_a: "Grade A",
+    grade_b: "Grade B",
+    grade_c: "Grade C",
     btn_all_99: "All 99",
     btn_all_90: "All 90",
     btn_all_80: "All 80",
@@ -339,6 +382,7 @@ const I18N = {
     btn_apply_role: "Apply Team Role",
     srch_title: "Search Player (Full Database)",
     srch_sub: "Instantly filter all 30,000+ players loaded in Master League.",
+    lbl_send_to: "Send to:",
     ph_search: "e.g. Messi, Vinicius, Endrick...",
     lbl_min_ovr: "Min OVR",
     lbl_max_age: "Max Age",
@@ -363,8 +407,10 @@ const I18N = {
     btn_p100m_trf: "+100M Transfer",
     btn_p10m_sal: "+10M Salary",
     btn_p50m_sal: "+50M Salary",
-    match_title: "Match, Training & Become a Legend",
-    match_sub: "Native x64 hooks activate on demand and restore cleanly when the app closes.",
+    match_live_title: "Live Match",
+    match_live_sub: "Real-time match controls (native x64 hooks activate on demand and restore cleanly on exit).",
+    training_bal_title: "Training & Become a Legend (BAL)",
+    training_bal_sub: "Accelerate Sub-XP growth in Master League/BAL and unlock the 21 Focus Points cap in BAL.",
     card_training_xp: "Training Speed (Sub-XP Multiplier)",
     tm_0: "Normal (1x)", tm_0_d: "Default game progression",
     tm_1: "Fast (2x)", tm_1_d: "Double XP per session",
@@ -384,6 +430,7 @@ const I18N = {
     clock_off: "Freeze: OFF",
     card_bal: "Focus Points (Become a Legend / BAL)",
     lbl_lock_99: "Lock value",
+    lbl_unsaved: "Unsaved changes",
   },
 };
 
@@ -398,6 +445,7 @@ function fmtCodeMsg(res) {
     case "no_career": return T("Abra uma Master League ou BAL primeiro.", "Open a Master League or BAL save first.");
     case "no_player": return tKey("no_player");
     case "nothing_to_undo": return T("Nenhuma alteração para desfazer.", "Nothing to undo.");
+    case "invalid_money": return T("Valor monetário inválido (use ex: 25M, 500k ou 1.5B).", "Invalid money amount (use e.g. 25M, 500k or 1.5B).");
     case "hook_failed": return T("Não foi possível ativar o hook x64 neste executável.", "Could not activate x64 hook on this executable.");
     case "already_at_ovr": return T(`Já está em ${res.ovr} OVR.`, `Already at ${res.ovr} OVR.`);
     case "pri_updated": return T(`OVR Principal: ${res.orig} -> ${res.final}`, `Primary OVR: ${res.orig} -> ${res.final}`);
@@ -422,7 +470,7 @@ function toast(msg, type = "ok") {
   const wrap = document.getElementById("toast-container");
   const el = document.createElement("div");
   el.className = `toast ${type}`;
-  el.textContent = msg;
+  el.innerHTML = `<span class="toast-ico">${type === "err" ? "!" : "✓"}</span><span>${escapeHtml(msg)}</span>`;
   const dismiss = () => {
     el.style.opacity = "0";
     el.style.transform = "translateY(4px)";
@@ -441,42 +489,21 @@ function fmtMoney(raw) {
   return (euros < 0 ? `-${cur.sym} ` : `${cur.sym} `) + s;
 }
 
-function fmtClub(club) {
-  return club || T("Sem Clube / Livre", "Free Agent");
-}
-
+function fmtClub(club) { return club || T("Sem Clube / Livre", "Free Agent"); }
 function fmtMode(code) {
   if (code === "ml") return "Master League";
   if (code === "bal") return T("Rumo ao Estrelato (BAL)", "Become a Legend (BAL)");
   if (code === "menu") return T("Menu / Exibição", "Menu / Exhibition");
   return tKey("waiting_game");
 }
-
 function posShort(id) {
   if (!META) return "---";
   const p = META.positions[id];
   return p ? (LANG === "en" ? p.en : p.pt) : "---";
 }
-
-function posClass(id) {
-  if (id === 0) return "pos-gk";
-  if (id <= 3) return "pos-def";
-  if (id <= 8) return "pos-mid";
-  return "pos-att";
-}
-
-function ovrClass(ovr) {
-  if (ovr >= 90) return "ovr-90";
-  if (ovr >= 80) return "ovr-80";
-  if (ovr >= 70) return "ovr-70";
-  return "ovr-low";
-}
-
-function stamColor(v) {
-  if (v >= 85) return "#10b981";
-  if (v >= 65) return "#f59e0b";
-  return "#ef4444";
-}
+function posClass(id) { return id === 0 ? "pos-gk" : id <= 3 ? "pos-def" : id <= 8 ? "pos-mid" : "pos-att"; }
+function ovrClass(ovr) { return ovr >= 90 ? "ovr-90" : ovr >= 80 ? "ovr-80" : ovr >= 70 ? "ovr-70" : "ovr-low"; }
+function stamColor(v) { return v >= 85 ? "#10b981" : v >= 65 ? "#f59e0b" : "#ef4444"; }
 
 const ARROW_ICONS = [
   { ico: "⬇", col: "#f87171" },
@@ -516,6 +543,16 @@ function populateLocalizedSelects() {
   spEl.innerHTML = `<option value="-1">${escapeHtml(T("Todas", "All"))}</option>` +
     META.positions.map(p => `<option value="${p.id}">${escapeHtml(LANG === "en" ? `${p.en} (${p.name_en})` : `${p.pt} (${p.name_pt})`)}</option>`).join("");
   spEl.value = curSp;
+
+  const scSel = document.getElementById("srch-target-scout");
+  const curSc = scSel.value || "4";
+  scSel.innerHTML = [
+    `<option value="4">${escapeHtml(tKey("scout_shortlist"))}</option>`,
+    `<option value="1">${escapeHtml(tKey("scout_1"))}</option>`,
+    `<option value="2">${escapeHtml(tKey("scout_2"))}</option>`,
+    `<option value="3">${escapeHtml(tKey("scout_3"))}</option>`,
+  ].join("");
+  scSel.value = curSc;
 }
 
 function updateCurrencyBtn() {
@@ -573,7 +610,7 @@ function switchPlayerTab(tabName) {
 }
 
 // -------------------------------------------------------------------
-// LIVE POLLING (with in-flight lock & zero stale state)
+// LIVE POLLING
 // -------------------------------------------------------------------
 async function pollStatus() {
   if (!api() || IS_POLLING) return;
@@ -589,6 +626,12 @@ async function pollStatus() {
 }
 
 function renderStatus(st) {
+  if (st.career !== LAST_CAREER) {
+    LAST_CAREER = st.career || 0;
+    BAL_DIRTY = false;
+    document.getElementById("bal-unsaved").style.display = "none";
+  }
+
   const connPill = document.getElementById("conn-pill");
   const connText = document.getElementById("conn-text");
   if (st.attached) {
@@ -596,10 +639,18 @@ function renderStatus(st) {
     connText.textContent = `${st.exe} (${st.pid})`;
   } else {
     connPill.classList.remove("online");
-    connText.textContent = st.access_denied
-      ? T("Execute como Admin", "Run as Admin")
-      : tKey("waiting_game");
+    connText.textContent = st.access_denied ? T("Execute como Admin", "Run as Admin") : tKey("waiting_game");
   }
+
+  // Live Match Badges (Dashboard + Match View)
+  const inMatch = !!st.in_match;
+  const mText = inMatch ? T("EM PARTIDA", "IN MATCH") : tKey("match_idle");
+  [["dash-match-badge", "dash-match-text"], ["match-view-badge", "match-view-badge-text"]].forEach(([bId, tId]) => {
+    const bEl = document.getElementById(bId);
+    const tEl = document.getElementById(tId);
+    if (bEl) bEl.classList.toggle("in-match", inMatch);
+    if (tEl) tEl.textContent = mText;
+  });
 
   const modeLabel = fmtMode(st.mode_code);
   document.getElementById("side-mode-text").textContent = modeLabel;
@@ -609,32 +660,32 @@ function renderStatus(st) {
 
   if (st.finances) {
     document.getElementById("dash-transfer").textContent = fmtMoney(st.finances.transfer_raw);
-    document.getElementById("dash-salary").textContent = fmtMoney(st.finances.salary_avail_raw);
+    const salEl = document.getElementById("dash-salary");
+    salEl.textContent = fmtMoney(st.finances.salary_avail_raw);
+    salEl.style.color = st.finances.salary_avail_raw < 0 ? "var(--red)" : "var(--gold)";
   } else {
     document.getElementById("dash-transfer").textContent = fmtMoney(0);
     document.getElementById("dash-salary").textContent = fmtMoney(0);
   }
 
-  // Hooks status
+  // Honest feature status (only ACTIVE when the feature is actually enabled!)
   const hooksEl = document.getElementById("dash-hooks-list");
   if (hooksEl) {
     const hk = st.hooks || {};
     const items = [
-      [1, T("Captura Automática de Jogador", "Auto Player Capture")],
-      [3, T("Multiplicador de Treino (XP)", "Training XP Multiplier")],
-      [4, T("Desbloqueio de Foco BAL (21->99)", "BAL Focus Cap Unlock")],
-      [5, T("HUD & Relógio da Partida", "Match HUD & Clock Freeze")],
-      [6, T("Fôlego Seletivo em Partida", "Selective Match Stamina")],
+      [!!hk[1], T("Captura Automática de Jogador", "Auto Player Capture")],
+      [!!hk[3] && Number(st.training_mode || 0) > 0, T("Multiplicador de Treino (XP)", "Training XP Multiplier")],
+      [!!hk[4] && (!!st.bal_lock || Number(st.bal_focus || 0) > 21), T("Desbloqueio de Foco BAL (21->99)", "BAL Focus Cap Unlock")],
+      [!!hk[5] && !!st.freeze_clock, T("Relógio Congelado na Partida", "Match Clock Freeze")],
+      [!!hk[6] && Number(st.stamina_mode || 0) > 0, T("Fôlego Seletivo em Partida", "Selective Match Stamina")],
     ];
     const onLbl = T("ATIVO", "ACTIVE");
     const offLbl = T("Em espera", "Standby");
-    hooksEl.innerHTML = items.map(([num, label]) => {
-      const on = !!hk[num];
-      return `<div style="display:flex; justify-content:space-between; align-items:center;">
+    hooksEl.innerHTML = items.map(([on, label]) => `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
         <span style="color:var(--subtext);">${escapeHtml(label)}</span>
         <span class="${on ? "pill-ok" : ""}" style="${on ? "" : "color:var(--muted); font-size:11px;"}">${escapeHtml(on ? onLbl : offLbl)}</span>
-      </div>`;
-    }).join("");
+      </div>`).join("");
   }
 
   // Sync Match/Training/BAL controls
@@ -657,7 +708,7 @@ function renderStatus(st) {
     if (balChk && document.activeElement !== balChk) balChk.checked = !!st.bal_lock;
   }
 
-  // Top Active Player Pill + Auto-Sync + Clean Reset when deselected
+  // Topbar + Dashboard Active Player Quick Card
   const p = st.player;
   const undoBtn = document.getElementById("btn-undo");
   if (p) {
@@ -670,27 +721,39 @@ function renderStatus(st) {
     document.getElementById("top-p-name").textContent = p.name;
     const arr = ARROW_ICONS[p.arrow] || ARROW_ICONS[2];
     const ageUnit = T("a", "y");
-    document.getElementById("top-p-meta").innerHTML =
-      `${escapeHtml(fmtClub(p.club))} • ${p.age}${ageUnit} • ${p.stamina}% <span style="color:${arr.col}; font-weight:700;">${arr.ico}</span>`;
+    const metaHtml = `${escapeHtml(fmtClub(p.club))} • ${p.age}${ageUnit} • ${p.stamina}% <span style="color:${arr.col}; font-weight:700;">${arr.ico}</span>`;
+    document.getElementById("top-p-meta").innerHTML = metaHtml;
+
+    const dpOvr = document.getElementById("dp-ovr");
+    dpOvr.textContent = p.ovr;
+    dpOvr.className = `ovr-badge ${ovrClass(p.ovr)}`;
+    document.getElementById("dp-name").textContent = `${p.name} (${posShort(p.pos)})`;
+    document.getElementById("dp-meta").innerHTML = metaHtml;
+    document.getElementById("btn-dp-heal").disabled = (p.injury || 0) === 0;
+
     const uCnt = p.undo_count || 0;
     document.getElementById("undo-badge").textContent = `(${uCnt})`;
     undoBtn.disabled = uCnt === 0;
 
     if (p.addr !== LAST_PLAYER_ADDR) {
       LAST_PLAYER_ADDR = p.addr;
+      HIGHLIGHTED_POS = null;
       if (CURRENT_VIEW === "player") loadPlayerDetails(p.addr);
     }
   } else {
     LAST_PLAYER_ADDR = 0;
     CURRENT_PLAYER = null;
-    const ovrEl = document.getElementById("top-p-ovr");
-    ovrEl.textContent = "--";
-    ovrEl.className = "ovr-badge ovr-low";
-    const posEl = document.getElementById("top-p-pos");
-    posEl.textContent = "---";
-    posEl.className = "pos-chip pos-mid";
+    HIGHLIGHTED_POS = null;
+    document.getElementById("top-p-ovr").textContent = "--";
+    document.getElementById("top-p-ovr").className = "ovr-badge ovr-low";
+    document.getElementById("top-p-pos").textContent = "---";
+    document.getElementById("top-p-pos").className = "pos-chip pos-mid";
     document.getElementById("top-p-name").textContent = tKey("no_player");
     document.getElementById("top-p-meta").textContent = tKey("no_player_sub");
+    document.getElementById("dp-ovr").textContent = "--";
+    document.getElementById("dp-ovr").className = "ovr-badge ovr-low";
+    document.getElementById("dp-name").textContent = tKey("no_player");
+    document.getElementById("dp-meta").textContent = "---";
     document.getElementById("undo-badge").textContent = "(0)";
     undoBtn.disabled = true;
     showPlayerEmptyState(true);
@@ -727,12 +790,7 @@ function pulseOvrShield() {
   el.classList.add("pulse");
 }
 
-function renderPlayerDetails(d) {
-  const scroller = document.getElementById("main-scroll");
-  const prevScroll = scroller ? scroller.scrollTop : 0;
-
-  showPlayerEmptyState(false);
-
+function updateHeroHeader(d) {
   const heroOvr = document.getElementById("p-hero-ovr");
   heroOvr.innerHTML = `${d.ovr}<small>OVR</small>`;
   heroOvr.className = `hero-shield ${ovrClass(d.ovr)}`;
@@ -745,18 +803,38 @@ function renderPlayerDetails(d) {
   const arr = ARROW_ICONS[d.arrow] || ARROW_ICONS[2];
   const footTxt = d.foot ? T("Canhoto", "Left Foot") : T("Destro", "Right Foot");
   document.getElementById("p-hero-sub").innerHTML =
-    `<span>${escapeHtml(fmtClub(d.club))}</span> • <span>ID ${d.pid}</span> • <span>${d.age}${T("a", "y")}</span> • <span>${escapeHtml(footTxt)}</span> • <span>${escapeHtml(fmtMoney(d.salary_raw))}/${T("ano", "yr")}</span> • <span style="color:${arr.col}; font-weight:700;">${arr.ico} ${d.stamina}%</span>`;
+    `<span>${escapeHtml(fmtClub(d.club))}</span> • <span>ID ${d.pid}</span> • <span>${d.age}${T("a", "y")}</span> • <span>${escapeHtml(footTxt)}</span> • <span>${escapeHtml(fmtMoney(d.market_raw))}</span> • <span>${escapeHtml(fmtMoney(d.salary_raw))}/${T("ano", "yr")}</span> • <span style="color:${arr.col}; font-weight:700;">${arr.ico} ${d.stamina}%</span>`;
 
   const uCnt = d.undo_count || 0;
   document.getElementById("undo-badge").textContent = `(${uCnt})`;
   document.getElementById("btn-undo").disabled = uCnt === 0;
+}
 
+function renderPlayerDetails(d) {
+  const scroller = document.getElementById("main-scroll");
+  const prevScroll = scroller ? scroller.scrollTop : 0;
+
+  showPlayerEmptyState(false);
+  updateHeroHeader(d);
+
+  // Quick Condition & Injury pill
   document.getElementById("inp-p-stam").value = d.stamina;
   document.getElementById("lbl-p-stam").textContent = `${d.stamina}%`;
+  const injPill = document.getElementById("p-inj-pill");
+  if (d.injury > 0) {
+    injPill.className = "pill-inj";
+    injPill.textContent = `${d.injury}d`;
+    document.getElementById("btn-p-heal").disabled = false;
+  } else {
+    injPill.className = "pill-ok";
+    injPill.textContent = "OK";
+    document.getElementById("btn-p-heal").disabled = true;
+  }
   document.querySelectorAll("#p-arrow-group .arrow-btn").forEach(b => {
     b.classList.toggle("active", Number(b.dataset.arrow) === Number(d.arrow));
   });
 
+  // Bio
   document.getElementById("bio-name").value = d.name;
   document.getElementById("bio-shirt").value = d.shirt;
   document.getElementById("bio-nat").value = String(d.nationality);
@@ -766,11 +844,14 @@ function renderPlayerDetails(d) {
   document.getElementById("bio-foot").value = String(d.foot);
   document.getElementById("bio-contract").value = d.contract_yr;
   document.getElementById("bio-salary").value = fmtMoney(d.salary_raw);
+  document.getElementById("bio-market").value = fmtMoney(d.market_raw);
   document.getElementById("bio-injury").value = d.injury;
   document.getElementById("bio-wfu").value = d.wf_usage;
   document.getElementById("bio-wfa").value = d.wf_acc;
   document.getElementById("bio-form").value = d.form_cons;
   document.getElementById("bio-injres").value = d.inj_res;
+  document.getElementById("bio-tlist").checked = !!d.transfer_listed;
+  document.getElementById("bio-llist").checked = !!d.loan_listed;
 
   renderStatsRadar(d.stats);
   renderStatsGroups(d);
@@ -784,17 +865,17 @@ function renderPlayerDetails(d) {
 }
 
 // -------------------------------------------------------------------
-// LIVE 6-AXIS SVG ATTRIBUTE RADAR
+// LIVE 6-AXIS SVG RADAR (100% Localized PT-BR / EN)
 // -------------------------------------------------------------------
 function computeRadarAxes(stats) {
   const avg = fids => Math.round(fids.reduce((s, f) => s + Number(stats[String(f)] || 40), 0) / fids.length);
   return [
-    { key: "ATK", val: avg([14, 20, 23, 26, 27]) },
-    { key: "DRI", val: avg([17, 18, 19]) },
-    { key: "PAS", val: avg([21, 22]) },
-    { key: "PHY", val: avg([33, 34, 35, 36, 37, 38, 39]) },
-    { key: "DEF", val: avg([15, 24, 25]) },
-    { key: "GL",  val: avg([16, 28, 29, 30, 31]) },
+    { lbl: T("ATQ", "ATK"), val: avg([14, 20, 23, 26, 27]) },
+    { lbl: "DRI",           val: avg([17, 18, 19]) },
+    { lbl: "PAS",           val: avg([21, 22]) },
+    { lbl: T("FIS", "PHY"), val: avg([33, 34, 35, 36, 37, 38, 39]) },
+    { lbl: "DEF",           val: avg([15, 24, 25]) },
+    { lbl: T("GL", "GK"),   val: avg([16, 28, 29, 30, 31]) },
   ];
 }
 
@@ -823,21 +904,17 @@ function renderStatsRadar(stats) {
   }).join("");
   const labels = axes.map((ax, i) => {
     const [x, y] = pt(i, 1.19);
-    const lbl = (ax.key === "GL" && LANG === "en") ? "GK" : ax.key;
-    return `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-weight="700">${lbl}</text>`;
+    return `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-weight="700">${escapeHtml(ax.lbl)}</text>`;
   }).join("");
 
   svg.innerHTML = `${rings}${spokes}
     <polygon points="${polyPts}" fill="rgba(59,130,246,0.28)" stroke="#3b82f6" stroke-width="2"/>
     ${dots}${labels}`;
 
-  leg.innerHTML = axes.map(ax => {
-    const lbl = (ax.key === "GL" && LANG === "en") ? "GK" : ax.key;
-    return `<div style="background:#0b111e; border:1px solid var(--border); border-radius:6px; padding:4px 6px;">
-      <div style="color:var(--muted); font-size:10px; font-weight:700;">${lbl}</div>
+  leg.innerHTML = axes.map(ax => `<div style="background:#0b111e; border:1px solid var(--border); border-radius:6px; padding:4px 6px;">
+      <div style="color:var(--muted); font-size:10px; font-weight:700;">${escapeHtml(ax.lbl)}</div>
       <div class="num" style="font-weight:800; font-size:13px;">${ax.val}</div>
-    </div>`;
-  }).join("");
+    </div>`).join("");
 }
 
 function renderStatsGroups(d) {
@@ -855,13 +932,13 @@ function renderStatsGroups(d) {
     const rows = defs.map(s => {
       const val = d.stats[String(s.fid)] || 40;
       const lbl = LANG === "en" ? s.en : s.pt;
-      return `<div class="stat-row">
+      return `<div class="stat-row" data-stat-row="${s.fid}">
         <span style="font-size:12px; color:var(--subtext);">${escapeHtml(lbl)}</span>
         <input type="range" min="40" max="99" value="${val}" data-stat-fid="${s.fid}" />
-        <span class="ovr-badge ${ovrClass(val)}" style="min-width:36px; height:22px; font-size:11.5px;">${val}</span>
+        <span class="ovr-badge ${ovrClass(val)}" data-stat-badge="${s.fid}" style="min-width:36px; height:22px; font-size:11.5px;">${val}</span>
         <div style="display:flex; gap:3px;">
-          <button class="btn btn-xs" type="button" data-stat-step="${s.fid}" data-stat-val="${Math.max(40, val - 1)}">-</button>
-          <button class="btn btn-xs" type="button" data-stat-step="${s.fid}" data-stat-val="${Math.min(99, val + 1)}">+</button>
+          <button class="btn btn-xs" type="button" data-stat-dec="${s.fid}">-</button>
+          <button class="btn btn-xs" type="button" data-stat-inc="${s.fid}">+</button>
         </div>
       </div>`;
     }).join("");
@@ -869,13 +946,23 @@ function renderStatsGroups(d) {
   }).join("");
 }
 
+// In-place stat update: preserves slider/button keyboard focus & zero DOM flicker!
 async function onStatChange(fid, val) {
   if (!api()) return;
-  const res = await api().set_player_stat(Number(fid), Number(val));
+  const clamped = Math.max(40, Math.min(99, Number(val)));
+  const res = await api().set_player_stat(Number(fid), clamped);
   if (res && res.ok) {
     const ovrChanged = CURRENT_PLAYER && res.ovr !== CURRENT_PLAYER.ovr;
     CURRENT_PLAYER = res;
-    renderPlayerDetails(res);
+    const newVal = res.stats[String(fid)] || clamped;
+    const inp = document.querySelector(`input[data-stat-fid="${fid}"]`);
+    if (inp) inp.value = String(newVal);
+    const badge = document.querySelector(`[data-stat-badge="${fid}"]`);
+    if (badge) { badge.textContent = String(newVal); badge.className = `ovr-badge ${ovrClass(newVal)}`; }
+    updateHeroHeader(res);
+    renderStatsRadar(res.stats);
+    renderPositionPitch(res);
+    renderPositionLab(res);
     if (ovrChanged) pulseOvrShield();
   } else {
     toast(fmtCodeMsg(res), "err");
@@ -893,9 +980,7 @@ async function presetStats(val) {
     renderPlayerDetails(res);
     pulseOvrShield();
     toast(T(`Atributos definidos para ${val}`, `Attributes set to ${val}`));
-  } else {
-    toast(fmtCodeMsg(res), "err");
-  }
+  } else toast(fmtCodeMsg(res), "err");
 }
 
 async function shiftAllStats(delta) {
@@ -914,28 +999,16 @@ async function shiftAllStats(delta) {
     renderPlayerDetails(res);
     pulseOvrShield();
     toast(T(`+${delta} aplicado em todos os atributos`, `+${delta} applied to all attributes`));
-  } else {
-    toast(fmtCodeMsg(res), "err");
-  }
+  } else toast(fmtCodeMsg(res), "err");
 }
 
 // -------------------------------------------------------------------
-// INTERACTIVE TACTICAL MINI-PITCH + POSITION LAB
+// INTERACTIVE TACTICAL MINI-PITCH + STABLE POSITION LAB
 // -------------------------------------------------------------------
 const PITCH_COORDS = {
-  12: [110, 34],   // CF
-  11: [110, 74],   // SS
-  9:  [44, 62],    // LWF
-  10: [176, 62],   // RWF
-  8:  [110, 114],  // AMF
-  6:  [40, 146],   // LMF
-  5:  [110, 154],  // CMF
-  7:  [180, 146],  // RMF
-  4:  [110, 194],  // DMF
-  2:  [40, 232],   // LB
-  1:  [110, 240],  // CB
-  3:  [180, 232],  // RB
-  0:  [110, 286],  // GK
+  12: [110, 34], 11: [110, 74], 9: [44, 62], 10: [176, 62],
+  8: [110, 114], 6: [40, 146], 5: [110, 154], 7: [180, 146],
+  4: [110, 194], 2: [40, 232], 1: [110, 240], 3: [180, 232], 0: [110, 286],
 };
 
 function renderPositionPitch(d) {
@@ -951,9 +1024,10 @@ function renderPositionPitch(d) {
   const nodes = d.positions.map(pos => {
     const [x, y] = PITCH_COORDS[pos.id] || [110, 160];
     const fill = pos.is_reg ? "#2563eb" : (pos.apt === 2 ? "#059669" : (pos.apt === 1 ? "#b45309" : "#1e293b"));
-    const stroke = pos.is_reg ? "#93c5fd" : (pos.apt === 2 ? "#34d399" : (pos.apt === 1 ? "#fbbf24" : "#475569"));
+    const stroke = (HIGHLIGHTED_POS === pos.id) ? "#ffffff" : (pos.is_reg ? "#93c5fd" : (pos.apt === 2 ? "#34d399" : (pos.apt === 1 ? "#fbbf24" : "#475569")));
+    const sw = (HIGHLIGHTED_POS === pos.id || pos.is_reg) ? 2.2 : 1.2;
     return `<g class="pitch-node" data-pitch-pos="${pos.id}" transform="translate(${x},${y})">
-      <rect x="-23" y="-14" width="46" height="28" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="${pos.is_reg ? 2 : 1.2}"/>
+      <rect x="-23" y="-14" width="46" height="28" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
       <text y="-2" text-anchor="middle" fill="#f8fafc" font-size="9" font-weight="800">${escapeHtml(posShort(pos.id))}</text>
       <text y="10" text-anchor="middle" fill="#e2e8f0" font-size="10.5" font-weight="900">${pos.ovr}</text>
     </g>`;
@@ -963,21 +1037,26 @@ function renderPositionPitch(d) {
 
 function renderPositionLab(d) {
   const tbody = document.getElementById("poslab-tbody");
-  const sorted = [...d.positions].sort((a, b) => (b.is_reg - a.is_reg) || (b.ovr - a.ovr));
+  // Stable order: Registered Position pinned at top, then fixed tactical order (rows NEVER jump during +1/-1!)
+  const ordered = [...d.positions].sort((a, b) => {
+    if (a.is_reg !== b.is_reg) return b.is_reg - a.is_reg;
+    return TACTICAL_ORDER.indexOf(a.id) - TACTICAL_ORDER.indexOf(b.id);
+  });
   const priTag = T("PRINCIPAL", "PRIMARY");
   const matchBtn = T("Igualar Principal", "Match Primary");
   const setPriBtn = T("Tornar Principal", "Set Primary");
-  tbody.innerHTML = sorted.map(pos => {
+  tbody.innerHTML = ordered.map(pos => {
     const pMeta = META.positions[pos.id];
     const fullName = LANG === "en" ? pMeta.name_en : pMeta.name_pt;
     const regTag = pos.is_reg ? `<span class="pill-ok" style="margin-left:6px;">${escapeHtml(priTag)}</span>` : "";
-    return `<tr data-pos-row="${pos.id}">
+    const hl = HIGHLIGHTED_POS === pos.id ? " row-highlight" : "";
+    return `<tr class="${hl}" data-pos-row="${pos.id}">
       <td>
         <span class="pos-chip ${posClass(pos.id)}">${escapeHtml(posShort(pos.id))}</span>
         <span style="margin-left:8px; font-weight:600;">${escapeHtml(fullName)}</span>${regTag}
       </td>
-      <td><span class="ovr-badge ${ovrClass(pos.ovr)}">${pos.ovr}</span></td>
-      <td>
+      <td class="ctr-col"><span class="ovr-badge ${ovrClass(pos.ovr)}">${pos.ovr}</span></td>
+      <td class="ctr-col">
         <div class="seg">
           <button type="button" class="${pos.apt === 0 ? "active" : ""}" data-pos-apt="${pos.id}" data-grade="0">C</button>
           <button type="button" class="${pos.apt === 1 ? "active g-b" : ""}" data-pos-apt="${pos.id}" data-grade="1">B</button>
@@ -990,8 +1069,8 @@ function renderPositionLab(d) {
           <button class="btn btn-xs btn-primary" type="button" data-pos-step="${pos.id}" data-delta="1">+1 OVR</button>
         </div>
       </td>
-      <td>
-        <div style="display:flex; gap:6px;">
+      <td class="act-col">
+        <div style="display:flex; gap:6px; justify-content:flex-end;">
           ${pos.is_reg ? "" : `<button class="btn btn-xs btn-gold" type="button" data-pos-match="${pos.id}">${escapeHtml(matchBtn)}</button>`}
           ${pos.is_reg ? "" : `<button class="btn btn-xs" type="button" data-pos-reg="${pos.id}">${escapeHtml(setPriBtn)}</button>`}
         </div>
@@ -1008,7 +1087,11 @@ function renderSkillsAndStyle(d) {
     if (on) skCount++;
     return `<button class="skill-chip ${on ? "on" : ""}" type="button" data-skill-key="${escapeHtml(s.key)}" data-skill-next="${on ? "0" : "1"}">${escapeHtml(LANG === "en" ? s.en : s.pt)}</button>`;
   }).join("");
-  document.getElementById("skills-count").textContent = `${skCount} / 10`;
+  const skEl = document.getElementById("skills-count");
+  skEl.textContent = skCount > 10
+    ? `${skCount} / 10 (${T("acima do limite padrão", "above default cap")})`
+    : `${skCount} / 10`;
+  skEl.style.color = skCount > 10 ? "var(--gold)" : "var(--green)";
 
   let aiCount = 0;
   document.getElementById("p-comai-grid").innerHTML = META.com_ai.map(s => {
@@ -1020,7 +1103,7 @@ function renderSkillsAndStyle(d) {
 }
 
 // -------------------------------------------------------------------
-// SORT ARROWS HELPER
+// SORT HELPERS
 // -------------------------------------------------------------------
 function updateSortIndicators(tableId, attrName, state) {
   document.querySelectorAll(`#${tableId} thead th[${attrName}]`).forEach(th => {
@@ -1037,8 +1120,7 @@ function updateSortIndicators(tableId, attrName, state) {
 }
 
 function safeCompare(a, b, col, dir) {
-  const va = a[col];
-  const vb = b[col];
+  const va = a[col], vb = b[col];
   if (typeof va === "string" || typeof vb === "string") {
     return String(va || "").localeCompare(String(vb || "")) * dir;
   }
@@ -1046,7 +1128,7 @@ function safeCompare(a, b, col, dir) {
 }
 
 // -------------------------------------------------------------------
-// SQUAD ROSTER + KPI STRIP
+// SQUAD ROSTER + KPI STRIP + FILTER COUNTS + PER-ROW QUICK ACTIONS
 // -------------------------------------------------------------------
 async function loadSquad() {
   if (!api()) return;
@@ -1066,16 +1148,19 @@ function renderSquadTable() {
   document.getElementById("squad-title").textContent =
     `${tKey("nav_squad")}${SQUAD_CLUB ? ` - ${SQUAD_CLUB}` : ""} (${SQUAD_DATA.length})`;
 
-  // KPI strip
   const n = SQUAD_DATA.length;
+  const expC = SQUAD_DATA.filter(p => p.is_expiring).length;
+  const injC = SQUAD_DATA.filter(p => p.injury > 0).length;
+  const u23C = SQUAD_DATA.filter(p => p.age <= 23).length;
+  document.getElementById("cnt-all").textContent = String(n);
+  document.getElementById("cnt-exp").textContent = String(expC);
+  document.getElementById("cnt-inj").textContent = String(injC);
+  document.getElementById("cnt-u23").textContent = String(u23C);
+
   document.getElementById("squad-kpi-count").textContent = String(n);
   if (n > 0) {
-    const avgOvr = (SQUAD_DATA.reduce((s, p) => s + p.ovr, 0) / n).toFixed(1);
-    const avgAge = (SQUAD_DATA.reduce((s, p) => s + p.age, 0) / n).toFixed(1);
-    const injC = SQUAD_DATA.filter(p => p.injury > 0).length;
-    const expC = SQUAD_DATA.filter(p => p.is_expiring).length;
-    document.getElementById("squad-kpi-ovr").textContent = avgOvr;
-    document.getElementById("squad-kpi-age").textContent = `${avgAge}${T("a", "y")}`;
+    document.getElementById("squad-kpi-ovr").textContent = (SQUAD_DATA.reduce((s, p) => s + p.ovr, 0) / n).toFixed(1);
+    document.getElementById("squad-kpi-age").textContent = `${(SQUAD_DATA.reduce((s, p) => s + p.age, 0) / n).toFixed(1)}${T("a", "y")}`;
     document.getElementById("squad-kpi-alerts").textContent = `${injC} / ${expC}`;
   } else {
     document.getElementById("squad-kpi-ovr").textContent = "--";
@@ -1093,33 +1178,39 @@ function renderSquadTable() {
     if (q && !p.name.toLowerCase().includes(q)) return false;
     return true;
   });
-  const dir = SQUAD_SORT.asc ? 1 : -1;
-  rows.sort((a, b) => safeCompare(a, b, SQUAD_SORT.col, dir));
+  rows.sort((a, b) => safeCompare(a, b, SQUAD_SORT.col, SQUAD_SORT.asc ? 1 : -1));
 
   const tbody = document.getElementById("squad-tbody");
   if (!rows.length) {
-    const msg = SQUAD_DATA.length
-      ? T("Nenhum jogador encontrado com este filtro.", "No players match this filter.")
-      : tKey("empty_squad");
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${escapeHtml(msg)}</td></tr>`;
+    const msg = SQUAD_DATA.length ? T("Nenhum jogador encontrado com este filtro.", "No players match this filter.") : tKey("empty_squad");
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">${escapeHtml(msg)}</td></tr>`;
     return;
   }
   const ageUnit = T("a", "y");
-  tbody.innerHTML = rows.map(p => `<tr class="clickable" data-open-player="${p.addr}">
-    <td><span class="ovr-badge ${ovrClass(p.ovr)}">${p.ovr}</span></td>
-    <td><span class="pos-chip ${posClass(p.pos)}">${escapeHtml(posShort(p.pos))}</span></td>
-    <td style="font-weight:600;">${escapeHtml(p.name)}</td>
-    <td>${p.age}${ageUnit}</td>
-    <td style="color:${p.is_expiring ? "var(--gold)" : "var(--subtext)"};">${p.exp_y || "-"}</td>
-    <td>${escapeHtml(fmtMoney(p.salary_raw))}</td>
-    <td>
-      <div class="stam-bar-wrap">
-        <div class="stam-bar"><div class="stam-fill" style="width:${p.stamina}%; background:${stamColor(p.stamina)};"></div></div>
-        <span style="font-size:11.5px; color:var(--subtext);">${p.stamina}%</span>
-      </div>
-    </td>
-    <td>${p.injury > 0 ? `<span class="pill-inj">${p.injury}d</span>` : `<span class="pill-ok">OK</span>`}</td>
-  </tr>`).join("");
+  const healLbl = T("Curar", "Heal");
+  tbody.innerHTML = rows.map(p => {
+    const arr = ARROW_ICONS[p.arrow] || ARROW_ICONS[2];
+    const quickBtn = p.injury > 0
+      ? `<button class="btn btn-xs btn-green" type="button" data-sq-heal="${p.addr}">${escapeHtml(healLbl)}</button>`
+      : (p.stamina < 100 ? `<button class="btn btn-xs btn-green" type="button" data-sq-stam="${p.addr}">100%</button>` : "");
+    return `<tr class="clickable" data-open-player="${p.addr}">
+      <td class="ctr-col"><span class="ovr-badge ${ovrClass(p.ovr)}">${p.ovr}</span></td>
+      <td class="ctr-col"><span class="pos-chip ${posClass(p.pos)}">${escapeHtml(posShort(p.pos))}</span></td>
+      <td style="font-weight:600;">${escapeHtml(p.name)}</td>
+      <td class="num-col">${p.age}${ageUnit}</td>
+      <td class="num-col" style="color:${p.is_expiring ? "var(--gold)" : "var(--subtext)"};">${p.exp_y || "-"}</td>
+      <td class="num-col">${escapeHtml(fmtMoney(p.salary_raw))}</td>
+      <td class="ctr-col" style="font-size:15px; color:${arr.col}; font-weight:800;">${arr.ico}</td>
+      <td>
+        <div class="stam-bar-wrap">
+          <div class="stam-bar"><div class="stam-fill" style="width:${p.stamina}%; background:${stamColor(p.stamina)};"></div></div>
+          <span style="font-size:11.5px; color:var(--subtext);">${p.stamina}%</span>
+        </div>
+      </td>
+      <td class="ctr-col">${p.injury > 0 ? `<span class="pill-inj">${p.injury}d</span>` : `<span class="pill-ok">OK</span>`}</td>
+      <td class="act-col">${quickBtn}</td>
+    </tr>`;
+  }).join("");
 }
 
 async function openPlayerInStudio(addr) {
@@ -1129,45 +1220,59 @@ async function openPlayerInStudio(addr) {
   if (d && d.ok) {
     CURRENT_PLAYER = d;
     LAST_PLAYER_ADDR = d.addr;
+    HIGHLIGHTED_POS = null;
     showPlayerEmptyState(false);
     renderPlayerDetails(d);
   }
 }
 
 async function runSquadCmd(mode) {
-  if (!api()) return;
-  const res = await api().run_squad_commander(mode);
-  if (res && res.ok) {
-    toast(T(`Aplicado a ${res.count} atletas do elenco!`, `Applied to ${res.count} squad players!`));
-    if (CURRENT_VIEW === "squad") loadSquad();
-    if (CURRENT_VIEW === "player") loadPlayerDetails();
-  } else {
-    toast(fmtCodeMsg(res), "err");
+  if (!api() || IS_SQUAD_BUSY) return;
+  IS_SQUAD_BUSY = true;
+  try {
+    const res = await api().run_squad_commander(mode);
+    if (res && res.ok) {
+      toast(T(`Aplicado a ${res.count} atletas do elenco!`, `Applied to ${res.count} squad players!`));
+      if (CURRENT_VIEW === "squad") loadSquad();
+      if (CURRENT_VIEW === "player") loadPlayerDetails();
+    } else {
+      toast(fmtCodeMsg(res), "err");
+    }
+  } finally {
+    IS_SQUAD_BUSY = false;
   }
 }
 
 // -------------------------------------------------------------------
-// GLOBAL 30K+ SEARCH (Sortable)
+// GLOBAL 30K+ SEARCH (Contract Expiry + Target Scout Selector)
 // -------------------------------------------------------------------
 async function doSearch() {
-  if (!api()) return;
+  if (!api() || IS_SEARCHING) return;
+  IS_SEARCHING = true;
+  const btn = document.getElementById("btn-do-search");
+  btn.disabled = true;
   const q = document.getElementById("srch-query").value;
   const pos = Number(document.getElementById("srch-pos").value);
   const ovr = Number(document.getElementById("srch-ovr").value || 0);
   const age = Number(document.getElementById("srch-age").value || 99);
   const free = document.getElementById("srch-free").checked;
   const tbody = document.getElementById("search-tbody");
-  tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${escapeHtml(T("Pesquisando base...", "Searching database..."))}</td></tr>`;
-  const res = await api().search_players(q, pos, ovr, age, free);
-  if (!res || !res.ok) {
-    SEARCH_DATA = [];
-    SEARCH_TOTAL = 0;
-    toast(fmtCodeMsg(res), "err");
-  } else {
-    SEARCH_DATA = res.players || [];
-    SEARCH_TOTAL = res.total || 0;
+  tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${escapeHtml(T("Pesquisando base...", "Searching database..."))}</td></tr>`;
+  try {
+    const res = await api().search_players(q, pos, ovr, age, free);
+    if (!res || !res.ok) {
+      SEARCH_DATA = [];
+      SEARCH_TOTAL = 0;
+      toast(fmtCodeMsg(res), "err");
+    } else {
+      SEARCH_DATA = res.players || [];
+      SEARCH_TOTAL = res.total || 0;
+    }
+    renderSearchTable();
+  } finally {
+    IS_SEARCHING = false;
+    btn.disabled = false;
   }
-  renderSearchTable();
 }
 
 function renderSearchTable() {
@@ -1176,7 +1281,7 @@ function renderSearchTable() {
   const sub = document.getElementById("srch-sub");
   if (!SEARCH_DATA.length) {
     sub.textContent = tKey("srch_sub");
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${escapeHtml(tKey("empty_search"))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">${escapeHtml(tKey("empty_search"))}</td></tr>`;
     return;
   }
   sub.textContent = T(
@@ -1184,29 +1289,29 @@ function renderSearchTable() {
     `Showing ${SEARCH_DATA.length} of ${SEARCH_TOTAL} matching players.`
   );
   const rows = [...SEARCH_DATA];
-  const dir = SEARCH_SORT.asc ? 1 : -1;
-  rows.sort((a, b) => safeCompare(a, b, SEARCH_SORT.col, dir));
+  rows.sort((a, b) => safeCompare(a, b, SEARCH_SORT.col, SEARCH_SORT.asc ? 1 : -1));
   const ageUnit = T("a", "y");
   const editLbl = T("Editar", "Edit");
-  const favLbl = T("+ Favoritos", "+ Shortlist");
+  const addLbl = T("+ Lista", "+ List");
   tbody.innerHTML = rows.map(p => `<tr>
-    <td><span class="ovr-badge ${ovrClass(p.ovr)}">${p.ovr}</span></td>
-    <td><span class="pos-chip ${posClass(p.pos)}">${escapeHtml(posShort(p.pos))}</span></td>
+    <td class="ctr-col"><span class="ovr-badge ${ovrClass(p.ovr)}">${p.ovr}</span></td>
+    <td class="ctr-col"><span class="pos-chip ${posClass(p.pos)}">${escapeHtml(posShort(p.pos))}</span></td>
     <td style="font-weight:600;">${escapeHtml(p.name)}</td>
-    <td>${p.age}${ageUnit}</td>
+    <td class="num-col">${p.age}${ageUnit}</td>
     <td style="color:var(--subtext);">${escapeHtml(fmtClub(p.club))}</td>
-    <td>${escapeHtml(fmtMoney(p.salary_raw))}</td>
-    <td>
-      <div style="display:flex; gap:6px;">
+    <td class="num-col" style="color:var(--subtext);">${p.exp_y || "-"}</td>
+    <td class="num-col">${escapeHtml(fmtMoney(p.salary_raw))}</td>
+    <td class="act-col">
+      <div style="display:flex; gap:6px; justify-content:flex-end;">
         <button class="btn btn-xs btn-primary" type="button" data-open-player="${p.addr}">${escapeHtml(editLbl)}</button>
-        <button class="btn btn-xs btn-green" type="button" data-add-scout-addr="${p.addr}">${escapeHtml(favLbl)}</button>
+        <button class="btn btn-xs btn-green" type="button" data-add-scout-addr="${p.addr}">${escapeHtml(addLbl)}</button>
       </div>
     </td>
   </tr>`).join("");
 }
 
 // -------------------------------------------------------------------
-// SCOUTS & SHORTLIST
+// SCOUTS & SHORTLIST (Live Capacity Counters + Clear List)
 // -------------------------------------------------------------------
 async function loadScouts() {
   if (!api()) return;
@@ -1217,6 +1322,10 @@ async function loadScouts() {
     return;
   }
   SCOUT_LISTS_DATA = res.lists || [];
+  SCOUT_LISTS_DATA.forEach(sl => {
+    const el = document.getElementById(`sc-cnt-${sl.slot}`);
+    if (el) el.textContent = `${sl.entries.length}/${sl.cap}`;
+  });
   renderScoutTable();
 }
 
@@ -1232,13 +1341,13 @@ function renderScoutTable() {
   const editLbl = T("Editar", "Edit");
   const remLbl = T("Remover", "Remove");
   tbody.innerHTML = sl.entries.map(e => `<tr>
-    <td><span class="ovr-badge ${ovrClass(e.ovr)}">${e.ovr}</span></td>
-    <td><span class="pos-chip ${posClass(e.pos)}">${escapeHtml(posShort(e.pos))}</span></td>
+    <td class="ctr-col"><span class="ovr-badge ${ovrClass(e.ovr)}">${e.ovr}</span></td>
+    <td class="ctr-col"><span class="pos-chip ${posClass(e.pos)}">${escapeHtml(posShort(e.pos))}</span></td>
     <td style="font-weight:600;">${escapeHtml(e.name)}</td>
-    <td>${e.age}${ageUnit}</td>
+    <td class="num-col">${e.age}${ageUnit}</td>
     <td style="color:var(--subtext);">${escapeHtml(fmtClub(e.club))}</td>
-    <td>
-      <div style="display:flex; gap:6px;">
+    <td class="act-col">
+      <div style="display:flex; gap:6px; justify-content:flex-end;">
         <button class="btn btn-xs btn-primary" type="button" data-open-player="${e.addr}">${escapeHtml(editLbl)}</button>
         <button class="btn btn-xs btn-red" type="button" data-rem-scout-slot="${ACTIVE_SCOUT_SLOT}" data-rem-scout-handle="${escapeHtml(e.handle)}">${escapeHtml(remLbl)}</button>
       </div>
@@ -1254,7 +1363,7 @@ async function addPlayerToScout(slotNum, addr = null) {
 }
 
 // -------------------------------------------------------------------
-// FINANCES + WAGE VISUALIZER BAR
+// FINANCES (4 KPIs + Accurate Deficit Bar)
 // -------------------------------------------------------------------
 async function loadFinances() {
   if (!api()) return;
@@ -1265,18 +1374,33 @@ async function loadFinances() {
 }
 
 function renderFinances(res) {
+  document.getElementById("fin-kpi-trf").textContent = fmtMoney(res.transfer_raw);
+  const availEl = document.getElementById("fin-kpi-avail");
+  availEl.textContent = fmtMoney(res.salary_avail_raw);
+  availEl.style.color = res.salary_avail_raw < 0 ? "var(--red)" : "var(--gold)";
+  document.getElementById("fin-kpi-wages").textContent = fmtMoney(res.squad_wages_raw);
+  document.getElementById("fin-kpi-gross").textContent = fmtMoney(res.salary_gross_raw);
+
   document.getElementById("fin-transfer-inp").value = fmtMoney(res.transfer_raw);
   document.getElementById("fin-salary-inp").value = fmtMoney(res.salary_avail_raw);
   document.getElementById("fin-wage-bill").textContent =
     `${T("Folha anual do elenco", "Squad annual wage bill")}: ${fmtMoney(res.squad_wages_raw)}`;
+
   const used = Math.max(0, res.squad_wages_raw || 0);
-  const avail = Math.max(0, res.salary_avail_raw || 0);
-  const total = Math.max(1, used + avail);
-  const usedPct = Math.min(100, Math.round((used / total) * 100));
-  document.getElementById("fin-bar-used").style.width = `${usedPct}%`;
-  document.getElementById("fin-bar-free").style.width = `${100 - usedPct}%`;
-  document.getElementById("fin-bar-lbl-used").textContent = `${T("Folha ativa", "Active wages")}: ${usedPct}% (${fmtMoney(used)})`;
-  document.getElementById("fin-bar-lbl-free").textContent = `${T("Disponível", "Available")}: ${100 - usedPct}% (${fmtMoney(avail)})`;
+  const rawAvail = res.salary_avail_raw || 0;
+  if (rawAvail < 0) {
+    document.getElementById("fin-bar-used").style.width = "100%";
+    document.getElementById("fin-bar-free").style.width = "0%";
+    document.getElementById("fin-bar-lbl-used").textContent = `${T("Folha ativa", "Active wages")}: ${fmtMoney(used)}`;
+    document.getElementById("fin-bar-lbl-free").innerHTML = `<span style="color:var(--red); font-weight:700;">${escapeHtml(T("Déficit salarial", "Salary deficit"))}: ${escapeHtml(fmtMoney(rawAvail))}</span>`;
+  } else {
+    const total = Math.max(1, used + rawAvail);
+    const usedPct = Math.min(100, Math.round((used / total) * 100));
+    document.getElementById("fin-bar-used").style.width = `${usedPct}%`;
+    document.getElementById("fin-bar-free").style.width = `${100 - usedPct}%`;
+    document.getElementById("fin-bar-lbl-used").textContent = `${T("Folha ativa", "Active wages")}: ${usedPct}% (${fmtMoney(used)})`;
+    document.getElementById("fin-bar-lbl-free").textContent = `${T("Disponível", "Available")}: ${100 - usedPct}% (${fmtMoney(rawAvail)})`;
+  }
 }
 
 async function quickFinance(kind, deltaRaw) {
@@ -1287,13 +1411,11 @@ async function quickFinance(kind, deltaRaw) {
     toast(T("Orçamento atualizado!", "Budget updated!"));
     pollStatus();
     if (CURRENT_VIEW === "finances") renderFinances(res);
-  } else {
-    toast(fmtCodeMsg(res), "err");
-  }
+  } else toast(fmtCodeMsg(res), "err");
 }
 
 // -------------------------------------------------------------------
-// DARK JSON MODAL & COMMAND PALETTE (Ctrl+K)
+// DARK JSON MODAL & FULL KEYBOARD COMMAND PALETTE (Ctrl+K)
 // -------------------------------------------------------------------
 function openJsonModal(mode, initialText = "", playerName = "") {
   JSON_MODAL_MODE = mode;
@@ -1323,19 +1445,26 @@ function closeAllModals() {
 }
 
 function getCommands() {
+  const cView = T("TELA", "VIEW");
+  const cSquad = T("ELENCO", "SQUAD");
+  const cAct = T("AÇÃO", "ACTION");
   return [
-    { label: tKey("nav_overview"), cat: "VIEW", run: () => switchView("dashboard") },
-    { label: tKey("nav_squad"), cat: "VIEW", run: () => switchView("squad") },
-    { label: tKey("nav_player"), cat: "VIEW", run: () => switchView("player") },
-    { label: tKey("nav_search"), cat: "VIEW", run: () => switchView("search") },
-    { label: tKey("nav_scouts"), cat: "VIEW", run: () => switchView("scouts") },
-    { label: tKey("nav_finances"), cat: "VIEW", run: () => switchView("finances") },
-    { label: tKey("nav_match"), cat: "VIEW", run: () => switchView("match") },
-    { label: tKey("cmd_stam_squad"), cat: "SQUAD", run: () => runSquadCmd("stamina") },
-    { label: tKey("cmd_arrow_squad"), cat: "SQUAD", run: () => runSquadCmd("arrow") },
-    { label: tKey("cmd_heal_squad"), cat: "SQUAD", run: () => runSquadCmd("heal") },
-    { label: tKey("cmd_contract_squad"), cat: "SQUAD", run: () => runSquadCmd("contract") },
-    { label: tKey("btn_undo"), cat: "ACTION", run: () => document.getElementById("btn-undo").click() },
+    { label: tKey("nav_overview"), cat: cView, run: () => switchView("dashboard") },
+    { label: tKey("nav_squad"), cat: cView, run: () => switchView("squad") },
+    { label: tKey("nav_player"), cat: cView, run: () => switchView("player") },
+    { label: tKey("nav_search"), cat: cView, run: () => switchView("search") },
+    { label: tKey("nav_scouts"), cat: cView, run: () => switchView("scouts") },
+    { label: tKey("nav_finances"), cat: cView, run: () => switchView("finances") },
+    { label: tKey("nav_match_live"), cat: cView, run: () => switchView("match") },
+    { label: tKey("nav_training_bal"), cat: cView, run: () => switchView("training") },
+    { label: tKey("cmd_stam_squad"), cat: cSquad, run: () => runSquadCmd("stamina") },
+    { label: tKey("cmd_arrow_squad"), cat: cSquad, run: () => runSquadCmd("arrow") },
+    { label: tKey("cmd_heal_squad"), cat: cSquad, run: () => runSquadCmd("heal") },
+    { label: tKey("cmd_contract_squad"), cat: cSquad, run: () => runSquadCmd("contract") },
+    { label: tKey("cmd_ovr1_squad"), cat: cSquad, run: () => runSquadCmd("ovr1") },
+    { label: tKey("btn_undo"), cat: cAct, run: () => document.getElementById("btn-undo").click() },
+    { label: T("Alternar Idioma (PT-BR / EN)", "Toggle Language (PT-BR / EN)"), cat: cAct, run: () => document.getElementById("btn-lang").click() },
+    { label: T("Alternar Moeda (€ / R$ / $ / £)", "Cycle Currency (€ / R$ / $ / £)"), cat: cAct, run: () => document.getElementById("btn-currency").click() },
   ];
 }
 
@@ -1343,6 +1472,7 @@ function openCmdPalette() {
   const modal = document.getElementById("cmd-modal");
   const inp = document.getElementById("cmd-input");
   inp.value = "";
+  CMD_SELECTED = 0;
   renderCmdList("");
   modal.classList.add("open");
   inp.focus();
@@ -1351,9 +1481,15 @@ function openCmdPalette() {
 function renderCmdList(query) {
   const q = (query || "").toLowerCase().trim();
   const list = getCommands().filter(c => !q || c.label.toLowerCase().includes(q) || c.cat.toLowerCase().includes(q));
+  if (CMD_SELECTED >= list.length) CMD_SELECTED = Math.max(0, list.length - 1);
   const box = document.getElementById("cmd-list");
+  if (!list.length) {
+    box.innerHTML = `<div class="empty-state" style="padding:18px;">${escapeHtml(T("Nenhum comando encontrado.", "No matching commands."))}</div>`;
+    box._items = [];
+    return;
+  }
   box.innerHTML = list.map((c, idx) =>
-    `<button class="cmd-item${idx === 0 ? " selected" : ""}" type="button" data-cmd-idx="${idx}">
+    `<button class="cmd-item${idx === CMD_SELECTED ? " selected" : ""}" type="button" data-cmd-idx="${idx}">
       <span>${escapeHtml(c.label)}</span><span class="cmd-cat">${escapeHtml(c.cat)}</span>
     </button>`
   ).join("");
@@ -1391,20 +1527,31 @@ async function bootstrap() {
     }
   });
 
-  // Backdrop click closes modals
   ["json-modal", "cmd-modal"].forEach(id => {
     document.getElementById(id).addEventListener("click", e => {
       if (e.target.id === id) closeAllModals();
     });
   });
 
-  // Command palette input & clicks
+  // Command palette full ArrowUp/ArrowDown/Enter navigation
   const cmdInp = document.getElementById("cmd-input");
-  cmdInp.addEventListener("input", e => renderCmdList(e.target.value));
+  cmdInp.addEventListener("input", e => { CMD_SELECTED = 0; renderCmdList(e.target.value); });
   cmdInp.addEventListener("keydown", e => {
-    if (e.key === "Enter") {
-      const box = document.getElementById("cmd-list");
-      if (box._items && box._items[0]) { closeAllModals(); box._items[0].run(); }
+    const box = document.getElementById("cmd-list");
+    const items = box._items || [];
+    if (!items.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      CMD_SELECTED = (CMD_SELECTED + 1) % items.length;
+      renderCmdList(cmdInp.value);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      CMD_SELECTED = (CMD_SELECTED - 1 + items.length) % items.length;
+      renderCmdList(cmdInp.value);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const chosen = items[CMD_SELECTED] || items[0];
+      if (chosen) { closeAllModals(); chosen.run(); }
     }
   });
   document.getElementById("cmd-list").addEventListener("click", e => {
@@ -1415,17 +1562,58 @@ async function bootstrap() {
     if (item) { closeAllModals(); item.run(); }
   });
 
-  // Delegated click handlers (100% XSS-safe, zero inline string onclicks)
-  document.getElementById("squad-tbody").addEventListener("click", e => {
+  // Dashboard Active Player quick actions
+  document.getElementById("btn-dp-stam").addEventListener("click", async () => {
+    if (!api()) return;
+    const r = await api().set_quick_condition(100, null, false, null);
+    if (r && r.ok) { toast(T("Fôlego 100%!", "Stamina 100%!")); pollStatus(); }
+    else toast(fmtCodeMsg(r), "err");
+  });
+  document.getElementById("btn-dp-arrow").addEventListener("click", async () => {
+    if (!api()) return;
+    const r = await api().set_quick_condition(null, 4, false, null);
+    if (r && r.ok) { toast(T("Seta Azul aplicada!", "Blue Arrow applied!")); pollStatus(); }
+    else toast(fmtCodeMsg(r), "err");
+  });
+  document.getElementById("btn-dp-heal").addEventListener("click", async () => {
+    if (!api()) return;
+    const r = await api().set_quick_condition(null, null, true, null);
+    if (r && r.ok) { toast(T("Lesão curada!", "Injury healed!")); pollStatus(); }
+    else toast(fmtCodeMsg(r), "err");
+  });
+
+  // Delegated Squad row & quick action clicks
+  document.getElementById("squad-tbody").addEventListener("click", async e => {
+    const healBtn = e.target.closest("[data-sq-heal]");
+    if (healBtn && api()) {
+      e.stopPropagation();
+      const r = await api().set_quick_condition(null, null, true, Number(healBtn.dataset.sqHeal));
+      toast(r && r.ok ? T("Lesão curada!", "Injury healed!") : fmtCodeMsg(r), r && r.ok ? "ok" : "err");
+      return loadSquad();
+    }
+    const stamBtn = e.target.closest("[data-sq-stam]");
+    if (stamBtn && api()) {
+      e.stopPropagation();
+      const r = await api().set_quick_condition(100, null, false, Number(stamBtn.dataset.sqStam));
+      toast(r && r.ok ? T("Fôlego 100%!", "Stamina 100%!") : fmtCodeMsg(r), r && r.ok ? "ok" : "err");
+      return loadSquad();
+    }
     const row = e.target.closest("[data-open-player]");
     if (row) openPlayerInStudio(Number(row.dataset.openPlayer));
   });
+
+  // Delegated Search clicks (uses target Scout List dropdown)
   document.getElementById("search-tbody").addEventListener("click", e => {
     const openBtn = e.target.closest("[data-open-player]");
     if (openBtn) return openPlayerInStudio(Number(openBtn.dataset.openPlayer));
     const addBtn = e.target.closest("[data-add-scout-addr]");
-    if (addBtn) return addPlayerToScout(4, Number(addBtn.dataset.addScoutAddr));
+    if (addBtn) {
+      const slot = Number(document.getElementById("srch-target-scout").value || 4);
+      return addPlayerToScout(slot, Number(addBtn.dataset.addScoutAddr));
+    }
   });
+
+  // Delegated Scout clicks
   document.getElementById("scout-tbody").addEventListener("click", async e => {
     const openBtn = e.target.closest("[data-open-player]");
     if (openBtn) return openPlayerInStudio(Number(openBtn.dataset.openPlayer));
@@ -1437,17 +1625,44 @@ async function bootstrap() {
     }
   });
 
-  // Attributes delegated slider & +/- handlers (live badge color + live radar!)
+  // Player Hero quick buttons (-1 OVR, +1 OVR, + Favoritos)
+  document.getElementById("btn-hero-ovr-m1").addEventListener("click", async () => {
+    if (!api()) return;
+    const r = await api().step_player_ovr(-1);
+    if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); pulseOvrShield(); toast(fmtCodeMsg(r)); }
+    else toast(fmtCodeMsg(r), "err");
+  });
+  document.getElementById("btn-hero-ovr-p1").addEventListener("click", async () => {
+    if (!api()) return;
+    const r = await api().step_player_ovr(1);
+    if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); pulseOvrShield(); toast(fmtCodeMsg(r)); }
+    else toast(fmtCodeMsg(r), "err");
+  });
+  document.getElementById("btn-hero-fav").addEventListener("click", () => addPlayerToScout(4));
+
+  // Bio quick Rejuvenate
+  document.getElementById("btn-bio-rejuv").addEventListener("click", async () => {
+    if (!api() || !CURRENT_PLAYER) return;
+    const targetAge = Math.max(15, (CURRENT_PLAYER.age || 25) - 3);
+    const r = await api().update_player_bio({ age: targetAge });
+    if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T(`Idade ajustada para ${targetAge}a!`, `Age set to ${targetAge}y!`)); }
+    else toast(fmtCodeMsg(r), "err");
+  });
+  document.getElementById("btn-bio-age18").addEventListener("click", async () => {
+    if (!api() || !CURRENT_PLAYER) return;
+    const r = await api().update_player_bio({ age: 18 });
+    if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Idade ajustada para 18a!", "Age set to 18y!")); }
+    else toast(fmtCodeMsg(r), "err");
+  });
+
+  // Attributes delegated in-place slider & +/- handlers
   const statsBox = document.getElementById("stats-groups-container");
   statsBox.addEventListener("input", e => {
     const inp = e.target.closest("input[data-stat-fid]");
     if (!inp) return;
     const v = Number(inp.value);
-    const badge = inp.nextElementSibling;
-    if (badge) {
-      badge.textContent = v;
-      badge.className = `ovr-badge ${ovrClass(v)}`;
-    }
+    const badge = document.querySelector(`[data-stat-badge="${inp.dataset.statFid}"]`);
+    if (badge) { badge.textContent = v; badge.className = `ovr-badge ${ovrClass(v)}`; }
     if (CURRENT_PLAYER && CURRENT_PLAYER.stats) {
       CURRENT_PLAYER.stats[String(inp.dataset.statFid)] = v;
       renderStatsRadar(CURRENT_PLAYER.stats);
@@ -1458,20 +1673,29 @@ async function bootstrap() {
     if (inp) onStatChange(Number(inp.dataset.statFid), Number(inp.value));
   });
   statsBox.addEventListener("click", e => {
-    const btn = e.target.closest("button[data-stat-step]");
-    if (btn) onStatChange(Number(btn.dataset.statStep), Number(btn.dataset.statVal));
+    const dec = e.target.closest("button[data-stat-dec]");
+    if (dec && CURRENT_PLAYER) {
+      const fid = Number(dec.dataset.statDec);
+      return onStatChange(fid, (CURRENT_PLAYER.stats[String(fid)] || 40) - 1);
+    }
+    const inc = e.target.closest("button[data-stat-inc]");
+    if (inc && CURRENT_PLAYER) {
+      const fid = Number(inc.dataset.statInc);
+      return onStatChange(fid, (CURRENT_PLAYER.stats[String(fid)] || 40) + 1);
+    }
   });
 
-  // Tactical Pitch click -> highlight & scroll to Position Lab row
+  // Tactical Pitch click -> highlight & scroll ONLY inner table container
   document.getElementById("poslab-pitch-svg").addEventListener("click", e => {
     const node = e.target.closest("[data-pitch-pos]");
     if (!node) return;
-    const posId = node.dataset.pitchPos;
-    document.querySelectorAll("#poslab-tbody tr").forEach(tr => tr.classList.remove("row-highlight"));
-    const targetRow = document.querySelector(`#poslab-tbody tr[data-pos-row="${posId}"]`);
-    if (targetRow) {
-      targetRow.classList.add("row-highlight");
-      targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+    HIGHLIGHTED_POS = Number(node.dataset.pitchPos);
+    if (CURRENT_PLAYER) renderPositionPitch(CURRENT_PLAYER);
+    document.querySelectorAll("#poslab-tbody tr").forEach(tr => tr.classList.toggle("row-highlight", Number(tr.dataset.posRow) === HIGHLIGHTED_POS));
+    const targetRow = document.querySelector(`#poslab-tbody tr[data-pos-row="${HIGHLIGHTED_POS}"]`);
+    const wrap = document.getElementById("poslab-scroll");
+    if (targetRow && wrap) {
+      wrap.scrollTo({ top: Math.max(0, targetRow.offsetTop - 90), behavior: "smooth" });
     }
   });
 
@@ -1487,21 +1711,24 @@ async function bootstrap() {
     }
     const stepBtn = e.target.closest("[data-pos-step]");
     if (stepBtn) {
-      const r = await api().step_position_ovr(Number(stepBtn.dataset.posStep), Number(stepBtn.dataset.delta));
+      HIGHLIGHTED_POS = Number(stepBtn.dataset.posStep);
+      const r = await api().step_position_ovr(HIGHLIGHTED_POS, Number(stepBtn.dataset.delta));
       if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(fmtCodeMsg(r), r.action_ok === false ? "err" : "ok"); }
       else toast(fmtCodeMsg(r), "err");
       return;
     }
     const matchBtn = e.target.closest("[data-pos-match]");
     if (matchBtn) {
-      const r = await api().match_position_to_primary(Number(matchBtn.dataset.posMatch));
+      HIGHLIGHTED_POS = Number(matchBtn.dataset.posMatch);
+      const r = await api().match_position_to_primary(HIGHLIGHTED_POS);
       if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(fmtCodeMsg(r), r.action_ok === false ? "err" : "ok"); }
       else toast(fmtCodeMsg(r), "err");
       return;
     }
     const regBtn = e.target.closest("[data-pos-reg]");
     if (regBtn) {
-      const r = await api().set_registered_position(Number(regBtn.dataset.posReg));
+      HIGHLIGHTED_POS = Number(regBtn.dataset.posReg);
+      const r = await api().set_registered_position(HIGHLIGHTED_POS);
       if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); pulseOvrShield(); toast(T("Posição principal alterada!", "Primary position updated!")); }
       else toast(fmtCodeMsg(r), "err");
     }
@@ -1539,9 +1766,7 @@ async function bootstrap() {
       if (CURRENT_VIEW === "player") loadPlayerDetails();
       if (CURRENT_VIEW === "squad") loadSquad();
       pollStatus();
-    } else {
-      toast(fmtCodeMsg(res), "err");
-    }
+    } else toast(fmtCodeMsg(res), "err");
   });
   document.getElementById("btn-currency").addEventListener("click", () => {
     CUR_IDX = (CUR_IDX + 1) % CURRENCIES.length;
@@ -1559,9 +1784,9 @@ async function bootstrap() {
   document.getElementById("btn-dash-refresh").addEventListener("click", pollStatus);
 
   // Squad filters & sorting
-  document.querySelectorAll("#squad-filters .tab-btn").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#squad-filters .pill-tab").forEach(b => b.addEventListener("click", () => {
     SQUAD_FILTER = b.dataset.filter;
-    document.querySelectorAll("#squad-filters .tab-btn").forEach(x => x.classList.toggle("active", x === b));
+    document.querySelectorAll("#squad-filters .pill-tab").forEach(x => x.classList.toggle("active", x === b));
     renderSquadTable();
   }));
   document.getElementById("squad-search").addEventListener("input", renderSquadTable);
@@ -1573,7 +1798,7 @@ async function bootstrap() {
     renderSquadTable();
   }));
 
-  // Search table sort & Enter on all inputs
+  // Search table sort, Clear & Enter
   document.querySelectorAll("#search-table thead th[data-ssort]").forEach(th => th.addEventListener("click", () => {
     const col = th.dataset.ssort;
     if (SEARCH_SORT.col === col) SEARCH_SORT.asc = !SEARCH_SORT.asc;
@@ -1584,17 +1809,27 @@ async function bootstrap() {
     document.getElementById(id).addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
   });
   document.getElementById("btn-do-search").addEventListener("click", doSearch);
+  document.getElementById("btn-clear-search").addEventListener("click", () => {
+    document.getElementById("srch-query").value = "";
+    document.getElementById("srch-pos").value = "-1";
+    document.getElementById("srch-ovr").value = "75";
+    document.getElementById("srch-age").value = "45";
+    document.getElementById("srch-free").checked = false;
+    SEARCH_DATA = [];
+    SEARCH_TOTAL = 0;
+    renderSearchTable();
+  });
 
   // Player Condition & Bio
   document.getElementById("btn-p-stam100").addEventListener("click", async () => {
     if (!api()) return;
-    const r = await api().set_quick_condition(100, null, false);
+    const r = await api().set_quick_condition(100, null, false, null);
     if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Fôlego 100%!", "Stamina 100%!")); }
     else toast(fmtCodeMsg(r), "err");
   });
   document.getElementById("btn-p-heal").addEventListener("click", async () => {
     if (!api()) return;
-    const r = await api().set_quick_condition(null, null, true);
+    const r = await api().set_quick_condition(null, null, true, null);
     if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Lesão curada!", "Injury healed!")); }
     else toast(fmtCodeMsg(r), "err");
   });
@@ -1603,13 +1838,13 @@ async function bootstrap() {
   });
   document.getElementById("inp-p-stam").addEventListener("change", async e => {
     if (!api()) return;
-    const r = await api().set_quick_condition(Number(e.target.value), null, false);
+    const r = await api().set_quick_condition(Number(e.target.value), null, false, null);
     if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); }
     else toast(fmtCodeMsg(r), "err");
   });
   document.querySelectorAll("#p-arrow-group .arrow-btn").forEach(b => b.addEventListener("click", async () => {
     if (!api()) return;
-    const r = await api().set_quick_condition(null, Number(b.dataset.arrow), false);
+    const r = await api().set_quick_condition(null, Number(b.dataset.arrow), false, null);
     if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Seta de forma aplicada!", "Form arrow updated!")); }
     else toast(fmtCodeMsg(r), "err");
   }));
@@ -1626,11 +1861,14 @@ async function bootstrap() {
       foot: optNum("bio-foot"),
       contract_yr: optNum("bio-contract"),
       salary_str: document.getElementById("bio-salary").value,
+      market_str: document.getElementById("bio-market").value,
       injury: optNum("bio-injury"),
       wf_usage: optNum("bio-wfu"),
       wf_acc: optNum("bio-wfa"),
       form_cons: optNum("bio-form"),
       inj_res: optNum("bio-injres"),
+      transfer_listed: document.getElementById("bio-tlist").checked,
+      loan_listed: document.getElementById("bio-llist").checked,
     });
     if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Dados biográficos salvos!", "Bio saved!")); }
     else toast(fmtCodeMsg(r), "err");
@@ -1679,20 +1917,24 @@ async function bootstrap() {
         pulseOvrShield();
         toast(T("Backup JSON importado!", "JSON backup imported!"));
         closeAllModals();
-      } else {
-        toast(fmtCodeMsg(r), "err");
-      }
+      } else toast(fmtCodeMsg(r), "err");
     }
   });
 
   // Scouts
   document.getElementById("btn-scouts-refresh").addEventListener("click", loadScouts);
-  document.querySelectorAll("#scout-tabs .tab-btn").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#scout-tabs .pill-tab").forEach(b => b.addEventListener("click", () => {
     ACTIVE_SCOUT_SLOT = Number(b.dataset.slot);
-    document.querySelectorAll("#scout-tabs .tab-btn").forEach(x => x.classList.toggle("active", x === b));
+    document.querySelectorAll("#scout-tabs .pill-tab").forEach(x => x.classList.toggle("active", x === b));
     renderScoutTable();
   }));
   document.getElementById("btn-scout-add-cur").addEventListener("click", () => addPlayerToScout(ACTIVE_SCOUT_SLOT));
+  document.getElementById("btn-scout-clear").addEventListener("click", async () => {
+    if (!api()) return;
+    const r = await api().clear_scout_list(ACTIVE_SCOUT_SLOT);
+    if (r && r.ok) { toast(T("Lista limpa!", "List cleared!")); loadScouts(); }
+    else toast(fmtCodeMsg(r), "err");
+  });
 
   // Finances
   document.getElementById("btn-fin-refresh").addEventListener("click", loadFinances);
@@ -1706,9 +1948,15 @@ async function bootstrap() {
     else toast(fmtCodeMsg(r), "err");
   });
 
-  // Match, Training & BAL (with BAL_DIRTY guard so polling never reverts checkbox)
-  document.getElementById("bal-focus-inp").addEventListener("input", () => { BAL_DIRTY = true; });
-  document.getElementById("bal-lock-chk").addEventListener("change", () => { BAL_DIRTY = true; });
+  // Match & Training / BAL
+  document.getElementById("bal-focus-inp").addEventListener("input", () => {
+    BAL_DIRTY = true;
+    document.getElementById("bal-unsaved").style.display = "inline";
+  });
+  document.getElementById("bal-lock-chk").addEventListener("change", () => {
+    BAL_DIRTY = true;
+    document.getElementById("bal-unsaved").style.display = "inline";
+  });
   document.querySelectorAll("#training-mode-grid .mode-card").forEach(c => c.addEventListener("click", async () => {
     if (!api()) return;
     const r = await api().set_training_mode(Number(c.dataset.tmode));
@@ -1734,10 +1982,9 @@ async function bootstrap() {
     const r = await api().set_bal_focus(pts, lck);
     if (r && r.ok) {
       BAL_DIRTY = false;
+      document.getElementById("bal-unsaved").style.display = "none";
       toast(T(`Pontos de foco BAL: ${r.points}${r.lock ? " (Travado)" : ""}`, `BAL Focus Points: ${r.points}${r.lock ? " (Locked)" : ""}`));
-    } else {
-      toast(fmtCodeMsg(r), "err");
-    }
+    } else toast(fmtCodeMsg(r), "err");
   });
 
   await pollStatus();

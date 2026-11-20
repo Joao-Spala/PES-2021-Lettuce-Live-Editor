@@ -56,11 +56,17 @@ class StudioAPI:
         return self.engine.get_player_details(_safe_int(addr))
 
     def set_quick_condition(
-        self, stamina: Any = None, arrow: Any = None, heal: Any = False
+        self, stamina: Any = None, arrow: Any = None, heal: Any = False, addr: Any = None
     ) -> Dict[str, Any]:
         return self.engine.set_player_quick_condition(
-            stamina=_safe_int(stamina), arrow=_safe_int(arrow), heal=bool(heal)
+            stamina=_safe_int(stamina),
+            arrow=_safe_int(arrow),
+            heal=bool(heal),
+            addr=_safe_int(addr),
         )
+
+    def step_player_ovr(self, delta: Any) -> Dict[str, Any]:
+        return self.engine.step_player_ovr(_safe_int(delta, 0) or 0)
 
     def update_player_bio(self, payload: Any) -> Dict[str, Any]:
         return self.engine.update_player_bio(payload if isinstance(payload, dict) else {})
@@ -81,16 +87,16 @@ class StudioAPI:
         return self.engine.set_team_role(_safe_int(role_id, 0) or 0, _safe_int(level, 0) or 0)
 
     def set_position_aptitude(self, pos_idx: Any, grade: Any) -> Dict[str, Any]:
-        return self.engine.set_position_aptitude(_safe_int(pos_idx, -1) or -1, _safe_int(grade, -1) or -1)
+        return self.engine.set_position_aptitude(_safe_int(pos_idx, -1), _safe_int(grade, -1))
 
     def set_registered_position(self, pos_idx: Any) -> Dict[str, Any]:
-        return self.engine.set_registered_position(_safe_int(pos_idx, -1) or -1)
+        return self.engine.set_registered_position(_safe_int(pos_idx, -1))
 
     def step_position_ovr(self, pos_idx: Any, delta: Any) -> Dict[str, Any]:
-        return self.engine.step_position_ovr(_safe_int(pos_idx, -1) or -1, _safe_int(delta, 0) or 0)
+        return self.engine.step_position_ovr(_safe_int(pos_idx, -1), _safe_int(delta, 0) or 0)
 
     def match_position_to_primary(self, pos_idx: Any) -> Dict[str, Any]:
-        return self.engine.match_position_to_primary(_safe_int(pos_idx, -1) or -1)
+        return self.engine.match_position_to_primary(_safe_int(pos_idx, -1))
 
     def undo_last(self) -> Dict[str, Any]:
         return self.engine.undo_last()
@@ -125,6 +131,9 @@ class StudioAPI:
 
     def remove_from_scout_list(self, slot_num: Any, handle_str: Any) -> Dict[str, Any]:
         return self.engine.remove_from_scout_list(_safe_int(slot_num, 4) or 4, str(handle_str or ""))
+
+    def clear_scout_list(self, slot_num: Any) -> Dict[str, Any]:
+        return self.engine.clear_scout_list(_safe_int(slot_num, 4) or 4)
 
     def get_finances(self) -> Dict[str, Any]:
         return self.engine.get_finances()
