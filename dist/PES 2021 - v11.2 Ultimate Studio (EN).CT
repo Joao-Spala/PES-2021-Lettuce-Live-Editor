@@ -2018,14 +2018,14 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>118</ID>
-              <Description>"[ +1 POS OVR ] Boost +1 OVR in Specific Position..."</Description>
+              <Description>"[ POSITION LAB ] Isolated OVR &amp; Grade A/B/C..."</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
 {$lua}
 if syntaxcheck then return end
 PES10.asyncActionButton(memrec, function()
-  PES10.promptTargetPositionOVRPlusOne()
+  PES10.openPositionLabModal()
 end)
 {$asm}
 [DISABLE]
@@ -8140,10 +8140,11 @@ local function makeDarkListBox(parent, x, y, w, h, fontName, fontSize)
 end
 
 local function makeDarkFooter(parent, W, H, barH)
-  if not createPanel then return parent, H - barH + 12 end
+  local S = PES10.uiScale()
+  if not createPanel then return parent, H - barH + S(12) end
   local ftr = makeDarkBox(parent, 0, H - barH, W, barH, M_HDR)
   makeDarkBox(ftr, 0, 0, W, 1, M_DIVIDER)
-  return ftr, math.floor((barH - 34) / 2)
+  return ftr, math.floor((barH - S(34)) / 2)
 end
 
 -- Zero-White Custom Dark Dropdown (panel + floating dark popup listbox)
@@ -8429,13 +8430,12 @@ function PES10.openPositionLabModal()
   end, "default")
 
   -- Structured Dark Footer Bar
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  makeModalBtn(f, S(16), H - S(46), S(160), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16), yF, S(160), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
     PES10.undoLastPlayerEdit(p)
     refreshList(lb.ItemIndex, PES10.lastToastMsg)
   end, "gold")
-  makeModalBtn(f, W - S(126), H - S(46), S(110), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(126), yF, S(110), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshList(0)
   f.show()
@@ -8498,12 +8498,11 @@ function PES10.openTeamRoleModal()
   makeModalBtn(f, S(346), yP, S(104), S(34), PES10.T("General", "General"),        function() applyRole(7, 3) end, "default")
   makeModalBtn(f, S(456), yP, S(108), S(34), PES10.T("Superestrela", "Superstar"), function() applyRole(14, 3) end, "default")
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  makeModalBtn(f, S(16), H - S(46), S(140), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16), yF, S(140), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
     PES10.undoLastPlayerEdit(p); refreshRole()
   end, "gold")
-  makeModalBtn(f, W - S(126), H - S(46), S(110), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(126), yF, S(110), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshRole()
   f.show()
@@ -8594,22 +8593,20 @@ function PES10.openScoutListsModal()
     end
   end, "danger")
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  local yF = H - S(46)
-  makeModalBtn(f, S(16),  yF, S(162), S(34), PES10.T("Negócio Irrecusável", "Irresistible Deal"), function()
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16),  yF, S(162), S(34), PES10.T("Negócio Irrecusável", "Irresistible Deal"), function()
     PES10.makeDealIrresistible(); refreshHub()
   end, "gold")
-  makeModalBtn(f, S(184), yF, S(114), S(34), "Radar 30K...", function()
+  makeModalBtn(ftr, S(184), yF, S(114), S(34), "Radar 30K...", function()
     PES10.openScoutFinderModal()
   end, "default")
-  makeModalBtn(f, S(304), yF, S(114), S(34), PES10.T("Limpar Lista", "Clear List"), function()
+  makeModalBtn(ftr, S(304), yF, S(114), S(34), PES10.T("Limpar Lista", "Clear List"), function()
     PES10.clearScoutSlots(curSlot); refreshHub()
   end, "danger")
-  makeModalBtn(f, S(424), yF, S(114), S(34), PES10.T("Limpar 1-3", "Clear 1-3"), function()
+  makeModalBtn(ftr, S(424), yF, S(114), S(34), PES10.T("Limpar 1-3", "Clear 1-3"), function()
     PES10.clearScoutSlots(); refreshHub()
   end, "danger")
-  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshHub()
   f.show()
@@ -8767,26 +8764,24 @@ function PES10.openScoutFinderModal()
     edName.Text = ""; cbPos.setIndex(0); edOvr.Text = "70"; edAge.Text = "45"; cbSpec.setIndex(3); runSearch()
   end, "default")
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  local yB = H - S(46)
-  makeModalBtn(f, S(16),  yB, S(156), S(34), PES10.T("Carregar no Studio", "Load into Studio"), function()
+  local ftr, yB = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16),  yB, S(156), S(34), PES10.T("Carregar no Studio", "Load into Studio"), function()
     local m = loadPicked()
     if m then PES10.toast(string.format(PES10.T("Carregado: %s (%d %s)", "Loaded: %s (%d %s)"), m.name, m.ovr, PES10.posShort(m.pos))) end
   end, "primary")
-  makeModalBtn(f, S(178), yB, S(104), S(34), PES10.T("+ Olheiro 1", "+ Scout 1"), function()
+  makeModalBtn(ftr, S(178), yB, S(104), S(34), PES10.T("+ Olheiro 1", "+ Scout 1"), function()
     if loadPicked() then PES10.addPlayerToScoutList(1) end
   end, "success")
-  makeModalBtn(f, S(288), yB, S(104), S(34), PES10.T("+ Olheiro 2", "+ Scout 2"), function()
+  makeModalBtn(ftr, S(288), yB, S(104), S(34), PES10.T("+ Olheiro 2", "+ Scout 2"), function()
     if loadPicked() then PES10.addPlayerToScoutList(2) end
   end, "success")
-  makeModalBtn(f, S(398), yB, S(104), S(34), PES10.T("+ Olheiro 3", "+ Scout 3"), function()
+  makeModalBtn(ftr, S(398), yB, S(104), S(34), PES10.T("+ Olheiro 3", "+ Scout 3"), function()
     if loadPicked() then PES10.addPlayerToScoutList(3) end
   end, "success")
-  makeModalBtn(f, S(508), yB, S(124), S(34), PES10.T("Negócio 100%", "100% Deal"), function()
+  makeModalBtn(ftr, S(508), yB, S(124), S(34), PES10.T("Negócio 100%", "100% Deal"), function()
     if loadPicked() then PES10.makeDealIrresistible() end
   end, "gold")
-  makeModalBtn(f, W - S(106), yB, S(90), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(106), yB, S(90), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   runSearch()
   f.show()
@@ -8882,16 +8877,14 @@ function PES10.openAttributesModal()
     PES10.runPlayerMacro("stats_plus_5"); refreshAttrs(lb.ItemIndex)
   end, "default")
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  local yF = H - S(46)
-  makeModalBtn(f, S(16),  yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16),  yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
     PES10.undoLastPlayerEdit(p); refreshAttrs(lb.ItemIndex)
   end, "gold")
-  makeModalBtn(f, S(188), yF, S(166), S(34), PES10.T("Todos 25 em 99", "All 25 to 99"), function()
+  makeModalBtn(ftr, S(188), yF, S(166), S(34), PES10.T("Todos 25 em 99", "All 25 to 99"), function()
     PES10.runPlayerMacro("stats_99"); refreshAttrs(lb.ItemIndex)
   end, "danger")
-  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshAttrs(0)
   f.show()
@@ -8980,13 +8973,11 @@ function PES10.openSkillsStyleModal()
     refreshSkills(lb.ItemIndex)
   end, "danger")
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  local yF = H - S(46)
-  makeModalBtn(f, S(16), yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16), yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
     PES10.undoLastPlayerEdit(p); cbStyle.setIndex(PES10.getBitsInDword(p + 0x1D, 3, 5)); refreshSkills(lb.ItemIndex)
   end, "gold")
-  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshSkills(0)
   f.show()
@@ -9093,13 +9084,11 @@ function PES10.openContractModal()
     refreshContract(false)
   end, "default")
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  local yF = H - S(46)
-  makeModalBtn(f, S(16), yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16), yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
     PES10.undoLastPlayerEdit(p); refreshContract(true)
   end, "gold")
-  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshContract(true)
   f.show()
@@ -9227,13 +9216,11 @@ function PES10.openBioConditionModal()
     PES10.importPlayerBackupJson(); reloadBioFields()
   end, "default")
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  local yF = H - S(46)
-  makeModalBtn(f, S(16), yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16), yF, S(166), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
     PES10.undoLastPlayerEdit(p); reloadBioFields()
   end, "gold")
-  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   f.show()
 end
@@ -9290,11 +9277,9 @@ function PES10.openFinancesModal()
   makeModalBtn(f, S(268), yQ, S(124), S(34), PES10.T("+50M Transf.", "+50M Transf."), function() addDelta(0x016ECBF4,  500000, PES10.T("+50M em Transferências", "+50M Transfer Budget")) end, "success")
   makeModalBtn(f, S(400), yQ, S(124), S(34), PES10.T("+10M Salários", "+10M Wages"),  function() addDelta(0x016ECC08,  100000, PES10.T("+10M em Salários", "+10M Wage Budget")) end, "gold")
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  local yF = H - S(46)
-  makeModalBtn(f, S(16), yF, S(180), S(34), PES10.T("Aplicar Valores Exatos", "Apply Exact Values"), applyFin, "primary")
-  makeModalBtn(f, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16), yF, S(180), S(34), PES10.T("Aplicar Valores Exatos", "Apply Exact Values"), applyFin, "primary")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   reloadFin()
   f.show()
@@ -9309,6 +9294,13 @@ function PES10.openSquadRosterModal()
     return
   end
   local userClub = PES10.readU32(career + 0x016ECBE0)
+  if userClub == 0 or userClub == 0xFFFFFFFF then
+    local balH = PES10.readU64(career + 0x01819540)
+    local lo = balH % 0x100000000
+    if balH ~= 0 and lo &lt; 30000 then
+      userClub = PES10.readU32(career + lo * 0x17C + 0x12C)
+    end
+  end
   if userClub == 0 or userClub == 0xFFFFFFFF then
     PES10.toast(PES10.T("Clube do usuário não encontrado na RAM.", "User club handle not found in RAM."))
     return
@@ -9418,10 +9410,9 @@ function PES10.openSquadRosterModal()
   makeModalBtn(f, S(462), yA, S(128), S(34), PES10.T("Curar Lesões", "Heal Squad"), function() PES10.runSquadCommander("heal_affection"); refreshSquad() end, "success")
   makeModalBtn(f, S(596), yA, S(128), S(34), PES10.T("Contratos +5a", "+5 Yr Deals"), function() PES10.runSquadCommander("shield_contracts"); refreshSquad() end, "gold")
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  makeModalBtn(f, S(16), H - S(46), S(160), S(34), PES10.T("Atualizar Lista", "Refresh Squad"), refreshSquad, "default")
-  makeModalBtn(f, W - S(116), H - S(46), S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, S(16), yF, S(160), S(34), PES10.T("Atualizar Lista", "Refresh Squad"), refreshSquad, "default")
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshSquad()
   f.show()
@@ -9466,9 +9457,8 @@ function PES10.openTrainingSpeedModal()
     end, "default")
   end
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  makeModalBtn(f, W - S(116), H - S(46), S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshModes()
   f.show()
@@ -9513,9 +9503,8 @@ function PES10.openMatchStaminaModal()
     end, "default")
   end
 
-  makeDarkBox(f, 0, H - S(58), W, 1, M_DIVIDER)
-  makeDarkBox(f, 0, H - S(57), W, S(57), M_HDR)
-  makeModalBtn(f, W - S(116), H - S(46), S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
   refreshModes()
   f.show()

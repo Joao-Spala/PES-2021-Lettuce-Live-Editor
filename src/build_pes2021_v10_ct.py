@@ -1157,7 +1157,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     # 3.5..3.8 Positions, 25 Attributes, Playing Style + 41 Skills, COM Styles & Team Role
     grp_p_pos = builder.group(sec_player, L("5. Posição de Origem & 13 Posições Jogáveis (C / B / A)", "5. Registered Position & 13 Playable Positions (C / B / A)"), COL_TEAL)
     builder.add_script(grp_p_pos, L("[ 1-CLIQUE ] Promover Todas as Secundárias ('B' → 'A')", "[ 1-CLICK ] Promote All Secondary Positions ('B' → 'A')"), make_lua_button_script("local p=PES10.getSelectedPlayerOrWarn(); if p~=0 then local n=PES10.promoteSecondaryPositionsToA(p); PES10.toast(string.format(PES10.T('%d secundária(s) promovida(s) p/ A!','%d secondary position(s) promoted to A!'), n)) end"), color=COL_GREEN)
-    builder.add_script(grp_p_pos, L("[ +1 OVR POSIÇÃO ] Subir +1 OVR em Posição Específica...", "[ +1 POS OVR ] Boost +1 OVR in Specific Position..."), make_lua_button_script("PES10.promptTargetPositionOVRPlusOne()"), color=COL_BLUE)
+    builder.add_script(grp_p_pos, L("[ LAB DE POSIÇÕES ] OVR Isolado & Grau A/B/C...", "[ POSITION LAB ] Isolated OVR & Grade A/B/C..."), make_lua_button_script("PES10.openPositionLabModal()"), color=COL_BLUE)
     grp_p_attr = builder.group(sec_player, L("6. Todos os 25 Atributos Técnicos, Físicos, Defensivos & GK (40-99)", "6. All 25 Technical, Physical, Defensive & GK Attributes (40-99)"), COL_TEAL)
     grp_p_skills = builder.group(sec_player, L("7. Estilo de Jogo & Todas as 41 Habilidades (Player Skills)", "7. Playing Style & All 41 Player Skills"), COL_TEAL)
     grp_p_com = builder.group(sec_player, L("8. Estilos IA COM & Papel no Time (Team Role)", "8. COM AI Playing Styles & Team Role"), COL_TEAL)
