@@ -4,7 +4,6 @@ Builds the standalone Windows executable:
 Requires app/.venv with pywebview + pyinstaller installed.
 """
 
-import shutil
 import subprocess
 import sys
 from pathlib import Path

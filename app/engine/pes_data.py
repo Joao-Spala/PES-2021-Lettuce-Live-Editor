@@ -5,7 +5,6 @@ Loads directly from src/data/*.json (works in both dev mode and PyInstaller _MEI
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Any
@@ -43,7 +42,8 @@ def _parse_dropdown(raw_str: str) -> List[Dict[str, Any]]:
             continue
         k, v = line.split(":", 1)
         try:
-            out.append({"id": int(k.strip()), "name": v.strip()})
+            clean = v.strip().strip("'\"")
+            out.append({"id": int(k.strip()), "name": clean})
         except ValueError:
             pass
     return out
@@ -157,38 +157,38 @@ POS_APT_LOC = {
     12: (0x1F, 1),
 }
 
-# Full 25 core stats (grouped for UI) + extra attributes (Weak Foot, Form, Injury)
+# Full 25 core stats (100% verified bit-for-bit against player_schema.json & FID_LOC)
 STAT_DEFS = [
     # Attack
-    {"fid": 14, "group": "attack", "pt": "Talento Ofensivo", "en": "Offensive Awareness"},
-    {"fid": 19, "group": "attack", "pt": "Finalização", "en": "Finishing"},
-    {"fid": 22, "group": "attack", "pt": "Cabeceio", "en": "Heading"},
-    {"fid": 18, "group": "attack", "pt": "Bola Parada", "en": "Place Kicking"},
-    {"fid": 23, "group": "attack", "pt": "Curva", "en": "Curl"},
+    {"fid": 14, "group": "attack", "pt": "Talento Ofensivo", "en": "Offensive Awareness"},   # 0x03:0
+    {"fid": 20, "group": "attack", "pt": "Finalização", "en": "Finishing"},                  # 0x08:7
+    {"fid": 23, "group": "attack", "pt": "Cabeceio", "en": "Heading"},                       # 0x0C:0
+    {"fid": 26, "group": "attack", "pt": "Bola Parada", "en": "Place Kicking"},              # 0x0C:21
+    {"fid": 27, "group": "attack", "pt": "Curva", "en": "Curl"},                             # 0x10:0
     # Technique
-    {"fid": 33, "group": "tech", "pt": "Controle de Bola", "en": "Ball Control"},
-    {"fid": 17, "group": "tech", "pt": "Drible", "en": "Dribbling"},
-    {"fid": 39, "group": "tech", "pt": "Condução Firme", "en": "Tight Possession"},
-    {"fid": 20, "group": "tech", "pt": "Passe Rasteiro", "en": "Low Pass"},
-    {"fid": 21, "group": "tech", "pt": "Passe Alto", "en": "Lofted Pass"},
+    {"fid": 18, "group": "tech", "pt": "Controle de Bola", "en": "Ball Control"},            # 0x04:21
+    {"fid": 17, "group": "tech", "pt": "Drible", "en": "Dribbling"},                         # 0x04:14
+    {"fid": 19, "group": "tech", "pt": "Condução Firme", "en": "Tight Possession"},          # 0x08:0
+    {"fid": 21, "group": "tech", "pt": "Passe Rasteiro", "en": "Low Pass"},                  # 0x08:14
+    {"fid": 22, "group": "tech", "pt": "Passe Alto", "en": "Lofted Pass"},                   # 0x08:21
     # Physical
-    {"fid": 24, "group": "phys", "pt": "Velocidade", "en": "Speed"},
-    {"fid": 25, "group": "phys", "pt": "Aceleração", "en": "Acceleration"},
-    {"fid": 26, "group": "phys", "pt": "Força do Chute", "en": "Kicking Power"},
-    {"fid": 27, "group": "phys", "pt": "Impulsão", "en": "Jump"},
-    {"fid": 34, "group": "phys", "pt": "Contato Físico", "en": "Physical Contact"},
-    {"fid": 35, "group": "phys", "pt": "Equilíbrio", "en": "Balance"},
-    {"fid": 36, "group": "phys", "pt": "Resistência", "en": "Stamina"},
+    {"fid": 33, "group": "phys", "pt": "Velocidade", "en": "Speed"},                         # 0x14:7
+    {"fid": 37, "group": "phys", "pt": "Aceleração", "en": "Acceleration"},                  # 0x18:7
+    {"fid": 36, "group": "phys", "pt": "Força do Chute", "en": "Kicking Power"},             # 0x18:0
+    {"fid": 38, "group": "phys", "pt": "Impulsão", "en": "Jump"},                            # 0x18:14
+    {"fid": 34, "group": "phys", "pt": "Contato Físico", "en": "Physical Contact"},          # 0x14:14
+    {"fid": 35, "group": "phys", "pt": "Equilíbrio", "en": "Balance"},                       # 0x14:21
+    {"fid": 39, "group": "phys", "pt": "Resistência", "en": "Stamina"},                      # 0x18:21
     # Defense
-    {"fid": 15, "group": "def", "pt": "Talento Defensivo", "en": "Defensive Awareness"},
-    {"fid": 37, "group": "def", "pt": "Desarme", "en": "Ball Winning"},
-    {"fid": 38, "group": "def", "pt": "Agressividade", "en": "Aggression"},
+    {"fid": 15, "group": "def", "pt": "Talento Defensivo", "en": "Defensive Awareness"},     # 0x04:0
+    {"fid": 24, "group": "def", "pt": "Desarme", "en": "Ball Winning"},                      # 0x0C:7
+    {"fid": 25, "group": "def", "pt": "Agressividade", "en": "Aggression"},                  # 0x0C:14
     # Goalkeeper
-    {"fid": 16, "group": "gk", "pt": "Talento de Goleiro", "en": "GK Awareness"},
-    {"fid": 28, "group": "gk", "pt": "Firmeza (GL)", "en": "GK Catching"},
-    {"fid": 29, "group": "gk", "pt": "Afastamento (GL)", "en": "GK Clearing"},
-    {"fid": 30, "group": "gk", "pt": "Reflexos (GL)", "en": "GK Reflexes"},
-    {"fid": 31, "group": "gk", "pt": "Alcance (GL)", "en": "GK Reach"},
+    {"fid": 16, "group": "gk", "pt": "Talento de Goleiro", "en": "GK Awareness"},            # 0x04:7
+    {"fid": 28, "group": "gk", "pt": "Firmeza (GL)", "en": "GK Catching"},                   # 0x10:7
+    {"fid": 29, "group": "gk", "pt": "Afastamento (GL)", "en": "GK Clearing"},               # 0x10:14
+    {"fid": 30, "group": "gk", "pt": "Reflexos (GL)", "en": "GK Reflexes"},                  # 0x10:21
+    {"fid": 31, "group": "gk", "pt": "Alcance (GL)", "en": "GK Reach"},                      # 0x14:0
 ]
 
 # Extract exact skill & COM AI bitfields directly from player_schema.json

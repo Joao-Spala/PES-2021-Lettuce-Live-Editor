@@ -1,19 +1,18 @@
 """
 Pure ctypes 64-bit Win32 Memory Engine for PES 2021 / SP Football Life.
-Zero external dependencies. Supports RPM/WPM, AOB region scanning,
-near-module VirtualAllocEx (for 5-byte rel32 x64 hooks), and process auto-attach.
+Zero external dependencies. Supports fast bulk RPM/WPM, resilient AOB scanning,
+FlushInstructionCache, near-module VirtualAllocEx (strictly within +-2GB for rel32),
+UTF-8 safe string writes, and process auto-attach with elevation detection.
 """
 
 import ctypes
 import ctypes.wintypes as wt
-import struct
 import re
-from typing import Optional, Tuple, List
+import struct
+from typing import List, Optional, Tuple
 
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-psapi = ctypes.WinDLL("psapi", use_last_error=True)
 
-PROCESS_ALL_ACCESS = 0x001F0FFF
 PROCESS_VM_READ = 0x0010
 PROCESS_VM_WRITE = 0x0020
 PROCESS_VM_OPERATION = 0x0008
@@ -29,12 +28,12 @@ TH32CS_SNAPPROCESS = 0x00000002
 TH32CS_SNAPMODULE = 0x00000008
 TH32CS_SNAPMODULE32 = 0x00000010
 INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+ERROR_ACCESS_DENIED = 5
 
 MEM_COMMIT = 0x1000
 MEM_RESERVE = 0x2000
 MEM_RELEASE = 0x8000
 PAGE_EXECUTE_READWRITE = 0x40
-PAGE_READWRITE = 0x04
 
 SUPPORTED_EXES = [
     "PES2021.exe",
@@ -75,7 +74,6 @@ class MODULEENTRY32W(ctypes.Structure):
     ]
 
 
-# Configure 64-bit argtypes / restypes
 kernel32.CreateToolhelp32Snapshot.argtypes = [wt.DWORD, wt.DWORD]
 kernel32.CreateToolhelp32Snapshot.restype = wt.HANDLE
 
@@ -142,6 +140,9 @@ kernel32.VirtualProtectEx.argtypes = [
 ]
 kernel32.VirtualProtectEx.restype = wt.BOOL
 
+kernel32.FlushInstructionCache.argtypes = [wt.HANDLE, ctypes.c_void_p, ctypes.c_size_t]
+kernel32.FlushInstructionCache.restype = wt.BOOL
+
 
 def find_game_process() -> Optional[Tuple[int, str]]:
     """Find a running supported PES 2021 / Football Life process. Returns (pid, exe_name)."""
@@ -196,16 +197,21 @@ class Win32Memory:
         self.exe_name: str = ""
         self.module_base: int = 0
         self.module_size: int = 0
+        self.access_denied: bool = False
+
+    def is_alive(self) -> bool:
+        if not self.handle or not self.pid:
+            return False
+        code = wt.DWORD(0)
+        if not kernel32.GetExitCodeProcess(self.handle, ctypes.byref(code)):
+            return False
+        return code.value == 259  # STILL_ACTIVE
 
     @property
     def attached(self) -> bool:
         if not self.handle or not self.pid:
             return False
-        code = wt.DWORD(0)
-        if not kernel32.GetExitCodeProcess(self.handle, ctypes.byref(code)):
-            self.detach()
-            return False
-        if code.value != 259:  # STILL_ACTIVE
+        if not self.is_alive():
             self.detach()
             return False
         return True
@@ -213,12 +219,15 @@ class Win32Memory:
     def attach(self) -> bool:
         if self.attached:
             return True
+        self.access_denied = False
         found = find_game_process()
         if not found:
             return False
         pid, exe_name = found
         h = kernel32.OpenProcess(PROCESS_ACCESS, False, pid)
         if not h:
+            if ctypes.get_last_error() == ERROR_ACCESS_DENIED:
+                self.access_denied = True
             return False
         mod = get_module_info(pid, exe_name)
         if not mod or mod[0] == 0:
@@ -245,7 +254,7 @@ class Win32Memory:
     def read_bytes(self, addr: int, size: int) -> Optional[bytes]:
         if not self.handle or addr <= 0x10000 or size <= 0:
             return None
-        buf = (ctypes.c_ubyte * size)()
+        buf = ctypes.create_string_buffer(size)
         read_n = ctypes.c_size_t(0)
         ok = kernel32.ReadProcessMemory(
             self.handle,
@@ -256,13 +265,13 @@ class Win32Memory:
         )
         if not ok or read_n.value < size:
             return None
-        return bytes(buf)
+        return buf.raw
 
     def write_bytes(self, addr: int, data: bytes) -> bool:
         if not self.handle or addr <= 0x10000 or not data:
             return False
         size = len(data)
-        buf = (ctypes.c_ubyte * size).from_buffer_copy(data)
+        buf = ctypes.create_string_buffer(data, size)
         written = ctypes.c_size_t(0)
         ok = kernel32.WriteProcessMemory(
             self.handle,
@@ -274,7 +283,7 @@ class Win32Memory:
         return bool(ok and written.value == size)
 
     def write_code_bytes(self, addr: int, data: bytes) -> bool:
-        """Write bytes into executable .text section by temporarily changing page protection."""
+        """Write executable bytes with VirtualProtectEx + FlushInstructionCache."""
         if not self.handle or addr <= 0x10000 or not data:
             return False
         old_prot = wt.DWORD(0)
@@ -287,6 +296,10 @@ class Win32Memory:
         )
         try:
             ok_w = self.write_bytes(addr, data)
+            if ok_w:
+                kernel32.FlushInstructionCache(
+                    self.handle, ctypes.c_void_p(addr), len(data)
+                )
         finally:
             if ok_p:
                 dummy = wt.DWORD(0)
@@ -299,15 +312,14 @@ class Win32Memory:
                 )
         return ok_w
 
-    def alloc_near(self, target_addr: int, size: int = 0x1000) -> int:
-        """Allocate RWX memory within +-1.5GB of target_addr so 5-byte rel32 JMP reaches."""
-        if not self.handle:
+    def alloc_near(self, target_addr: int, size: int = 0x2000) -> int:
+        """Allocate RWX memory strictly within +-1.8GB of target_addr so 5-byte rel32 JMP reaches."""
+        if not self.handle or target_addr <= 0x10000:
             return 0
-        # Scan outward from target_addr in 64KB increments
-        base_aligned = (target_addr & ~0xFFFF)
+        base_aligned = target_addr & ~0xFFFF
         step = 0x10000
-        # Try below and above within 1.5GB
-        for delta in range(step, 0x60000000, step):
+        max_dist = 0x70000000
+        for delta in range(step, max_dist, step):
             for cand in (base_aligned - delta, base_aligned + delta):
                 if cand <= 0x10000:
                     continue
@@ -319,16 +331,10 @@ class Win32Memory:
                     PAGE_EXECUTE_READWRITE,
                 )
                 if ptr:
-                    return int(ptr)
-        # Fallback anywhere
-        ptr = kernel32.VirtualAllocEx(
-            self.handle,
-            None,
-            size,
-            MEM_COMMIT | MEM_RESERVE,
-            PAGE_EXECUTE_READWRITE,
-        )
-        return int(ptr) if ptr else 0
+                    if abs(int(ptr) - target_addr) <= 0x7F000000:
+                        return int(ptr)
+                    self.free_mem(int(ptr))
+        return 0
 
     def free_mem(self, addr: int) -> bool:
         if not self.handle or not addr:
@@ -366,24 +372,26 @@ class Win32Memory:
 
     # Typed writers
     def write_u8(self, addr: int, val: int) -> bool:
-        return self.write_bytes(addr, struct.pack("<B", val & 0xFF))
+        return self.write_bytes(addr, struct.pack("<B", int(val) & 0xFF))
 
     def write_u16(self, addr: int, val: int) -> bool:
-        return self.write_bytes(addr, struct.pack("<H", val & 0xFFFF))
+        return self.write_bytes(addr, struct.pack("<H", int(val) & 0xFFFF))
 
     def write_u32(self, addr: int, val: int) -> bool:
-        return self.write_bytes(addr, struct.pack("<I", val & 0xFFFFFFFF))
+        return self.write_bytes(addr, struct.pack("<I", int(val) & 0xFFFFFFFF))
 
     def write_i32(self, addr: int, val: int) -> bool:
         return self.write_bytes(addr, struct.pack("<i", int(val)))
 
     def write_u64(self, addr: int, val: int) -> bool:
-        return self.write_bytes(addr, struct.pack("<Q", val & 0xFFFFFFFFFFFFFFFF))
+        return self.write_bytes(addr, struct.pack("<Q", int(val) & 0xFFFFFFFFFFFFFFFF))
 
     def write_f32(self, addr: int, val: float) -> bool:
         return self.write_bytes(addr, struct.pack("<f", float(val)))
 
     def read_str(self, addr: int, max_len: int = 46) -> str:
+        if max_len <= 0:
+            return ""
         b = self.read_bytes(addr, max_len)
         if not b:
             return ""
@@ -393,17 +401,32 @@ class Win32Memory:
         return b.decode("utf-8", errors="replace").strip()
 
     def write_str(self, addr: int, text: str, max_len: int) -> bool:
-        raw = text.encode("utf-8", errors="ignore")[: max_len - 1]
-        padded = raw + b"\x00" * (max_len - len(raw))
+        """UTF-8 safe null-terminated string write (never splits multi-byte codepoints)."""
+        if max_len <= 1:
+            return False
+        limit = max_len - 1
+        out = bytearray()
+        for ch in str(text):
+            enc = ch.encode("utf-8", errors="ignore")
+            if len(out) + len(enc) > limit:
+                break
+            out.extend(enc)
+        padded = bytes(out) + (b"\x00" * (max_len - len(out)))
         return self.write_bytes(addr, padded)
 
     def get_bits(self, addr: int, bit_start: int, bit_len: int) -> int:
-        v = self.read_u32(addr)
-        mask = (1 << bit_len) - 1
-        return (v >> bit_start) & mask
+        raw = self.read_bytes(addr, 4)
+        if raw is None:
+            return 0
+        v = struct.unpack("<I", raw)[0]
+        return (v >> bit_start) & ((1 << bit_len) - 1)
 
     def set_bits(self, addr: int, bit_start: int, bit_len: int, new_val: int) -> bool:
-        v = self.read_u32(addr)
+        """Read-modify-write bitfield safely; aborts without writing if read fails."""
+        raw = self.read_bytes(addr, 4)
+        if raw is None:
+            return False
+        v = struct.unpack("<I", raw)[0]
         mask = ((1 << bit_len) - 1) << bit_start
         v = (v & ~mask) | ((int(new_val) << bit_start) & mask)
         return self.write_u32(addr, v)
@@ -411,14 +434,13 @@ class Win32Memory:
     def aob_scan_region(
         self, start_addr: int, end_addr: int, pattern: str
     ) -> int:
-        """Scan [start_addr, end_addr) for hex pattern with optional '??' wildcards."""
-        size = end_addr - start_addr
-        if size <= 0 or size > 0x4000000:
-            return 0
-        data = self.read_bytes(start_addr, size)
-        if not data:
+        """Chunk-resilient AOB scan across [start_addr, end_addr) supporting '??' wildcards."""
+        total = end_addr - start_addr
+        if total <= 0 or total > 0x4000000:
             return 0
         tokens = pattern.strip().split()
+        if not tokens:
+            return 0
         regex_parts: List[bytes] = []
         for tok in tokens:
             if tok in ("??", "?"):
@@ -426,5 +448,25 @@ class Win32Memory:
             else:
                 regex_parts.append(re.escape(bytes([int(tok, 16)])))
         rx = re.compile(b"".join(regex_parts), re.DOTALL)
-        m = rx.search(data)
-        return (start_addr + m.start()) if m else 0
+
+        # Fast path: single read for small regions (<= 256KB)
+        if total <= 0x40000:
+            data = self.read_bytes(start_addr, total)
+            if data:
+                m = rx.search(data)
+                return (start_addr + m.start()) if m else 0
+            return 0
+
+        # Chunked scan with overlap so unmapped pages never abort the entire scan
+        chunk_size = 0x100000  # 1MB
+        overlap = len(tokens)
+        cur = start_addr
+        while cur < end_addr:
+            sz = min(chunk_size, end_addr - cur)
+            data = self.read_bytes(cur, sz)
+            if data:
+                m = rx.search(data)
+                if m:
+                    return cur + m.start()
+            cur += max(1, sz - overlap)
+        return 0

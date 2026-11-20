@@ -54,30 +54,35 @@
 
       <div class="sidebar-footer">
         <div id="side-mode-text" data-i18n="waiting_game">Aguardando PES 2021...</div>
-        <div id="side-club-text" style="color: var(--text); font-weight: 600;"></div>
+        <div id="side-club-text" style="color: var(--text); font-weight: 700;"></div>
+        <button class="kbd-hint" id="btn-open-cmd" type="button">
+          <span data-i18n="cmd_palette_btn">Comandos Rápidos</span>
+          <span class="kbd" style="margin-left:auto;">Ctrl+K</span>
+        </button>
       </div>
     </aside>
 
     <!-- Persistent Top Header -->
     <header class="topbar">
-      <div class="active-player-pill" id="top-player-pill" data-i18n-title="tip_open_player">
+      <button class="active-player-pill" id="top-player-pill" type="button" data-i18n-title="tip_open_player">
         <span class="ovr-badge ovr-low" id="top-p-ovr">--</span>
         <span class="pos-chip pos-mid" id="top-p-pos">---</span>
-        <div style="display:flex; flex-direction:column; line-height:1.2;">
-          <span id="top-p-name" style="font-weight:700; font-size:12.5px;" data-i18n="no_player">Nenhum atleta selecionado</span>
-          <span id="top-p-meta" style="font-size:11px; color:var(--subtext);" data-i18n="no_player_sub">Destaque um jogador no jogo ou na lista</span>
+        <div style="display:flex; flex-direction:column; line-height:1.2; overflow:hidden;">
+          <span id="top-p-name" style="font-weight:700; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" data-i18n="no_player">Nenhum atleta selecionado</span>
+          <span id="top-p-meta" style="font-size:11px; color:var(--subtext); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" data-i18n="no_player_sub">Destaque um jogador no jogo ou na lista</span>
         </div>
-      </div>
+      </button>
 
       <div class="topbar-right">
-        <button class="btn btn-sm" id="btn-undo" data-i18n-title="tip_undo">
+        <button class="btn btn-sm" id="btn-undo" type="button" disabled data-i18n-title="tip_undo">
           <span data-i18n="btn_undo">Desfazer</span> <span id="undo-badge">(0)</span>
         </button>
-        <button class="btn btn-sm" id="btn-lang">PT-BR</button>
-        <div class="conn-pill" id="conn-pill" data-i18n-title="tip_reconnect">
+        <button class="btn btn-sm" id="btn-currency" type="button" data-i18n-title="tip_currency">€ EUR</button>
+        <button class="btn btn-sm" id="btn-lang" type="button">PT-BR</button>
+        <button class="conn-pill" id="conn-pill" type="button" data-i18n-title="tip_reconnect">
           <span class="conn-dot"></span>
           <span id="conn-text" data-i18n="disconnected">Desconectado</span>
-        </div>
+        </button>
       </div>
     </header>
 
@@ -90,7 +95,7 @@
             <div class="page-title" data-i18n="dash_title">Visão Geral do Studio</div>
             <div class="page-sub" data-i18n="dash_sub">Controle em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.</div>
           </div>
-          <button class="btn btn-primary" id="btn-dash-refresh" data-i18n="btn_refresh">Atualizar</button>
+          <button class="btn btn-primary" id="btn-dash-refresh" type="button" data-i18n="btn_refresh">Atualizar</button>
         </div>
 
         <div class="grid-3">
@@ -101,20 +106,20 @@
           </div>
           <div class="card">
             <div class="stat-label" data-i18n="lbl_transfer_budget">Orçamento de Transferências</div>
-            <div class="stat-metric" style="color:var(--green);" id="dash-transfer">€ 0</div>
+            <div class="stat-metric num" style="color:var(--green);" id="dash-transfer">€ 0</div>
             <div style="display:flex; gap:6px; margin-top:4px;">
-              <button class="btn btn-xs btn-green" onclick="quickFinance('transfer', 100000)">+10M</button>
-              <button class="btn btn-xs btn-green" onclick="quickFinance('transfer', 500000)">+50M</button>
-              <button class="btn btn-xs" onclick="switchView('finances')" data-i18n="btn_edit">Editar</button>
+              <button class="btn btn-xs btn-green" type="button" onclick="quickFinance('transfer', 100000)">+10M</button>
+              <button class="btn btn-xs btn-green" type="button" onclick="quickFinance('transfer', 500000)">+50M</button>
+              <button class="btn btn-xs" type="button" onclick="switchView('finances')" data-i18n="btn_edit">Editar</button>
             </div>
           </div>
           <div class="card">
             <div class="stat-label" data-i18n="lbl_salary_avail">Salários Disponíveis</div>
-            <div class="stat-metric" style="color:var(--gold);" id="dash-salary">€ 0</div>
+            <div class="stat-metric num" style="color:var(--gold);" id="dash-salary">€ 0</div>
             <div style="display:flex; gap:6px; margin-top:4px;">
-              <button class="btn btn-xs btn-gold" onclick="quickFinance('salary', 100000)">+10M</button>
-              <button class="btn btn-xs btn-gold" onclick="quickFinance('salary', 500000)">+50M</button>
-              <button class="btn btn-xs" onclick="switchView('finances')" data-i18n="btn_edit">Editar</button>
+              <button class="btn btn-xs btn-gold" type="button" onclick="quickFinance('salary', 100000)">+10M</button>
+              <button class="btn btn-xs btn-gold" type="button" onclick="quickFinance('salary', 500000)">+50M</button>
+              <button class="btn btn-xs" type="button" onclick="switchView('finances')" data-i18n="btn_edit">Editar</button>
             </div>
           </div>
         </div>
@@ -125,11 +130,11 @@
             <span style="font-size:11px; color:var(--subtext);" data-i18n="dash_squad_hint">Aplica instantaneamente a todos os jogadores do seu clube</span>
           </div>
           <div style="display:flex; flex-wrap:wrap; gap:10px;">
-            <button class="btn btn-green" onclick="runSquadCmd('stamina')" data-i18n="cmd_stam_squad">100% Fôlego (Elenco)</button>
-            <button class="btn btn-primary" onclick="runSquadCmd('arrow')" data-i18n="cmd_arrow_squad">Seta Azul (Elenco)</button>
-            <button class="btn btn-green" onclick="runSquadCmd('heal')" data-i18n="cmd_heal_squad">Curar Todas Lesões</button>
-            <button class="btn btn-gold" onclick="runSquadCmd('contract')" data-i18n="cmd_contract_squad">Renovar Contratos +5 Anos</button>
-            <button class="btn" onclick="runSquadCmd('ovr1')" data-i18n="cmd_ovr1_squad">+1 OVR no Elenco</button>
+            <button class="btn btn-green" type="button" onclick="runSquadCmd('stamina')" data-i18n="cmd_stam_squad">100% Fôlego (Elenco)</button>
+            <button class="btn btn-primary" type="button" onclick="runSquadCmd('arrow')" data-i18n="cmd_arrow_squad">Seta Azul (Elenco)</button>
+            <button class="btn btn-green" type="button" onclick="runSquadCmd('heal')" data-i18n="cmd_heal_squad">Curar Todas Lesões</button>
+            <button class="btn btn-gold" type="button" onclick="runSquadCmd('contract')" data-i18n="cmd_contract_squad">Renovar Contratos +5 Anos</button>
+            <button class="btn" type="button" onclick="runSquadCmd('ovr1')" data-i18n="cmd_ovr1_squad">+1 OVR no Elenco</button>
           </div>
         </div>
 
@@ -141,10 +146,10 @@
           <div class="card">
             <div class="card-title" data-i18n="dash_quick_shortcuts">Atalhos Rápidos</div>
             <div style="display:flex; flex-wrap:wrap; gap:8px;">
-              <button class="btn" onclick="switchView('player')" data-i18n="short_player">Editar Jogador Atual</button>
-              <button class="btn" onclick="switchView('squad')" data-i18n="short_squad">Abrir Meu Elenco</button>
-              <button class="btn" onclick="switchView('search')" data-i18n="short_search">Buscar nos 30.000+ Atletas</button>
-              <button class="btn" onclick="switchView('match')" data-i18n="short_match">Treino / Fôlego em Partida</button>
+              <button class="btn" type="button" onclick="switchView('player')" data-i18n="short_player">Editar Jogador Atual</button>
+              <button class="btn" type="button" onclick="switchView('squad')" data-i18n="short_squad">Abrir Meu Elenco</button>
+              <button class="btn" type="button" onclick="switchView('search')" data-i18n="short_search">Buscar nos 30.000+ Atletas</button>
+              <button class="btn" type="button" onclick="switchView('match')" data-i18n="short_match">Treino / Fôlego em Partida</button>
             </div>
           </div>
         </div>
@@ -159,22 +164,29 @@
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="text" class="input" id="squad-search" data-i18n-placeholder="ph_filter_name" placeholder="Filtrar nome..." style="width:190px;" />
-            <button class="btn btn-primary" id="btn-squad-refresh" data-i18n="btn_refresh">Atualizar</button>
+            <button class="btn btn-primary" id="btn-squad-refresh" type="button" data-i18n="btn_refresh">Atualizar</button>
           </div>
+        </div>
+
+        <div class="grid-4">
+          <div class="kpi-card"><div class="stat-label" data-i18n="kpi_players">Atletas</div><div class="kpi-val num" id="squad-kpi-count">0</div></div>
+          <div class="kpi-card"><div class="stat-label" data-i18n="kpi_avg_ovr">OVR Médio</div><div class="kpi-val num" style="color:#60a5fa;" id="squad-kpi-ovr">--</div></div>
+          <div class="kpi-card"><div class="stat-label" data-i18n="kpi_avg_age">Idade Média</div><div class="kpi-val num" id="squad-kpi-age">--</div></div>
+          <div class="kpi-card"><div class="stat-label" data-i18n="kpi_alerts">Lesionados / Fim Contr.</div><div class="kpi-val num" style="color:var(--gold);" id="squad-kpi-alerts">0 / 0</div></div>
         </div>
 
         <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center;">
           <div class="tabs" style="border-bottom:none; padding-bottom:0;" id="squad-filters">
-            <button class="tab-btn active" data-filter="all" data-i18n="flt_all">Todos</button>
-            <button class="tab-btn" data-filter="exp" data-i18n="flt_exp">Fim de Contrato</button>
-            <button class="tab-btn" data-filter="inj" data-i18n="flt_inj">Lesionados</button>
-            <button class="tab-btn" data-filter="u23" data-i18n="flt_u23">Sub-23</button>
+            <button class="tab-btn active" type="button" data-filter="all" data-i18n="flt_all">Todos</button>
+            <button class="tab-btn" type="button" data-filter="exp" data-i18n="flt_exp">Fim de Contrato</button>
+            <button class="tab-btn" type="button" data-filter="inj" data-i18n="flt_inj">Lesionados</button>
+            <button class="tab-btn" type="button" data-filter="u23" data-i18n="flt_u23">Sub-23</button>
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button class="btn btn-sm btn-green" onclick="runSquadCmd('stamina')" data-i18n="cmd_stam_short">100% Fôlego</button>
-            <button class="btn btn-sm btn-primary" onclick="runSquadCmd('arrow')" data-i18n="cmd_arrow_short">Seta Azul</button>
-            <button class="btn btn-sm btn-green" onclick="runSquadCmd('heal')" data-i18n="cmd_heal_short">Curar Lesões</button>
-            <button class="btn btn-sm btn-gold" onclick="runSquadCmd('contract')" data-i18n="cmd_contract_short">Contratos +5a</button>
+            <button class="btn btn-sm btn-green" type="button" onclick="runSquadCmd('stamina')" data-i18n="cmd_stam_short">100% Fôlego</button>
+            <button class="btn btn-sm btn-primary" type="button" onclick="runSquadCmd('arrow')" data-i18n="cmd_arrow_short">Seta Azul</button>
+            <button class="btn btn-sm btn-green" type="button" onclick="runSquadCmd('heal')" data-i18n="cmd_heal_short">Curar Lesões</button>
+            <button class="btn btn-sm btn-gold" type="button" onclick="runSquadCmd('contract')" data-i18n="cmd_contract_short">Contratos +5a</button>
           </div>
         </div>
 
@@ -182,14 +194,14 @@
           <table class="studio-table" id="squad-table">
             <thead>
               <tr>
-                <th data-sort="ovr">OVR</th>
-                <th data-sort="pos" data-i18n="th_pos">POS</th>
-                <th data-sort="name" data-i18n="th_player">ATLETA</th>
-                <th data-sort="age" data-i18n="th_age">IDADE</th>
-                <th data-sort="exp_y" data-i18n="th_contract">CONTRATO</th>
-                <th data-sort="salary_raw" data-i18n="th_salary">SALÁRIO</th>
-                <th data-sort="stamina" data-i18n="th_stamina">FÔLEGO</th>
-                <th data-sort="injury" data-i18n="th_health">SAÚDE</th>
+                <th data-sort="ovr">OVR<span class="sort-arrow"></span></th>
+                <th data-sort="pos"><span data-i18n="th_pos">POS</span><span class="sort-arrow"></span></th>
+                <th data-sort="name"><span data-i18n="th_player">ATLETA</span><span class="sort-arrow"></span></th>
+                <th data-sort="age"><span data-i18n="th_age">IDADE</span><span class="sort-arrow"></span></th>
+                <th data-sort="exp_y"><span data-i18n="th_contract">CONTRATO</span><span class="sort-arrow"></span></th>
+                <th data-sort="salary_raw"><span data-i18n="th_salary">SALÁRIO</span><span class="sort-arrow"></span></th>
+                <th data-sort="stamina"><span data-i18n="th_stamina">FÔLEGO</span><span class="sort-arrow"></span></th>
+                <th data-sort="injury"><span data-i18n="th_health">SAÚDE</span><span class="sort-arrow"></span></th>
               </tr>
             </thead>
             <tbody id="squad-tbody">
@@ -201,154 +213,187 @@
 
       <!-- 3. PLAYER STUDIO -->
       <section class="view-panel" id="view-player">
-        <div class="page-header">
-          <div style="display:flex; align-items:center; gap:12px;">
-            <span class="ovr-badge ovr-80" id="p-hero-ovr" style="min-width:46px; height:36px; font-size:17px;">--</span>
-            <div>
-              <div class="page-title" id="p-hero-name" data-i18n="no_player">Nenhum atleta selecionado</div>
-              <div class="page-sub" id="p-hero-sub" data-i18n="no_player_sub">Destaque um jogador no jogo ou selecione em Meu Elenco / Buscar Jogador.</div>
+        <div id="player-empty-state" class="empty-hero">
+          <div class="page-title" data-i18n="no_player">Nenhum atleta selecionado</div>
+          <div class="page-sub" style="max-width:460px;" data-i18n="no_player_sub">Destaque um jogador no jogo ou selecione em Meu Elenco / Buscar Jogador.</div>
+          <div style="display:flex; gap:10px; margin-top:6px;">
+            <button class="btn btn-primary" type="button" onclick="switchView('squad')" data-i18n="short_squad">Abrir Meu Elenco</button>
+            <button class="btn" type="button" onclick="switchView('search')" data-i18n="short_search">Buscar nos 30.000+ Atletas</button>
+          </div>
+        </div>
+
+        <div id="player-studio-body" style="display:none; flex-direction:column; gap:16px;">
+          <!-- Broadcast Player Hero Card -->
+          <div class="player-hero">
+            <div class="hero-left">
+              <div class="hero-shield ovr-80" id="p-hero-ovr">--<small>OVR</small></div>
+              <div>
+                <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
+                  <span class="pos-chip pos-mid" id="p-hero-pos">---</span>
+                  <span class="page-title" id="p-hero-name">---</span>
+                </div>
+                <div class="hero-meta-row" id="p-hero-sub"></div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="btn btn-sm" id="btn-export-json" type="button" data-i18n="btn_export_json">Exportar JSON</button>
+              <button class="btn btn-sm" id="btn-import-json" type="button" data-i18n="btn_import_json">Importar JSON</button>
             </div>
           </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-sm" id="btn-export-json" data-i18n="btn_export_json">Exportar JSON</button>
-            <button class="btn btn-sm" id="btn-import-json" data-i18n="btn_import_json">Importar JSON</button>
+
+          <div class="tabs" id="player-subtabs">
+            <button class="tab-btn active" type="button" data-ptab="bio" data-i18n="ptab_bio">Condição & Bio</button>
+            <button class="tab-btn" type="button" data-ptab="stats" data-i18n="ptab_stats">Atributos (25)</button>
+            <button class="tab-btn" type="button" data-ptab="poslab" data-i18n="ptab_poslab">Lab de Posições</button>
+            <button class="tab-btn" type="button" data-ptab="skills" data-i18n="ptab_skills">Estilo & Habilidades</button>
+            <button class="tab-btn" type="button" data-ptab="role" data-i18n="ptab_role">Função de Equipe</button>
           </div>
-        </div>
 
-        <div class="tabs" id="player-subtabs">
-          <button class="tab-btn active" data-ptab="bio" data-i18n="ptab_bio">Condição & Bio</button>
-          <button class="tab-btn" data-ptab="stats" data-i18n="ptab_stats">Atributos (25)</button>
-          <button class="tab-btn" data-ptab="poslab" data-i18n="ptab_poslab">Lab de Posições</button>
-          <button class="tab-btn" data-ptab="skills" data-i18n="ptab_skills">Estilo & Habilidades</button>
-          <button class="tab-btn" data-ptab="role" data-i18n="ptab_role">Função de Equipe</button>
-        </div>
-
-        <!-- Subtab: Condição & Bio -->
-        <div class="ptab-pane" id="ptab-bio">
-          <div class="grid-2" style="margin-bottom:14px;">
-            <div class="card">
-              <div class="card-title" data-i18n="card_quick_stam">Fôlego & Saúde Rápida</div>
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <button class="btn btn-green" id="btn-p-stam100" data-i18n="cmd_stam_short">100% Fôlego</button>
-                <button class="btn btn-green" id="btn-p-heal" data-i18n="btn_heal_one">Curar Lesão</button>
-                <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:140px;">
-                  <input type="range" id="inp-p-stam" min="0" max="100" value="100" style="flex:1; accent-color:var(--green);" />
-                  <span id="lbl-p-stam" style="font-weight:700; min-width:38px;">100%</span>
+          <!-- Subtab: Condição & Bio -->
+          <div class="ptab-pane" id="ptab-bio">
+            <div class="grid-2" style="margin-bottom:14px;">
+              <div class="card">
+                <div class="card-title" data-i18n="card_quick_stam">Fôlego & Saúde Rápida</div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <button class="btn btn-green" id="btn-p-stam100" type="button" data-i18n="cmd_stam_short">100% Fôlego</button>
+                  <button class="btn btn-green" id="btn-p-heal" type="button" data-i18n="btn_heal_one">Curar Lesão</button>
+                  <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:140px;">
+                    <input type="range" id="inp-p-stam" min="0" max="100" value="100" style="flex:1; accent-color:var(--green);" />
+                    <span id="lbl-p-stam" class="num" style="font-weight:700; min-width:38px;">100%</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title" data-i18n="card_form_arrow">Seta de Forma (Match Form)</div>
+                <div class="arrow-group" id="p-arrow-group">
+                  <button class="arrow-btn" type="button" data-arrow="4"><span class="arr-ico" style="color:#38bdf8;">⬆</span><span data-i18n="arr_blue">Azul</span></button>
+                  <button class="arrow-btn" type="button" data-arrow="3"><span class="arr-ico" style="color:#4ade80;">↗</span><span data-i18n="arr_green">Verde</span></button>
+                  <button class="arrow-btn" type="button" data-arrow="2"><span class="arr-ico" style="color:#facc15;">➡</span><span data-i18n="arr_yellow">Amarela</span></button>
+                  <button class="arrow-btn" type="button" data-arrow="1"><span class="arr-ico" style="color:#fb923c;">↘</span><span data-i18n="arr_orange">Laranja</span></button>
+                  <button class="arrow-btn" type="button" data-arrow="0"><span class="arr-ico" style="color:#f87171;">⬇</span><span data-i18n="arr_red">Vermelha</span></button>
                 </div>
               </div>
             </div>
+
             <div class="card">
-              <div class="card-title" data-i18n="card_form_arrow">Seta de Forma (Match Form)</div>
-              <div class="arrow-group" id="p-arrow-group">
-                <button class="arrow-btn" data-arrow="4"><span class="arr-ico" style="color:#38bdf8;">⬆</span><span data-i18n="arr_blue">Azul</span></button>
-                <button class="arrow-btn" data-arrow="3"><span class="arr-ico" style="color:#4ade80;">↗</span><span data-i18n="arr_green">Verde</span></button>
-                <button class="arrow-btn" data-arrow="2"><span class="arr-ico" style="color:#facc15;">➡</span><span data-i18n="arr_yellow">Amarela</span></button>
-                <button class="arrow-btn" data-arrow="1"><span class="arr-ico" style="color:#fb923c;">↘</span><span data-i18n="arr_orange">Laranja</span></button>
-                <button class="arrow-btn" data-arrow="0"><span class="arr-ico" style="color:#f87171;">⬇</span><span data-i18n="arr_red">Vermelha</span></button>
+              <div class="card-title">
+                <span data-i18n="card_bio">Dados Biográficos & Contrato</span>
+                <button class="btn btn-sm btn-primary" id="btn-save-bio" type="button" data-i18n="btn_save">Salvar Alterações</button>
+              </div>
+              <div class="form-grid">
+                <div class="field"><label data-i18n="lbl_name">Nome do Jogador</label><input class="input" id="bio-name" /></div>
+                <div class="field"><label data-i18n="lbl_shirt">Nome na Camisa</label><input class="input" id="bio-shirt" /></div>
+                <div class="field"><label data-i18n="lbl_nat">Nacionalidade</label><select class="select" id="bio-nat"></select></div>
+                <div class="field"><label data-i18n="lbl_age">Idade (15-50)</label><input class="input" type="number" min="15" max="50" id="bio-age" /></div>
+                <div class="field"><label data-i18n="lbl_height">Altura (cm)</label><input class="input" type="number" min="145" max="215" id="bio-height" /></div>
+                <div class="field"><label data-i18n="lbl_weight">Peso (kg)</label><input class="input" type="number" min="45" max="125" id="bio-weight" /></div>
+                <div class="field"><label data-i18n="lbl_foot">Pé Preferido</label><select class="select" id="bio-foot"></select></div>
+                <div class="field"><label data-i18n="lbl_contract_yr">Fim do Contrato (Ano)</label><input class="input" type="number" min="2019" max="2150" id="bio-contract" /></div>
+                <div class="field"><label data-i18n="lbl_salary_yr">Salário Anual (ex: 2.5M)</label><input class="input" id="bio-salary" /></div>
+                <div class="field"><label data-i18n="lbl_inj_days">Dias Lesionado (0 = OK)</label><input class="input" type="number" min="0" max="255" id="bio-injury" /></div>
+                <div class="field"><label data-i18n="lbl_wfu">Uso Pé Ruim (1-4)</label><input class="input" type="number" min="1" max="4" id="bio-wfu" /></div>
+                <div class="field"><label data-i18n="lbl_wfa">Precisão Pé Ruim (1-4)</label><input class="input" type="number" min="1" max="4" id="bio-wfa" /></div>
+                <div class="field"><label data-i18n="lbl_form">Estabilidade / Forma (1-8)</label><input class="input" type="number" min="1" max="8" id="bio-form" /></div>
+                <div class="field"><label data-i18n="lbl_injres">Resistência a Lesões (1-3)</label><input class="input" type="number" min="1" max="3" id="bio-injres" /></div>
               </div>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-title">
-              <span data-i18n="card_bio">Dados Biográficos & Contrato</span>
-              <button class="btn btn-sm btn-primary" id="btn-save-bio" data-i18n="btn_save">Salvar Alterações</button>
-            </div>
-            <div class="form-grid">
-              <div class="field"><label data-i18n="lbl_name">Nome do Jogador</label><input class="input" id="bio-name" /></div>
-              <div class="field"><label data-i18n="lbl_shirt">Nome na Camisa</label><input class="input" id="bio-shirt" /></div>
-              <div class="field"><label data-i18n="lbl_nat">Nacionalidade</label><select class="select" id="bio-nat"></select></div>
-              <div class="field"><label data-i18n="lbl_age">Idade (15-50)</label><input class="input" type="number" min="15" max="50" id="bio-age" /></div>
-              <div class="field"><label data-i18n="lbl_height">Altura (cm)</label><input class="input" type="number" min="145" max="215" id="bio-height" /></div>
-              <div class="field"><label data-i18n="lbl_weight">Peso (kg)</label><input class="input" type="number" min="45" max="125" id="bio-weight" /></div>
-              <div class="field"><label data-i18n="lbl_foot">Pé Preferido</label>
-                <select class="select" id="bio-foot"></select>
+          <!-- Subtab: Attributes + Live 6-Axis Radar -->
+          <div class="ptab-pane" id="ptab-stats" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+              <span style="color:var(--subtext); font-size:12px;" data-i18n="stats_hint">Ajuste qualquer atributo em tempo real. O OVR recalcula instantaneamente.</span>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-sm btn-green" type="button" onclick="presetStats(99)" data-i18n="btn_all_99">Tudo 99</button>
+                <button class="btn btn-sm btn-primary" type="button" onclick="presetStats(90)" data-i18n="btn_all_90">Tudo 90</button>
+                <button class="btn btn-sm" type="button" onclick="presetStats(80)" data-i18n="btn_all_80">Tudo 80</button>
+                <button class="btn btn-sm btn-gold" type="button" onclick="shiftAllStats(5)" data-i18n="btn_plus5_all">+5 em Todos</button>
               </div>
-              <div class="field"><label data-i18n="lbl_contract_yr">Fim do Contrato (Ano)</label><input class="input" type="number" min="2019" max="2150" id="bio-contract" /></div>
-              <div class="field"><label data-i18n="lbl_salary_yr">Salário Anual (ex: 2.5M)</label><input class="input" id="bio-salary" /></div>
-              <div class="field"><label data-i18n="lbl_inj_days">Dias Lesionado (0 = OK)</label><input class="input" type="number" min="0" max="255" id="bio-injury" /></div>
-              <div class="field"><label data-i18n="lbl_wfu">Uso Pé Ruim (1-4)</label><input class="input" type="number" min="1" max="4" id="bio-wfu" /></div>
-              <div class="field"><label data-i18n="lbl_wfa">Precisão Pé Ruim (1-4)</label><input class="input" type="number" min="1" max="4" id="bio-wfa" /></div>
-              <div class="field"><label data-i18n="lbl_form">Estabilidade / Forma (1-8)</label><input class="input" type="number" min="1" max="8" id="bio-form" /></div>
-              <div class="field"><label data-i18n="lbl_injres">Resistência a Lesões (1-3)</label><input class="input" type="number" min="1" max="3" id="bio-injres" /></div>
+            </div>
+            <div class="stats-layout">
+              <div class="card radar-box">
+                <div class="card-title" style="width:100%;" data-i18n="radar_title">Perfil Técnico (6 Eixos)</div>
+                <svg id="stats-radar-svg" viewBox="0 0 240 230" width="236" height="226"></svg>
+                <div id="radar-legend" style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px; width:100%; font-size:11px;"></div>
+              </div>
+              <div class="grid-2" id="stats-groups-container"></div>
             </div>
           </div>
-        </div>
 
-        <!-- Subtab: Attributes -->
-        <div class="ptab-pane" id="ptab-stats" style="display:none;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-            <span style="color:var(--subtext); font-size:12px;" data-i18n="stats_hint">Ajuste qualquer atributo em tempo real. O OVR recalcula instantaneamente.</span>
-            <div style="display:flex; gap:8px;">
-              <button class="btn btn-sm btn-green" onclick="presetStats(99)" data-i18n="btn_all_99">Tudo 99</button>
-              <button class="btn btn-sm btn-primary" onclick="presetStats(90)" data-i18n="btn_all_90">Tudo 90</button>
-              <button class="btn btn-sm" onclick="presetStats(80)" data-i18n="btn_all_80">Tudo 80</button>
-              <button class="btn btn-sm btn-gold" onclick="shiftAllStats(5)" data-i18n="btn_plus5_all">+5 em Todos</button>
+          <!-- Subtab: Position Lab + Interactive Tactical Pitch -->
+          <div class="ptab-pane" id="ptab-poslab" style="display:none;">
+            <div class="poslab-layout">
+              <div class="card pitch-card">
+                <div class="card-title" style="width:100%;">
+                  <span data-i18n="pitch_title">Mapa Tático (13 Posições)</span>
+                </div>
+                <svg id="poslab-pitch-svg" class="pitch-svg" viewBox="0 0 220 320"></svg>
+                <div style="display:flex; gap:10px; font-size:11px; color:var(--subtext);">
+                  <span><b style="color:var(--green);">●</b> Grau A</span>
+                  <span><b style="color:var(--gold);">●</b> Grau B</span>
+                  <span><b style="color:var(--muted);">●</b> Grau C</span>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title">
+                  <span data-i18n="poslab_title">Lab de Posições (Precisão Cirúrgica)</span>
+                  <span style="font-size:11px; color:var(--subtext);" data-i18n="poslab_hint">OVR já inclui bônus do Grau. +1/-1 move 1 por vez e a posição principal nunca é alterada.</span>
+                </div>
+                <div class="table-wrap" style="max-height:calc(100vh - 340px);">
+                  <table class="studio-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="th_position">POSIÇÃO</th>
+                        <th>OVR</th>
+                        <th data-i18n="th_grade">GRAU</th>
+                        <th data-i18n="th_isolated_step">AJUSTE ISOLADO (1 EM 1)</th>
+                        <th data-i18n="th_actions">AÇÕES</th>
+                      </tr>
+                    </thead>
+                    <tbody id="poslab-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="grid-2" id="stats-groups-container"></div>
-        </div>
 
-        <!-- Subtab: Position Lab -->
-        <div class="ptab-pane" id="ptab-poslab" style="display:none;">
-          <div class="card">
-            <div class="card-title">
-              <span data-i18n="poslab_title">Lab de Posições (Precisão Cirúrgica)</span>
-              <span style="font-size:11px; color:var(--subtext);" data-i18n="poslab_hint">OVR já inclui bônus do Grau. +1/-1 move 1 por vez e a posição principal nunca é alterada.</span>
+          <!-- Subtab: Skills & Style -->
+          <div class="ptab-pane" id="ptab-skills" style="display:none;">
+            <div class="card" style="margin-bottom:14px;">
+              <div class="card-title" data-i18n="card_playing_style">Estilo de Jogo (Playing Style)</div>
+              <select class="select" id="p-playing-style" style="max-width:320px;"></select>
             </div>
-            <div class="table-wrap" style="max-height:calc(100vh - 320px);">
-              <table class="studio-table">
-                <thead>
-                  <tr>
-                    <th data-i18n="th_position">POSIÇÃO</th>
-                    <th>OVR</th>
-                    <th data-i18n="th_grade">GRAU</th>
-                    <th data-i18n="th_isolated_step">AJUSTE ISOLADO (1 EM 1)</th>
-                    <th data-i18n="th_actions">AÇÕES</th>
-                  </tr>
-                </thead>
-                <tbody id="poslab-tbody"></tbody>
-              </table>
+            <div class="card" style="margin-bottom:14px;">
+              <div class="card-title">
+                <span data-i18n="card_player_skills">Habilidades do Jogador</span>
+                <span id="skills-count" class="num" style="font-size:12px; color:var(--green);">0 / 10</span>
+              </div>
+              <div class="chip-grid" id="p-skills-grid"></div>
+            </div>
+            <div class="card">
+              <div class="card-title">
+                <span data-i18n="card_com_ai">Estilos de Jogo do COM (AI)</span>
+                <span id="comai-count" class="num" style="font-size:12px; color:var(--cyan);">0</span>
+              </div>
+              <div class="chip-grid" id="p-comai-grid"></div>
             </div>
           </div>
-        </div>
 
-        <!-- Subtab: Skills & Style -->
-        <div class="ptab-pane" id="ptab-skills" style="display:none;">
-          <div class="card" style="margin-bottom:14px;">
-            <div class="card-title" data-i18n="card_playing_style">Estilo de Jogo (Playing Style)</div>
-            <select class="select" id="p-playing-style" style="max-width:320px;"></select>
-          </div>
-          <div class="card" style="margin-bottom:14px;">
-            <div class="card-title">
-              <span data-i18n="card_player_skills">Habilidades do Jogador</span>
-              <span id="skills-count" style="font-size:12px; color:var(--green);">0 / 10</span>
-            </div>
-            <div class="chip-grid" id="p-skills-grid"></div>
-          </div>
-          <div class="card">
-            <div class="card-title">
-              <span data-i18n="card_com_ai">Estilos de Jogo do COM (AI)</span>
-              <span id="comai-count" style="font-size:12px; color:var(--cyan);">0</span>
-            </div>
-            <div class="chip-grid" id="p-comai-grid"></div>
-          </div>
-        </div>
-
-        <!-- Subtab: Team Role -->
-        <div class="ptab-pane" id="ptab-role" style="display:none;">
-          <div class="card" style="max-width:520px;">
-            <div class="card-title" data-i18n="card_team_role">Função de Equipe (Team Role)</div>
-            <div class="field">
-              <label data-i18n="lbl_role">Função</label>
-              <select class="select" id="p-team-role"></select>
-            </div>
-            <div class="field">
-              <label data-i18n="lbl_role_lvl">Nível (0 a 3)</label>
-              <select class="select" id="p-team-role-lvl"></select>
-            </div>
-            <div>
-              <button class="btn btn-primary" id="btn-save-role" data-i18n="btn_apply_role">Aplicar Função de Equipe</button>
+          <!-- Subtab: Team Role -->
+          <div class="ptab-pane" id="ptab-role" style="display:none;">
+            <div class="card" style="max-width:520px;">
+              <div class="card-title" data-i18n="card_team_role">Função de Equipe (Team Role)</div>
+              <div class="field">
+                <label data-i18n="lbl_role">Função</label>
+                <select class="select" id="p-team-role"></select>
+              </div>
+              <div class="field">
+                <label data-i18n="lbl_role_lvl">Nível (0 a 3)</label>
+                <select class="select" id="p-team-role-lvl"></select>
+              </div>
+              <div>
+                <button class="btn btn-primary" id="btn-save-role" type="button" data-i18n="btn_apply_role">Aplicar Função de Equipe</button>
+              </div>
             </div>
           </div>
         </div>
@@ -369,7 +414,7 @@
               <label data-i18n="lbl_name">Nome do Jogador</label>
               <input class="input" id="srch-query" data-i18n-placeholder="ph_search" placeholder="Ex: Messi, Vinicius, Endrick..." />
             </div>
-            <div class="field" style="width:130px;">
+            <div class="field" style="width:140px;">
               <label data-i18n="th_position">Posição</label>
               <select class="select" id="srch-pos"></select>
             </div>
@@ -384,7 +429,7 @@
             <label style="display:flex; align-items:center; gap:6px; padding-bottom:9px; cursor:pointer; color:var(--subtext);">
               <input type="checkbox" id="srch-free" /> <span data-i18n="lbl_free_agent">Sem Clube</span>
             </label>
-            <button class="btn btn-primary" id="btn-do-search" data-i18n="btn_search">Pesquisar</button>
+            <button class="btn btn-primary" id="btn-do-search" type="button" data-i18n="btn_search">Pesquisar</button>
           </div>
         </div>
 
@@ -392,12 +437,12 @@
           <table class="studio-table" id="search-table">
             <thead>
               <tr>
-                <th data-ssort="ovr">OVR</th>
-                <th data-ssort="pos" data-i18n="th_pos">POS</th>
-                <th data-ssort="name" data-i18n="th_player">ATLETA</th>
-                <th data-ssort="age" data-i18n="th_age">IDADE</th>
-                <th data-ssort="club" data-i18n="th_club">CLUBE</th>
-                <th data-ssort="salary_raw" data-i18n="th_salary">SALÁRIO</th>
+                <th data-ssort="ovr">OVR<span class="sort-arrow"></span></th>
+                <th data-ssort="pos"><span data-i18n="th_pos">POS</span><span class="sort-arrow"></span></th>
+                <th data-ssort="name"><span data-i18n="th_player">ATLETA</span><span class="sort-arrow"></span></th>
+                <th data-ssort="age"><span data-i18n="th_age">IDADE</span><span class="sort-arrow"></span></th>
+                <th data-ssort="club"><span data-i18n="th_club">CLUBE</span><span class="sort-arrow"></span></th>
+                <th data-ssort="salary_raw"><span data-i18n="th_salary">SALÁRIO</span><span class="sort-arrow"></span></th>
                 <th data-i18n="th_actions">AÇÕES</th>
               </tr>
             </thead>
@@ -415,17 +460,17 @@
             <div class="page-title" data-i18n="scouts_title">Olheiros & Favoritos (Nativo)</div>
             <div class="page-sub" data-i18n="scouts_sub">Grava apenas o ponteiro nativo na lista da Master League, sem alterar contratos ou cláusulas.</div>
           </div>
-          <button class="btn btn-primary" id="btn-scouts-refresh" data-i18n="btn_refresh_lists">Atualizar Listas</button>
+          <button class="btn btn-primary" id="btn-scouts-refresh" type="button" data-i18n="btn_refresh_lists">Atualizar Listas</button>
         </div>
 
         <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center;">
           <div class="tabs" style="border-bottom:none; padding-bottom:0;" id="scout-tabs">
-            <button class="tab-btn active" data-slot="4" data-i18n="scout_shortlist">Favoritos (Shortlist)</button>
-            <button class="tab-btn" data-slot="1" data-i18n="scout_1">Olheiro 1</button>
-            <button class="tab-btn" data-slot="2" data-i18n="scout_2">Olheiro 2</button>
-            <button class="tab-btn" data-slot="3" data-i18n="scout_3">Olheiro 3</button>
+            <button class="tab-btn active" type="button" data-slot="4" data-i18n="scout_shortlist">Favoritos (Shortlist)</button>
+            <button class="tab-btn" type="button" data-slot="1" data-i18n="scout_1">Olheiro 1</button>
+            <button class="tab-btn" type="button" data-slot="2" data-i18n="scout_2">Olheiro 2</button>
+            <button class="tab-btn" type="button" data-slot="3" data-i18n="scout_3">Olheiro 3</button>
           </div>
-          <button class="btn btn-green" id="btn-scout-add-cur" data-i18n="btn_scout_add_cur">+ Adicionar Jogador Atual nesta Lista</button>
+          <button class="btn btn-green" id="btn-scout-add-cur" type="button" data-i18n="btn_scout_add_cur">+ Adicionar Jogador Atual nesta Lista</button>
         </div>
 
         <div class="table-wrap">
@@ -454,13 +499,23 @@
             <div class="page-title" data-i18n="fin_title">Finanças da Master League</div>
             <div class="page-sub" data-i18n="fin_sub">Cálculo exato de Salários Disponíveis descontando folha ativa e pendentes (0x14156D170).</div>
           </div>
-          <button class="btn" id="btn-fin-refresh" data-i18n="btn_reload">Recarregar</button>
+          <button class="btn" id="btn-fin-refresh" type="button" data-i18n="btn_reload">Recarregar</button>
         </div>
 
-        <div class="card" style="max-width:640px;">
+        <div class="card" style="max-width:680px;">
           <div class="card-title">
             <span data-i18n="card_edit_budgets">Editar Orçamentos</span>
-            <span id="fin-wage-bill" style="font-size:12px; color:var(--subtext);">€ 0</span>
+            <span id="fin-wage-bill" class="num" style="font-size:12px; color:var(--subtext);">€ 0</span>
+          </div>
+          <div>
+            <div class="fin-bar-track">
+              <div class="fin-bar-used" id="fin-bar-used" style="width:50%;"></div>
+              <div class="fin-bar-free" id="fin-bar-free" style="width:50%;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--subtext); margin-top:5px;">
+              <span id="fin-bar-lbl-used">---</span>
+              <span id="fin-bar-lbl-free">---</span>
+            </div>
           </div>
           <div class="form-grid" style="grid-template-columns:1fr 1fr;">
             <div class="field">
@@ -473,11 +528,11 @@
             </div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
-            <button class="btn btn-primary" id="btn-fin-save" data-i18n="btn_apply_values">Aplicar Valores</button>
-            <button class="btn btn-green" onclick="quickFinance('transfer', 100000)" data-i18n="btn_p10m_trf">+10M Transf.</button>
-            <button class="btn btn-green" onclick="quickFinance('transfer', 1000000)" data-i18n="btn_p100m_trf">+100M Transf.</button>
-            <button class="btn btn-gold" onclick="quickFinance('salary', 100000)" data-i18n="btn_p10m_sal">+10M Salários</button>
-            <button class="btn btn-gold" onclick="quickFinance('salary', 500000)" data-i18n="btn_p50m_sal">+50M Salários</button>
+            <button class="btn btn-primary" id="btn-fin-save" type="button" data-i18n="btn_apply_values">Aplicar Valores</button>
+            <button class="btn btn-green" type="button" onclick="quickFinance('transfer', 100000)" data-i18n="btn_p10m_trf">+10M Transf.</button>
+            <button class="btn btn-green" type="button" onclick="quickFinance('transfer', 1000000)" data-i18n="btn_p100m_trf">+100M Transf.</button>
+            <button class="btn btn-gold" type="button" onclick="quickFinance('salary', 100000)" data-i18n="btn_p10m_sal">+10M Salários</button>
+            <button class="btn btn-gold" type="button" onclick="quickFinance('salary', 500000)" data-i18n="btn_p50m_sal">+50M Salários</button>
           </div>
         </div>
       </section>
@@ -494,24 +549,24 @@
         <div class="card">
           <div class="card-title" data-i18n="card_training_xp">Velocidade de Treino (Multiplicador Sub-XP)</div>
           <div class="mode-grid" id="training-mode-grid">
-            <div class="mode-card" data-tmode="0"><div class="mode-card-title" data-i18n="tm_0">Normal (1x)</div><div class="mode-card-desc" data-i18n="tm_0_d">Evolução padrão do jogo</div></div>
-            <div class="mode-card" data-tmode="1"><div class="mode-card-title" data-i18n="tm_1">Rápido (2x)</div><div class="mode-card-desc" data-i18n="tm_1_d">Dobro de XP por treino</div></div>
-            <div class="mode-card" data-tmode="2"><div class="mode-card-title" data-i18n="tm_2">Acelerado (5x)</div><div class="mode-card-desc" data-i18n="tm_2_d">5x mais rápido</div></div>
-            <div class="mode-card" data-tmode="3"><div class="mode-card-title" data-i18n="tm_3">Turbo (10x)</div><div class="mode-card-desc" data-i18n="tm_3_d">10x mais rápido</div></div>
-            <div class="mode-card" data-tmode="4"><div class="mode-card-title" data-i18n="tm_4">Ultra (50x)</div><div class="mode-card-desc" data-i18n="tm_4_d">Evolução extrema</div></div>
-            <div class="mode-card" data-tmode="5"><div class="mode-card-title" data-i18n="tm_5">Instantâneo</div><div class="mode-card-desc" data-i18n="tm_5_d">XP máximo imediato</div></div>
+            <button class="mode-card" type="button" data-tmode="0"><div class="mode-card-title" data-i18n="tm_0">Normal (1x)</div><div class="mode-card-desc" data-i18n="tm_0_d">Evolução padrão do jogo</div></button>
+            <button class="mode-card" type="button" data-tmode="1"><div class="mode-card-title" data-i18n="tm_1">Rápido (2x)</div><div class="mode-card-desc" data-i18n="tm_1_d">Dobro de XP por treino</div></button>
+            <button class="mode-card" type="button" data-tmode="2"><div class="mode-card-title" data-i18n="tm_2">Acelerado (5x)</div><div class="mode-card-desc" data-i18n="tm_2_d">5x mais rápido</div></button>
+            <button class="mode-card" type="button" data-tmode="3"><div class="mode-card-title" data-i18n="tm_3">Turbo (10x)</div><div class="mode-card-desc" data-i18n="tm_3_d">10x mais rápido</div></button>
+            <button class="mode-card" type="button" data-tmode="4"><div class="mode-card-title" data-i18n="tm_4">Ultra (50x)</div><div class="mode-card-desc" data-i18n="tm_4_d">Evolução extrema</div></button>
+            <button class="mode-card" type="button" data-tmode="5"><div class="mode-card-title" data-i18n="tm_5">Instantâneo</div><div class="mode-card-desc" data-i18n="tm_5_d">XP máximo imediato</div></button>
           </div>
         </div>
 
         <div class="card">
           <div class="card-title" data-i18n="card_match_stam">Fôlego Seletivo em Partida</div>
           <div class="mode-grid" id="stamina-mode-grid">
-            <div class="mode-card" data-smode="0"><div class="mode-card-title" data-i18n="sm_0">Normal</div><div class="mode-card-desc" data-i18n="sm_0_d">Desgaste padrão</div></div>
-            <div class="mode-card" data-smode="1"><div class="mode-card-title" data-i18n="sm_1">Casa 100%</div><div class="mode-card-desc" data-i18n="sm_1_d">Time da casa infinito</div></div>
-            <div class="mode-card" data-smode="2"><div class="mode-card-title" data-i18n="sm_2">Fora 100%</div><div class="mode-card-desc" data-i18n="sm_2_d">Visitante infinito</div></div>
-            <div class="mode-card" data-smode="3"><div class="mode-card-title" data-i18n="sm_3">Ambos 100%</div><div class="mode-card-desc" data-i18n="sm_3_d">Todos em campo 100%</div></div>
-            <div class="mode-card" data-smode="4"><div class="mode-card-title" data-i18n="sm_4">Casa 100% / Fora 5%</div><div class="mode-card-desc" data-i18n="sm_4_d">Pressão total em casa</div></div>
-            <div class="mode-card" data-smode="5"><div class="mode-card-title" data-i18n="sm_5">Fora 100% / Casa 5%</div><div class="mode-card-desc" data-i18n="sm_5_d">Pressão total visitante</div></div>
+            <button class="mode-card" type="button" data-smode="0"><div class="mode-card-title" data-i18n="sm_0">Normal</div><div class="mode-card-desc" data-i18n="sm_0_d">Desgaste padrão</div></button>
+            <button class="mode-card" type="button" data-smode="1"><div class="mode-card-title" data-i18n="sm_1">Casa 100%</div><div class="mode-card-desc" data-i18n="sm_1_d">Time da casa infinito</div></button>
+            <button class="mode-card" type="button" data-smode="2"><div class="mode-card-title" data-i18n="sm_2">Fora 100%</div><div class="mode-card-desc" data-i18n="sm_2_d">Visitante infinito</div></button>
+            <button class="mode-card" type="button" data-smode="3"><div class="mode-card-title" data-i18n="sm_3">Ambos 100%</div><div class="mode-card-desc" data-i18n="sm_3_d">Todos em campo 100%</div></button>
+            <button class="mode-card" type="button" data-smode="4"><div class="mode-card-title" data-i18n="sm_4">Casa 100% / Fora 5%</div><div class="mode-card-desc" data-i18n="sm_4_d">Pressão total em casa</div></button>
+            <button class="mode-card" type="button" data-smode="5"><div class="mode-card-title" data-i18n="sm_5">Fora 100% / Casa 5%</div><div class="mode-card-desc" data-i18n="sm_5_d">Pressão total visitante</div></button>
           </div>
         </div>
 
@@ -520,7 +575,7 @@
             <div class="card-title" data-i18n="card_clock">Relógio da Partida</div>
             <div style="display:flex; align-items:center; justify-content:space-between;">
               <span style="color:var(--subtext);" data-i18n="clock_desc">Congelar cronômetro durante a partida</span>
-              <button class="btn" id="btn-freeze-clock">Congelar: OFF</button>
+              <button class="btn" id="btn-freeze-clock" type="button" data-i18n="clock_off">Congelar: OFF</button>
             </div>
           </div>
           <div class="card">
@@ -528,9 +583,9 @@
             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
               <input class="input" type="number" id="bal-focus-inp" min="0" max="99" value="21" style="width:86px;" />
               <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--subtext);">
-                <input type="checkbox" id="bal-lock-chk" /> <span data-i18n="lbl_lock_99">Travar em 99</span>
+                <input type="checkbox" id="bal-lock-chk" /> <span data-i18n="lbl_lock_99">Travar valor</span>
               </label>
-              <button class="btn btn-primary" id="btn-bal-apply" data-i18n="btn_apply">Aplicar</button>
+              <button class="btn btn-primary" id="btn-bal-apply" type="button" data-i18n="btn_apply">Aplicar</button>
             </div>
           </div>
         </div>
@@ -543,13 +598,21 @@
     <div class="modal-box">
       <div class="card-title">
         <span id="json-modal-title">JSON Backup</span>
-        <button class="btn btn-xs" id="btn-json-close">X</button>
+        <button class="btn btn-xs" id="btn-json-close" type="button">X</button>
       </div>
       <textarea class="json-textarea" id="json-modal-text" spellcheck="false"></textarea>
       <div style="display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn btn-sm" id="btn-json-cancel" data-i18n="btn_cancel">Cancelar</button>
-        <button class="btn btn-sm btn-primary" id="btn-json-action">OK</button>
+        <button class="btn btn-sm" id="btn-json-cancel" type="button" data-i18n="btn_cancel">Cancelar</button>
+        <button class="btn btn-sm btn-primary" id="btn-json-action" type="button">OK</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Command Palette Modal (Ctrl+K) -->
+  <div class="modal-overlay" id="cmd-modal">
+    <div class="modal-box" style="width:480px;">
+      <input class="input" id="cmd-input" data-i18n-placeholder="ph_cmd" placeholder="Digite um comando ou tela..." />
+      <div class="cmd-list" id="cmd-list"></div>
     </div>
   </div>
 

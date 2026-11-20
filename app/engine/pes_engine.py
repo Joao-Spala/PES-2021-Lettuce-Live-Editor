@@ -1,24 +1,21 @@
 """
 PES 2021 Ultimate Studio - Standalone Game Engine (Master League / BAL / Match / Player).
 100% pure Python + Win32Memory + native x64 HookManager. Zero Cheat Engine required.
+Returns structured status codes so UI handles 100% PT-BR / EN localization cleanly.
 """
 
 import json
-import math
 import struct
 import threading
 import time
 import unicodedata
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .win32_mem import Win32Memory
 from .hooks import HookManager
 from .pes_data import (
     OVR_DATA,
     BMPES_TEAMS,
-    BMPES_COMPS,
-    POSITIONS,
-    TEAM_ROLES,
     SCOUT_LISTS,
     SCOUT_EMPTY_SENTINEL,
     FID_LOC,
@@ -29,12 +26,20 @@ from .pes_data import (
     STAT_DEFS,
     PLAYER_SKILLS,
     COM_AI_STYLES,
-    NATIONALITIES,
-    PLAYING_STYLES,
 )
 
 PLAYER_RECORD_SIZE = 0x17C
 UNDO_MAX_DEPTH = 10
+BufLike = Union[bytes, bytearray, memoryview]
+
+
+def _safe_int(val: Any, default: Optional[int] = None) -> Optional[int]:
+    if val is None or val == "":
+        return default
+    try:
+        return int(float(val))
+    except (ValueError, TypeError):
+        return default
 
 
 def _norm_text(s: str) -> str:
@@ -44,11 +49,11 @@ def _norm_text(s: str) -> str:
     return "".join(c for c in nfd if unicodedata.category(c) != "Mn").lower()
 
 
-def _get_bits_buf(buf: bytes, off: int, bit_start: int, bit_len: int) -> int:
+def _get_bits_buf(buf: BufLike, off: int, bit_start: int, bit_len: int) -> int:
     if off + 4 <= len(buf):
         v = struct.unpack_from("<I", buf, off)[0]
     else:
-        chunk = buf[off : off + 4].ljust(4, b"\x00")
+        chunk = bytes(buf[off : off + 4]).ljust(4, b"\x00")
         v = struct.unpack("<I", chunk)[0]
     return (v >> bit_start) & ((1 << bit_len) - 1)
 
@@ -60,7 +65,7 @@ def _set_bits_buf(buf: bytearray, off: int, bit_start: int, bit_len: int, val: i
         v = (v & ~mask) | ((int(val) << bit_start) & mask)
         struct.pack_into("<I", buf, off, v)
     else:
-        chunk = bytearray(buf[off : off + 4].ljust(4, b"\x00"))
+        chunk = bytes(buf[off : off + 4]).ljust(4, b"\x00")
         v = struct.unpack("<I", chunk)[0]
         mask = ((1 << bit_len) - 1) << bit_start
         v = (v & ~mask) | ((int(val) << bit_start) & mask)
@@ -69,18 +74,23 @@ def _set_bits_buf(buf: bytearray, off: int, bit_start: int, bit_len: int, val: i
             buf[off + i] = packed[i]
 
 
-def get_fid_from_buf(buf: bytes, fid: int) -> int:
+def get_fid_from_buf(buf: BufLike, fid: int) -> int:
     off, bs = FID_LOC[fid]
+    if off == 0x03:
+        return buf[3] & 0x7F
     return _get_bits_buf(buf, off, bs, 7)
 
 
 def set_fid_in_buf(buf: bytearray, fid: int, val: int) -> None:
     off, bs = FID_LOC[fid]
     v = max(40, min(99, int(val)))
-    _set_bits_buf(buf, off, bs, 7, v)
+    if off == 0x03:
+        buf[3] = (buf[3] & 0x80) | (v & 0x7F)
+    else:
+        _set_bits_buf(buf, off, bs, 7, v)
 
 
-def get_apt_from_buf(buf: bytes, pos_idx: int) -> int:
+def get_apt_from_buf(buf: BufLike, pos_idx: int) -> int:
     off, bs = POS_APT_LOC[pos_idx]
     return _get_bits_buf(buf, off, bs, 2)
 
@@ -91,9 +101,9 @@ def set_apt_in_buf(buf: bytearray, pos_idx: int, grade: int) -> None:
 
 
 def calc_ovr_from_buf(
-    buf: bytes, eval_pos: Optional[int] = None, assume_apt_a: bool = False
+    buf: BufLike, eval_pos: Optional[int] = None, assume_apt_a: bool = False
 ) -> Tuple[int, int]:
-    """Exact Konami OVR formula (fcn.1414e7a50 + fcn.141e640a0). Returns (ovr, reg_pos)."""
+    """Exact Konami OVR formula (fcn.1414e7a50 + fcn.141e640a0). Accepts bytes or bytearray directly."""
     if not buf or len(buf) < 0x28:
         return 40, 0
     real_reg_pos = (struct.unpack_from("<I", buf, 0x04)[0] >> 28) & 0x0F
@@ -190,7 +200,6 @@ def parse_human_money_to_raw(text: str) -> Optional[int]:
     if mult > 1.0:
         s = s.replace(",", ".")
     else:
-        # Remove thousands separators
         if s.count(".") > 1 or (s.count(".") == 1 and len(s.split(".")[1]) == 3):
             s = s.replace(".", "")
         if s.count(",") > 1 or (s.count(",") == 1 and len(s.split(",")[1]) == 3):
@@ -218,8 +227,10 @@ class PESEngine:
         self._wage_cache_career: int = 0
         self._wage_cache_sum: int = 0
         self._last_pid: int = 0
+        self._last_career: int = 0
         self._manual_player_addr: int = 0
         self._last_hook_player: int = 0
+        self._bal_lock_target: int = 99
         self._club_name_cache: Dict[Tuple[int, int], Tuple[int, str]] = {}
 
     # ------------------------------------------------------------------
@@ -228,6 +239,8 @@ class PESEngine:
     def ensure_attached(self) -> bool:
         with self.lock:
             if self.mem.attached and self.mem.pid == self._last_pid and self.hooks.state_base:
+                if not self.hooks.active_hooks.get(1):
+                    self.hooks.enable_hook_1_player()
                 return True
             if not self.mem.attach():
                 self._reset_session()
@@ -245,6 +258,10 @@ class PESEngine:
     def _reset_session(self) -> None:
         self.addr_career_owner = 0
         self.addr_match_mgr = 0
+        self._last_career = 0
+        self._reset_career_caches()
+
+    def _reset_career_caches(self) -> None:
         self._squad_cache = None
         self._wage_cache_career = 0
         self._wage_cache_time = 0.0
@@ -266,7 +283,6 @@ class PESEngine:
             self.addr_career_owner = fast_career
             self.addr_match_mgr = fast_match
             return
-        # Fallback AOB scan for Football Life / patched EXEs
         call_site = self.mem.aob_scan_region(
             base + 0x1000,
             base + 0x2540000,
@@ -294,7 +310,6 @@ class PESEngine:
             self.addr_match_mgr = fast_match
 
     def sync_pointers(self) -> Tuple[int, int, int]:
-        """Refresh career, match_mgr, match_state, and return (career, player_addr, match_state)."""
         if not self.mem.attached or not self.hooks.state_base:
             return 0, 0, 0
         career = 0
@@ -302,6 +317,13 @@ class PESEngine:
             owner = self.mem.read_u64(self.addr_career_owner)
             if owner > 0x10000:
                 career = self.mem.read_u64(owner + 0x48)
+
+        # Invalidate stale caches & pointers when user switches save or exits ML/BAL
+        if career != self._last_career:
+            self._last_career = career
+            self._reset_career_caches()
+            self.mem.write_u64(self.hooks.sym_addr("ptrPlayer"), 0)
+
         self.mem.write_u64(self.hooks.sym_addr("ptrCareer"), career)
 
         match_mgr = 0
@@ -313,13 +335,12 @@ class PESEngine:
         self.mem.write_u64(self.hooks.sym_addr("ptrMatchMgr"), match_mgr)
         self.mem.write_u64(self.hooks.sym_addr("ptrMatchState"), match_state)
 
-        # BAL Focus lock
+        # BAL Focus lock respects the user's chosen target value
         if career > 0x10000:
             if self.mem.read_u32(self.hooks.sym_addr("cfgLockBALFocusPoints")) == 1:
                 self.hooks.enable_hook_4_bal_cap()
-                self.mem.write_u8(career + 0x016ECBEA, 99)
+                self.mem.write_u8(career + 0x016ECBEA, self._bal_lock_target)
 
-        # Track in-game player changes vs manual app selection
         hook_p = self.mem.read_u64(self.hooks.sym_addr("ptrPlayer"))
         if hook_p > 0x10000 and hook_p != self._last_hook_player:
             self._last_hook_player = hook_p
@@ -330,37 +351,38 @@ class PESEngine:
 
     def select_player(self, addr: int) -> bool:
         with self.lock:
-            if not self.ensure_attached() or addr <= 0x10000:
+            a = _safe_int(addr, 0) or 0
+            if not self.ensure_attached() or a <= 0x10000:
                 return False
-            self._manual_player_addr = int(addr)
-            self._last_hook_player = int(addr)
-            self.mem.write_u64(self.hooks.sym_addr("ptrPlayer"), int(addr))
+            self._manual_player_addr = a
+            self._last_hook_player = a
+            self.mem.write_u64(self.hooks.sym_addr("ptrPlayer"), a)
             return True
 
     # ------------------------------------------------------------------
     # UNDO STACK (10-level full 0x17C snapshot per player)
     # ------------------------------------------------------------------
-    def push_undo(self, p_addr: int, label: str) -> None:
+    def push_undo(self, p_addr: int, action_code: str) -> None:
         snap = self.mem.read_bytes(p_addr, PLAYER_RECORD_SIZE)
         if not snap or len(snap) < PLAYER_RECORD_SIZE:
             return
         st = self.undo_stack.setdefault(p_addr, [])
-        st.append({"bytes": snap, "label": label, "time": time.strftime("%H:%M:%S")})
+        st.append({"bytes": snap, "action": action_code, "time": time.strftime("%H:%M:%S")})
         if len(st) > UNDO_MAX_DEPTH:
             st.pop(0)
 
     def undo_last(self, p_addr: Optional[int] = None) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False, "msg": "Jogo não conectado"}
+                return {"ok": False, "code": "not_connected"}
             _, cur_p, _ = self.sync_pointers()
             p = p_addr or cur_p
             st = self.undo_stack.get(p)
             if not st:
-                return {"ok": False, "msg": "Nenhuma alteração para desfazer"}
+                return {"ok": False, "code": "nothing_to_undo"}
             entry = st.pop()
             self.mem.write_bytes(p, entry["bytes"])
-            return {"ok": True, "label": entry["label"], "remaining": len(st)}
+            return {"ok": True, "action": entry["action"], "remaining": len(st)}
 
     # ------------------------------------------------------------------
     # CAREER, CLUB & EXACT FINANCES
@@ -435,9 +457,7 @@ class PESEngine:
             count = self.mem.read_u32(career + 0x00D0BCE8)
             if count == 0 or count > 30001:
                 count = 30000
-            # Bulk read in 4MB chunks for ultra-fast (<25ms) 30k scan!
-            total_bytes = count * PLAYER_RECORD_SIZE
-            raw = self.mem.read_bytes(career, total_bytes)
+            raw = self.mem.read_bytes(career, count * PLAYER_RECORD_SIZE)
             addrs: List[int] = []
             if raw:
                 for i in range(count):
@@ -483,7 +503,7 @@ class PESEngine:
             ph = self.mem.read_u64(p + 0x2C)
             if ph not in seen:
                 seen.add(ph)
-                if not overrides.get(ph):
+                if ph not in overrides:
                     sum_sal += self.mem.read_i32(p + 0x15C)
         sum_sal += ov_sum
         self._wage_cache_career = career
@@ -494,10 +514,10 @@ class PESEngine:
     def get_finances(self) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             career, _, _ = self.sync_pointers()
             if not career:
-                return {"ok": False, "msg": "Abra uma Master League"}
+                return {"ok": False, "code": "no_career"}
             trf = self.mem.read_i32(career + 0x016ECBF4)
             avail, gross, wages = self.get_available_salary_budget(career, force_refresh=True)
             return {
@@ -511,10 +531,10 @@ class PESEngine:
     def set_finances(self, transfer_str: Optional[str], salary_avail_str: Optional[str]) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             career, _, _ = self.sync_pointers()
             if not career:
-                return {"ok": False, "msg": "Abra uma Master League"}
+                return {"ok": False, "code": "no_career"}
             if transfer_str is not None and str(transfer_str).strip() != "":
                 t_raw = parse_human_money_to_raw(transfer_str)
                 if t_raw is not None:
@@ -530,18 +550,19 @@ class PESEngine:
     def add_finance_delta(self, kind: str, raw_delta: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             career, _, _ = self.sync_pointers()
             if not career:
-                return {"ok": False}
+                return {"ok": False, "code": "no_career"}
+            delta = _safe_int(raw_delta, 0) or 0
             off = 0x016ECBF4 if kind == "transfer" else 0x016ECC08
             cur = self.mem.read_i32(career + off)
-            nv = max(0, min(2_147_483_647, cur + int(raw_delta)))
+            nv = max(0, min(2_147_483_647, cur + delta))
             self.mem.write_i32(career + off, nv)
             return self.get_finances()
 
     # ------------------------------------------------------------------
-    # LIVE STATUS SNAPSHOT (Polled every 500ms by UI)
+    # LIVE STATUS SNAPSHOT (Polled every 600ms by UI)
     # ------------------------------------------------------------------
     def get_status(self) -> Dict[str, Any]:
         with self.lock:
@@ -549,34 +570,30 @@ class PESEngine:
             if not attached:
                 return {
                     "attached": False,
+                    "access_denied": self.mem.access_denied,
                     "exe": "",
                     "pid": 0,
                     "mode_code": "offline",
-                    "mode": "Aguardando jogo",
                     "club": "",
                     "career": 0,
+                    "in_match": False,
                     "player": None,
                     "finances": None,
                     "hooks": {},
                     "training_mode": 0,
                     "stamina_mode": 0,
+                    "freeze_clock": False,
                     "bal_focus": 0,
                     "bal_lock": False,
                 }
             career, p_addr, match_state = self.sync_pointers()
             mode_code = "menu"
-            mode = "Menu / Exibição"
             club_name = ""
             finances = None
             bal_focus = 0
             if career > 0x10000:
                 bal_h = self.mem.read_u64(career + 0x01819540)
-                if (bal_h >> 32) != 0:
-                    mode_code = "bal"
-                    mode = "Rumo ao Estrelato (BAL)"
-                else:
-                    mode_code = "ml"
-                    mode = "Master League"
+                mode_code = "bal" if (bal_h >> 32) != 0 else "ml"
                 uc = self.get_user_club_handle(career)
                 if uc:
                     _, club_name = self.decode_club_handle(uc, career)
@@ -600,7 +617,7 @@ class PESEngine:
                     arrow = min(4, _get_bits_buf(buf, 0x147, 0, 3))
                     inj = buf[0x148]
                     club_h = struct.unpack_from("<I", buf, 0x12C)[0]
-                    _, p_club = self.decode_club_handle(club_h)
+                    _, p_club = self.decode_club_handle(club_h, career)
                     player_summary = {
                         "addr": p_addr,
                         "name": name or "?",
@@ -616,10 +633,10 @@ class PESEngine:
 
             return {
                 "attached": True,
+                "access_denied": False,
                 "exe": self.mem.exe_name,
                 "pid": self.mem.pid,
                 "mode_code": mode_code,
-                "mode": mode,
                 "club": club_name,
                 "career": career,
                 "in_match": match_state > 0x10000,
@@ -639,21 +656,21 @@ class PESEngine:
     def get_player_details(self, addr: Optional[int] = None) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False, "msg": "Jogo não conectado"}
-            _, cur_p, _ = self.sync_pointers()
-            p = addr or cur_p
+                return {"ok": False, "code": "not_connected"}
+            career, cur_p, _ = self.sync_pointers()
+            p = _safe_int(addr) or cur_p
             if not p or p <= 0x10000:
-                return {"ok": False, "msg": "Selecione um jogador no jogo"}
+                return {"ok": False, "code": "no_player"}
             buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
             if not buf or len(buf) < PLAYER_RECORD_SIZE:
-                return {"ok": False, "msg": "Falha ao ler jogador"}
+                return {"ok": False, "code": "read_failed"}
 
             ovr, reg_pos = calc_ovr_from_buf(buf)
             name = buf[0x38:0x66].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
             shirt = buf[0x75:0x87].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
             pid = struct.unpack_from("<I", buf, 0x30)[0]
             club_h = struct.unpack_from("<I", buf, 0x12C)[0]
-            _, club_name = self.decode_club_handle(club_h)
+            _, club_name = self.decode_club_handle(club_h, career)
             nat_id = struct.unpack_from("<H", buf, 0x144)[0] & 0x1FF
             age = buf[0x1C] & 0x3F
             height = buf[0x00]
@@ -680,21 +697,17 @@ class PESEngine:
                 p_ovr, _ = calc_ovr_from_buf(buf, pos_idx, False)
                 apt = get_apt_from_buf(buf, pos_idx)
                 positions.append(
-                    {
-                        "id": pos_idx,
-                        "ovr": p_ovr,
-                        "apt": apt,
-                        "is_reg": pos_idx == reg_pos,
-                    }
+                    {"id": pos_idx, "ovr": p_ovr, "apt": apt, "is_reg": pos_idx == reg_pos}
                 )
 
-            skills = {}
-            for sk in PLAYER_SKILLS:
-                skills[sk["key"]] = _get_bits_buf(buf, sk["offset"], sk["bit"], 1) == 1
-
-            com_ai = {}
-            for ai in COM_AI_STYLES:
-                com_ai[ai["key"]] = _get_bits_buf(buf, ai["offset"], ai["bit"], 1) == 1
+            skills = {
+                sk["key"]: _get_bits_buf(buf, sk["offset"], sk["bit"], 1) == 1
+                for sk in PLAYER_SKILLS
+            }
+            com_ai = {
+                ai["key"]: _get_bits_buf(buf, ai["offset"], ai["bit"], 1) == 1
+                for ai in COM_AI_STYLES
+            }
 
             return {
                 "ok": True,
@@ -735,15 +748,17 @@ class PESEngine:
     ) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
             if not p:
-                return {"ok": False}
-            self.push_undo(p, "Condição")
-            if stamina is not None:
-                self.mem.set_bits(p + 0x146, 0, 7, max(0, min(100, int(stamina))))
-            if arrow is not None:
-                a = max(0, min(4, int(arrow)))
+                return {"ok": False, "code": "no_player"}
+            self.push_undo(p, "condition")
+            st_val = _safe_int(stamina)
+            if st_val is not None:
+                self.mem.set_bits(p + 0x146, 0, 7, max(0, min(100, st_val)))
+            ar_val = _safe_int(arrow)
+            if ar_val is not None:
+                a = max(0, min(4, ar_val))
                 self.mem.set_bits(p + 0x147, 0, 3, a)
                 self.mem.set_bits(p + 0x146, 7, 1, 1 if a == 4 else 0)
             if heal:
@@ -753,111 +768,132 @@ class PESEngine:
     def update_player_bio(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
-            if not p:
-                return {"ok": False}
-            self.push_undo(p, "Bio")
-            if "name" in payload and payload["name"] is not None:
-                self.mem.write_str(p + 0x38, str(payload["name"]), 46)
-            if "shirt" in payload and payload["shirt"] is not None:
-                self.mem.write_str(p + 0x75, str(payload["shirt"]).upper(), 18)
-            if "nationality" in payload:
+            if not p or not isinstance(payload, dict):
+                return {"ok": False, "code": "no_player"}
+            self.push_undo(p, "bio")
+            if payload.get("name") is not None and str(payload["name"]).strip() != "":
+                self.mem.write_str(p + 0x38, str(payload["name"]).strip(), 46)
+            if payload.get("shirt") is not None:
+                self.mem.write_str(p + 0x75, str(payload["shirt"]).strip().upper(), 18)
+            nat = _safe_int(payload.get("nationality"))
+            if nat is not None:
                 cur = self.mem.read_u16(p + 0x144)
-                nv = (cur & ~0x1FF) | (int(payload["nationality"]) & 0x1FF)
-                self.mem.write_u16(p + 0x144, nv)
-            if "age" in payload:
-                self.mem.set_bits(p + 0x1C, 0, 6, max(15, min(50, int(payload["age"]))))
-            if "height" in payload:
-                self.mem.write_u8(p + 0x00, max(145, min(215, int(payload["height"]))))
-            if "weight" in payload:
-                self.mem.write_u8(p + 0x01, max(45, min(125, int(payload["weight"]))))
-            if "foot" in payload:
-                self.mem.set_bits(p + 0x03, 7, 1, 1 if int(payload["foot"]) else 0)
-            if "contract_yr" in payload:
-                self.mem.write_u16(p + 0x138, max(2019, min(2150, int(payload["contract_yr"]))))
-            if "salary_str" in payload and str(payload["salary_str"]).strip() != "":
+                self.mem.write_u16(p + 0x144, (cur & ~0x1FF) | (nat & 0x1FF))
+            age = _safe_int(payload.get("age"))
+            if age is not None:
+                self.mem.set_bits(p + 0x1C, 0, 6, max(15, min(50, age)))
+            height = _safe_int(payload.get("height"))
+            if height is not None:
+                self.mem.write_u8(p + 0x00, max(145, min(215, height)))
+            weight = _safe_int(payload.get("weight"))
+            if weight is not None:
+                self.mem.write_u8(p + 0x01, max(45, min(125, weight)))
+            foot = _safe_int(payload.get("foot"))
+            if foot is not None:
+                self.mem.set_bits(p + 0x03, 7, 1, 1 if foot else 0)
+            cyr = _safe_int(payload.get("contract_yr"))
+            if cyr is not None:
+                self.mem.write_u16(p + 0x138, max(2019, min(2150, cyr)))
+            if payload.get("salary_str") is not None and str(payload["salary_str"]).strip() != "":
                 sr = parse_human_money_to_raw(str(payload["salary_str"]))
                 if sr is not None:
                     self.mem.write_i32(p + 0x15C, sr)
-            if "wf_usage" in payload:
-                self.mem.set_bits(p + 0x23, 0, 2, max(0, min(3, int(payload["wf_usage"]) - 1)))
-            if "wf_acc" in payload:
-                self.mem.set_bits(p + 0x22, 4, 2, max(0, min(3, int(payload["wf_acc"]) - 1)))
-            if "form_cons" in payload:
-                self.mem.set_bits(p + 0x17, 4, 3, max(0, min(7, int(payload["form_cons"]) - 1)))
-            if "inj_res" in payload:
-                self.mem.set_bits(p + 0x22, 6, 2, max(0, min(2, int(payload["inj_res"]) - 1)))
-            if "injury" in payload:
-                self.mem.write_u8(p + 0x148, max(0, min(255, int(payload["injury"]))))
+            wfu = _safe_int(payload.get("wf_usage"))
+            if wfu is not None:
+                self.mem.set_bits(p + 0x23, 0, 2, max(0, min(3, wfu - 1)))
+            wfa = _safe_int(payload.get("wf_acc"))
+            if wfa is not None:
+                self.mem.set_bits(p + 0x22, 4, 2, max(0, min(3, wfa - 1)))
+            fc = _safe_int(payload.get("form_cons"))
+            if fc is not None:
+                self.mem.set_bits(p + 0x17, 4, 3, max(0, min(7, fc - 1)))
+            ir = _safe_int(payload.get("inj_res"))
+            if ir is not None:
+                self.mem.set_bits(p + 0x22, 6, 2, max(0, min(2, ir - 1)))
+            inj = _safe_int(payload.get("injury"))
+            if inj is not None:
+                self.mem.write_u8(p + 0x148, max(0, min(255, inj)))
             return self.get_player_details(p)
 
     def set_player_stat(self, fid: int, val: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
-            if not p or int(fid) not in FID_LOC:
-                return {"ok": False}
-            self.push_undo(p, f"Stat {fid}")
-            off, bs = FID_LOC[int(fid)]
-            self.mem.set_bits(p + off, bs, 7, max(40, min(99, int(val))))
+            f = _safe_int(fid, -1)
+            v = _safe_int(val)
+            if not p or f not in FID_LOC or v is None:
+                return {"ok": False, "code": "invalid_arg"}
+            self.push_undo(p, "stat")
+            off, bs = FID_LOC[f]
+            clamped = max(40, min(99, v))
+            if off == 0x03:
+                cur = self.mem.read_u8(p + 3)
+                self.mem.write_u8(p + 3, (cur & 0x80) | (clamped & 0x7F))
+            else:
+                self.mem.set_bits(p + off, bs, 7, clamped)
             return self.get_player_details(p)
 
     def set_player_stats_batch(self, stats_map: Dict[str, int]) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
-            if not p:
-                return {"ok": False}
+            if not p or not isinstance(stats_map, dict):
+                return {"ok": False, "code": "no_player"}
             buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
             if not buf:
-                return {"ok": False}
-            self.push_undo(p, "Atributos")
+                return {"ok": False, "code": "read_failed"}
+            self.push_undo(p, "stats_batch")
             ba = bytearray(buf)
             for k, v in stats_map.items():
-                fid = int(k)
-                if fid in FID_LOC:
-                    set_fid_in_buf(ba, fid, int(v))
+                f = _safe_int(k, -1)
+                iv = _safe_int(v)
+                if f in FID_LOC and iv is not None:
+                    set_fid_in_buf(ba, f, iv)
             self.mem.write_bytes(p, bytes(ba[:0x28]))
             return self.get_player_details(p)
 
     def set_player_skill(self, skill_key: str, enabled: bool) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
             if not p:
-                return {"ok": False}
+                return {"ok": False, "code": "no_player"}
             for item in PLAYER_SKILLS + COM_AI_STYLES:
                 if item["key"] == skill_key:
-                    self.push_undo(p, skill_key)
+                    self.push_undo(p, "skill")
                     self.mem.set_bits(p + item["offset"], item["bit"], 1, 1 if enabled else 0)
                     return self.get_player_details(p)
-            return {"ok": False}
+            return {"ok": False, "code": "invalid_arg"}
 
     def set_playing_style(self, style_id: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
-            if not p:
-                return {"ok": False}
-            self.push_undo(p, "Estilo")
-            self.mem.set_bits(p + 0x1D, 3, 5, max(0, min(21, int(style_id))))
+            sid = _safe_int(style_id)
+            if not p or sid is None:
+                return {"ok": False, "code": "no_player"}
+            self.push_undo(p, "style")
+            self.mem.set_bits(p + 0x1D, 3, 5, max(0, min(21, sid)))
             return self.get_player_details(p)
 
     def set_team_role(self, role_id: int, level: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
-            if not p:
-                return {"ok": False}
-            self.push_undo(p, "Função Equipe")
-            self.mem.set_bits(p + 0x150, 0, 5, max(0, min(22, int(role_id))))
-            self.mem.set_bits(p + 0x143, 6, 2, max(0, min(3, int(level))))
+            rid = _safe_int(role_id)
+            lvl = _safe_int(level)
+            if not p or rid is None or lvl is None:
+                return {"ok": False, "code": "no_player"}
+            self.push_undo(p, "team_role")
+            self.mem.set_bits(p + 0x150, 0, 5, max(0, min(22, rid)))
+            self.mem.set_bits(p + 0x143, 6, 2, max(0, min(3, lvl)))
             return self.get_player_details(p)
 
     # ------------------------------------------------------------------
@@ -866,25 +902,28 @@ class PESEngine:
     def set_position_aptitude(self, pos_idx: int, grade: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
-            if not p or pos_idx < 0 or pos_idx > 12:
-                return {"ok": False}
-            self.push_undo(p, f"Grau Pos {pos_idx}")
-            off, bs = POS_APT_LOC[pos_idx]
-            self.mem.set_bits(p + off, bs, 2, max(0, min(2, int(grade))))
+            pi = _safe_int(pos_idx, -1)
+            gr = _safe_int(grade, -1)
+            if not p or pi not in POS_APT_LOC or gr not in (0, 1, 2):
+                return {"ok": False, "code": "invalid_arg"}
+            self.push_undo(p, "pos_grade")
+            off, bs = POS_APT_LOC[pi]
+            self.mem.set_bits(p + off, bs, 2, gr)
             return self.get_player_details(p)
 
     def set_registered_position(self, pos_idx: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
-            if not p or pos_idx < 0 or pos_idx > 12:
-                return {"ok": False}
-            self.push_undo(p, "Pos Principal")
-            self.mem.set_bits(p + 0x07, 4, 4, pos_idx)
-            off, bs = POS_APT_LOC[pos_idx]
+            pi = _safe_int(pos_idx, -1)
+            if not p or pi not in POS_APT_LOC:
+                return {"ok": False, "code": "invalid_arg"}
+            self.push_undo(p, "reg_pos")
+            self.mem.set_bits(p + 0x07, 4, 4, pi)
+            off, bs = POS_APT_LOC[pi]
             self.mem.set_bits(p + off, bs, 2, 2)
             return self.get_player_details(p)
 
@@ -900,20 +939,36 @@ class PESEngine:
         slot_to_fid = {int(pair[1]): int(pair[0]) for pair in OVR_DATA["field_to_slot"]}
         out: Dict[int, float] = {}
         for row_i, s_idx in enumerate(stat_indices):
-            fid = slot_to_fid.get(s_idx)
-            if fid is not None:
-                out[fid] = float(weights_23x13[row_i][col])
+            w = float(weights_23x13[row_i][col])
+            if w == 0.0:
+                continue
+            if s_idx == 0x21:
+                # Composite GK1 (slots 33 & 37 -> GK Awareness & GK Catching)
+                for gk_slot in (33, 37):
+                    fid = slot_to_fid.get(gk_slot)
+                    if fid is not None:
+                        out[fid] = out.get(fid, 0.0) + w * 0.5
+            elif s_idx == 0x22:
+                # Composite GK2 (slots 38, 39, 40 -> GK Clearing, Reflexes, Reach)
+                for gk_slot in (38, 39, 40):
+                    fid = slot_to_fid.get(gk_slot)
+                    if fid is not None:
+                        out[fid] = out.get(fid, 0.0) + w / 3.0
+            else:
+                fid = slot_to_fid.get(s_idx)
+                if fid is not None:
+                    out[fid] = out.get(fid, 0.0) + w
         return out
 
-    def _scale_primary_ovr(self, p: int, target_ovr: int) -> Tuple[bool, str]:
+    def _scale_primary_ovr(self, p: int, target_ovr: int) -> Dict[str, Any]:
         buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
         if not buf:
-            return False, "Falha ao ler jogador"
+            return {"action_ok": False, "code": "read_failed"}
         cur_ovr, reg_pos = calc_ovr_from_buf(buf)
         target = max(40, min(99, int(target_ovr)))
         if cur_ovr == target:
-            return True, f"Já está em {cur_ovr}"
-        self.push_undo(p, f"OVR {cur_ovr}->{target}")
+            return {"action_ok": True, "code": "already_at_ovr", "ovr": cur_ovr}
+        self.push_undo(p, "pos_ovr")
         ba = bytearray(buf)
         step = 1 if target > cur_ovr else -1
         fids = GK_FIDS if reg_pos == 0 else OUTFIELD_FIDS
@@ -921,29 +976,29 @@ class PESEngine:
         ranked = sorted(fids, key=lambda f: w_map.get(f, 0.0), reverse=True)
 
         for _ in range(800):
-            now_ovr, _ = calc_ovr_from_buf(bytes(ba), reg_pos, False)
+            now_ovr, _ = calc_ovr_from_buf(ba, reg_pos, False)
             if (step > 0 and now_ovr >= target) or (step < 0 and now_ovr <= target):
                 break
             changed = False
             for fid in ranked:
-                cur_v = get_fid_from_buf(bytes(ba), fid)
+                cur_v = get_fid_from_buf(ba, fid)
                 nv = cur_v + step
                 if 40 <= nv <= 99:
                     set_fid_in_buf(ba, fid, nv)
                     changed = True
-                    now_ovr, _ = calc_ovr_from_buf(bytes(ba), reg_pos, False)
+                    now_ovr, _ = calc_ovr_from_buf(ba, reg_pos, False)
                     if (step > 0 and now_ovr >= target) or (step < 0 and now_ovr <= target):
                         break
             if not changed:
                 break
         self.mem.write_bytes(p, bytes(ba[:0x28]))
-        final_ovr, _ = calc_ovr_from_buf(bytes(ba), reg_pos, False)
-        return True, f"OVR Principal: {cur_ovr} -> {final_ovr}"
+        final_ovr, _ = calc_ovr_from_buf(ba, reg_pos, False)
+        return {"action_ok": True, "code": "pri_updated", "orig": cur_ovr, "final": final_ovr}
 
-    def _boost_secondary_isolated(self, p: int, target_pos: int, target_ovr: int) -> Tuple[bool, str]:
+    def _boost_secondary_isolated(self, p: int, target_pos: int, target_ovr: int) -> Dict[str, Any]:
         buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
         if not buf:
-            return False, "Falha ao ler jogador"
+            return {"action_ok": False, "code": "read_failed"}
         orig_pri, reg_pos = calc_ovr_from_buf(buf)
         if target_pos == reg_pos:
             return self._scale_primary_ovr(p, target_ovr)
@@ -951,18 +1006,15 @@ class PESEngine:
         orig_sec, _ = calc_ovr_from_buf(buf, target_pos, False)
         target = max(40, min(99, int(target_ovr)))
         if orig_sec == target:
-            return True, f"Já está em {orig_sec}"
+            return {"action_ok": True, "code": "already_at_ovr", "ovr": orig_sec}
 
         direction = 1 if target > orig_sec else -1
         w_pri = self._get_pos_weights(reg_pos)
         w_sec = self._get_pos_weights(target_pos)
         fids = GK_FIDS if target_pos == 0 else OUTFIELD_FIDS
 
-        # Rank stats by highest secondary weight / lowest primary weight ratio
         def score_fid(f: int) -> float:
-            ws = w_sec.get(f, 0.0)
-            wp = w_pri.get(f, 0.0)
-            return ws / (wp + 0.005)
+            return w_sec.get(f, 0.0) / (w_pri.get(f, 0.0) + 0.005)
 
         ranked = sorted([f for f in fids if w_sec.get(f, 0.0) > 0.0], key=score_fid, reverse=True)
         if not ranked:
@@ -973,18 +1025,18 @@ class PESEngine:
         best_sec = orig_sec
 
         for _ in range(900):
-            cur_sec, _ = calc_ovr_from_buf(bytes(ba), target_pos, False)
+            cur_sec, _ = calc_ovr_from_buf(ba, target_pos, False)
             if cur_sec == target:
                 break
             moved = False
             for fid in ranked:
-                cur_v = get_fid_from_buf(bytes(ba), fid)
+                cur_v = get_fid_from_buf(ba, fid)
                 nv = cur_v + direction
                 if not (40 <= nv <= 99):
                     continue
                 set_fid_in_buf(ba, fid, nv)
-                test_pri, _ = calc_ovr_from_buf(bytes(ba), reg_pos, False)
-                test_sec, _ = calc_ovr_from_buf(bytes(ba), target_pos, False)
+                test_pri, _ = calc_ovr_from_buf(ba, reg_pos, False)
+                test_sec, _ = calc_ovr_from_buf(ba, target_pos, False)
                 overshoot = (direction > 0 and test_sec > target) or (direction < 0 and test_sec < target)
                 if test_pri == orig_pri and not overshoot:
                     moved = True
@@ -998,52 +1050,62 @@ class PESEngine:
             if not moved:
                 break
 
+        apt = get_apt_from_buf(best_ba, target_pos)
+        needs_grade = direction > 0 and apt < 2
         if best_sec == orig_sec:
-            apt = get_apt_from_buf(buf, target_pos)
-            hint = " (suba o Grau para B ou A para liberar mais OVR)" if (direction > 0 and apt < 2) else ""
-            return False, f"Limite isolado atingido ({orig_sec} OVR, principal mantido em {orig_pri}){hint}"
+            return {
+                "action_ok": False,
+                "code": "iso_limit",
+                "orig": orig_sec,
+                "final": orig_sec,
+                "pri": orig_pri,
+                "needs_grade": needs_grade,
+            }
 
-        self.push_undo(p, f"Pos {target_pos} {orig_sec}->{best_sec}")
+        self.push_undo(p, "pos_ovr")
         self.mem.write_bytes(p, bytes(best_ba[:0x28]))
-        apt = get_apt_from_buf(bytes(best_ba), target_pos)
-        extra = ""
-        if best_sec != target:
-            hint = " - suba o Grau para A para ir além" if (direction > 0 and apt < 2) else ""
-            extra = f" (teto isolado sem alterar principal {orig_pri}{hint})"
-        return True, f"Posição ajustada: {orig_sec} -> {best_sec}{extra}"
+        return {
+            "action_ok": True,
+            "code": "pos_partial" if best_sec != target else "pos_updated",
+            "orig": orig_sec,
+            "final": best_sec,
+            "pri": orig_pri,
+            "needs_grade": needs_grade,
+        }
 
     def step_position_ovr(self, pos_idx: int, delta: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False, "msg": "Jogo não conectado"}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
-            if not p:
-                return {"ok": False, "msg": "Selecione um jogador"}
+            pi = _safe_int(pos_idx, -1)
+            dl = _safe_int(delta, 0) or 0
+            if not p or pi not in POS_APT_LOC:
+                return {"ok": False, "code": "invalid_arg"}
             buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
             if not buf:
-                return {"ok": False, "msg": "Falha ao ler jogador"}
-            cur_ovr, _ = calc_ovr_from_buf(buf, pos_idx, False)
-            ok, msg = self._boost_secondary_isolated(p, pos_idx, cur_ovr + int(delta))
+                return {"ok": False, "code": "read_failed"}
+            cur_ovr, _ = calc_ovr_from_buf(buf, pi, False)
+            info = self._boost_secondary_isolated(p, pi, cur_ovr + dl)
             res = self.get_player_details(p)
-            res["action_ok"] = ok
-            res["msg"] = msg
+            res.update(info)
             return res
 
     def match_position_to_primary(self, pos_idx: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False, "msg": "Jogo não conectado"}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
-            if not p:
-                return {"ok": False, "msg": "Selecione um jogador"}
+            pi = _safe_int(pos_idx, -1)
+            if not p or pi not in POS_APT_LOC:
+                return {"ok": False, "code": "invalid_arg"}
             buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
             if not buf:
-                return {"ok": False, "msg": "Falha ao ler jogador"}
+                return {"ok": False, "code": "read_failed"}
             pri_ovr, _ = calc_ovr_from_buf(buf)
-            ok, msg = self._boost_secondary_isolated(p, pos_idx, pri_ovr)
+            info = self._boost_secondary_isolated(p, pi, pri_ovr)
             res = self.get_player_details(p)
-            res["action_ok"] = ok
-            res["msg"] = msg
+            res.update(info)
             return res
 
     # ------------------------------------------------------------------
@@ -1052,10 +1114,10 @@ class PESEngine:
     def get_squad_roster(self) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False, "players": []}
+                return {"ok": False, "code": "not_connected", "players": []}
             career, _, _ = self.sync_pointers()
             if not career:
-                return {"ok": False, "players": [], "msg": "Abra uma Master League"}
+                return {"ok": False, "code": "no_career", "players": []}
             cur_year = self.mem.read_u16(career + 0x01642A24)
             if cur_year < 2019 or cur_year > 2150:
                 cur_year = 2026
@@ -1090,29 +1152,35 @@ class PESEngine:
                 )
             players.sort(key=lambda x: (-x["ovr"], x["name"]))
             uc = self.get_user_club_handle(career)
-            _, club_name = self.decode_club_handle(uc)
+            _, club_name = self.decode_club_handle(uc, career)
             return {"ok": True, "club": club_name, "cur_year": cur_year, "players": players}
 
     def run_squad_commander(self, mode: str) -> Dict[str, Any]:
         with self.lock:
+            if mode not in ("stamina", "arrow", "heal", "contract", "ovr1"):
+                return {"ok": False, "code": "invalid_arg"}
             if not self.ensure_attached():
-                return {"ok": False, "msg": "Jogo não conectado"}
+                return {"ok": False, "code": "not_connected"}
             career, _, _ = self.sync_pointers()
             if not career:
-                return {"ok": False, "msg": "Abra uma Master League"}
+                return {"ok": False, "code": "no_career"}
             cur_year = self.mem.read_u16(career + 0x01642A24)
             if cur_year < 2019 or cur_year > 2150:
                 cur_year = 2026
             addrs = self.get_user_squad_addresses(career, force_rescan=True)
             for p in addrs:
                 if mode == "stamina":
+                    self.push_undo(p, "squad_stamina")
                     self.mem.set_bits(p + 0x146, 0, 7, 100)
                 elif mode == "arrow":
+                    self.push_undo(p, "squad_arrow")
                     self.mem.set_bits(p + 0x147, 0, 3, 4)
                     self.mem.set_bits(p + 0x146, 7, 1, 1)
                 elif mode == "heal":
+                    self.push_undo(p, "squad_heal")
                     self.mem.write_u8(p + 0x148, 0)
                 elif mode == "contract":
+                    self.push_undo(p, "squad_contract")
                     self.mem.write_u16(p + 0x138, cur_year + 5)
                 elif mode == "ovr1":
                     buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
@@ -1122,7 +1190,7 @@ class PESEngine:
             return {"ok": True, "count": len(addrs)}
 
     # ------------------------------------------------------------------
-    # GLOBAL 30K+ PLAYER SEARCH (Bulk RAM read -> instant filtering!)
+    # GLOBAL 30K+ PLAYER SEARCH
     # ------------------------------------------------------------------
     def search_players(
         self,
@@ -1135,31 +1203,35 @@ class PESEngine:
     ) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False, "players": []}
+                return {"ok": False, "code": "not_connected", "players": []}
             career, _, _ = self.sync_pointers()
             if not career:
-                return {"ok": False, "players": [], "msg": "Abra uma Master League ou BAL"}
+                return {"ok": False, "code": "no_career", "players": []}
             count = self.mem.read_u32(career + 0x00D0BCE8)
             if count == 0 or count > 30001:
                 count = 30000
             raw = self.mem.read_bytes(career, count * PLAYER_RECORD_SIZE)
             if not raw:
-                return {"ok": False, "players": []}
+                return {"ok": False, "code": "read_failed", "players": []}
 
+            mv = memoryview(raw)
             q_norm = _norm_text(query)
+            pf = _safe_int(pos_filter, -1)
+            movr = _safe_int(min_ovr, 0) or 0
+            mage = _safe_int(max_age, 99) or 99
             results = []
             for i in range(count):
                 off = i * PLAYER_RECORD_SIZE
-                pid = struct.unpack_from("<I", raw, off + 0x30)[0]
+                pid = struct.unpack_from("<I", mv, off + 0x30)[0]
                 if pid == 0 or pid == 0xFFFFFFFF:
                     continue
-                age = raw[off + 0x1C] & 0x3F
-                if age > max_age:
+                age = mv[off + 0x1C] & 0x3F
+                if age > mage:
                     continue
-                reg_pos = (raw[off + 0x07] >> 4) & 0x0F
-                if pos_filter >= 0 and reg_pos != pos_filter:
+                reg_pos = (mv[off + 0x07] >> 4) & 0x0F
+                if pf is not None and pf >= 0 and reg_pos != pf:
                     continue
-                club_h = struct.unpack_from("<I", raw, off + 0x12C)[0]
+                club_h = struct.unpack_from("<I", mv, off + 0x12C)[0]
                 if free_only and club_h != 0 and club_h != 0xFFFFFFFF:
                     continue
                 name_b = raw[off + 0x38 : off + 0x66].split(b"\x00", 1)[0]
@@ -1168,13 +1240,12 @@ class PESEngine:
                 name = name_b.decode("utf-8", errors="replace").strip()
                 if q_norm and q_norm not in _norm_text(name):
                     continue
-                rec = raw[off : off + 0x28]
-                ovr, _ = calc_ovr_from_buf(rec)
-                if ovr < min_ovr:
+                ovr, _ = calc_ovr_from_buf(mv[off : off + 0x28])
+                if ovr < movr:
                     continue
                 _, club_name = self.decode_club_handle(club_h, career)
-                sal_raw = struct.unpack_from("<i", raw, off + 0x15C)[0]
-                exp_y = struct.unpack_from("<H", raw, off + 0x138)[0]
+                sal_raw = struct.unpack_from("<i", mv, off + 0x15C)[0]
+                exp_y = struct.unpack_from("<H", mv, off + 0x138)[0]
                 results.append(
                     {
                         "addr": career + off,
@@ -1196,10 +1267,10 @@ class PESEngine:
     def get_scout_lists(self) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False, "lists": []}
+                return {"ok": False, "code": "not_connected", "lists": []}
             career, _, _ = self.sync_pointers()
             if not career:
-                return {"ok": False, "lists": []}
+                return {"ok": False, "code": "no_career", "lists": []}
             count = self.mem.read_u32(career + 0x00D0BCE8)
             if count == 0 or count > 30001:
                 count = 30000
@@ -1222,7 +1293,7 @@ class PESEngine:
                                     name = buf[0x38:0x66].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
                                     age = buf[0x1C] & 0x3F
                                     club_h = struct.unpack_from("<I", buf, 0x12C)[0]
-                                    _, cname = self.decode_club_handle(club_h)
+                                    _, cname = self.decode_club_handle(club_h, career)
                                     entries.append(
                                         {
                                             "slot_idx": idx,
@@ -1249,45 +1320,54 @@ class PESEngine:
     def add_to_scout_list(self, slot_num: int, player_addr: Optional[int] = None) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False, "msg": "Jogo não conectado"}
+                return {"ok": False, "code": "not_connected"}
             career, cur_p, _ = self.sync_pointers()
-            p = player_addr or cur_p
-            if not career or not p:
-                return {"ok": False, "msg": "Selecione um jogador na Master League"}
-            sl = next((x for x in SCOUT_LISTS if x["slot"] == int(slot_num)), None)
+            p = _safe_int(player_addr) or cur_p
+            if not career:
+                return {"ok": False, "code": "no_career"}
+            if not p:
+                return {"ok": False, "code": "no_player"}
+            sn = _safe_int(slot_num, -1)
+            sl = next((x for x in SCOUT_LISTS if x["slot"] == sn), None)
             if not sl:
-                return {"ok": False, "msg": "Lista inválida"}
+                return {"ok": False, "code": "invalid_arg"}
             p_handle = self.mem.read_u64(p + 0x2C)
             if not p_handle or (p_handle >> 32) == 0:
-                return {"ok": False, "msg": "Handle do jogador inválido"}
-            # Check duplicate and find first empty slot
+                return {"ok": False, "code": "invalid_handle"}
+
+            raw = self.mem.read_bytes(career + sl["base"], sl["cap"] * 8)
+            if not raw:
+                return {"ok": False, "code": "read_failed"}
             free_idx = -1
             for i in range(sl["cap"]):
-                cur_h = self.mem.read_u64(career + sl["base"] + i * 8)
+                cur_h = struct.unpack_from("<Q", raw, i * 8)[0]
                 if cur_h == p_handle:
-                    return {"ok": True, "msg": "Jogador já está nesta lista"}
+                    return {"ok": True, "code": "scout_dup", "slot": sn}
                 if free_idx == -1 and (cur_h == 0 or (cur_h & 0xFFFF) == SCOUT_EMPTY_SENTINEL):
                     free_idx = i
             if free_idx == -1:
-                return {"ok": False, "msg": "Lista cheia"}
+                return {"ok": False, "code": "scout_full", "slot": sn}
             self.mem.write_u64(career + sl["base"] + free_idx * 8, p_handle)
-            return {"ok": True, "msg": f"Adicionado em {sl['pt']}"}
+            return {"ok": True, "code": "scout_added", "slot": sn}
 
     def remove_from_scout_list(self, slot_num: int, handle_str: str) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             career, _, _ = self.sync_pointers()
-            sl = next((x for x in SCOUT_LISTS if x["slot"] == int(slot_num)), None)
-            if not career or not sl:
-                return {"ok": False}
-            target_h = int(handle_str)
+            sn = _safe_int(slot_num, -1)
+            target_h = _safe_int(handle_str, 0) or 0
+            sl = next((x for x in SCOUT_LISTS if x["slot"] == sn), None)
+            if not career or not sl or not target_h:
+                return {"ok": False, "code": "invalid_arg"}
+            raw = self.mem.read_bytes(career + sl["base"], sl["cap"] * 8)
+            if not raw:
+                return {"ok": False, "code": "read_failed"}
             for i in range(sl["cap"]):
-                addr = career + sl["base"] + i * 8
-                if self.mem.read_u64(addr) == target_h:
-                    self.mem.write_u64(addr, SCOUT_EMPTY_SENTINEL)
+                if struct.unpack_from("<Q", raw, i * 8)[0] == target_h:
+                    self.mem.write_u64(career + sl["base"] + i * 8, SCOUT_EMPTY_SENTINEL)
                     return {"ok": True}
-            return {"ok": False}
+            return {"ok": False, "code": "not_found"}
 
     # ------------------------------------------------------------------
     # TRAINING, BAL & MATCH HOOK CONTROLS
@@ -1295,50 +1375,61 @@ class PESEngine:
     def set_training_mode(self, mode: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
-            m = max(0, min(5, int(mode)))
+                return {"ok": False, "code": "not_connected"}
+            m = max(0, min(5, _safe_int(mode, 0) or 0))
             if m > 0:
-                self.hooks.enable_hook_3_training()
+                if not self.hooks.enable_hook_3_training():
+                    return {"ok": False, "code": "hook_failed"}
             self.mem.write_u32(self.hooks.sym_addr("cfgTrainingMultMode"), m)
             return {"ok": True, "mode": m, "hook_active": self.hooks.active_hooks.get(3, False)}
 
     def set_stamina_mode(self, mode: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
-            m = max(0, min(5, int(mode)))
+                return {"ok": False, "code": "not_connected"}
+            m = max(0, min(5, _safe_int(mode, 0) or 0))
             if m > 0:
-                self.hooks.enable_hook_6_stamina()
+                if not self.hooks.enable_hook_6_stamina():
+                    return {"ok": False, "code": "hook_failed"}
             self.mem.write_u32(self.hooks.sym_addr("cfgStaminaMode"), m)
             return {"ok": True, "mode": m, "hook_active": self.hooks.active_hooks.get(6, False)}
 
     def set_bal_focus(self, points: int, lock_enabled: bool) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             career, _, _ = self.sync_pointers()
             if not career:
-                return {"ok": False, "msg": "Abra uma carreira BAL"}
-            pts = max(0, min(99, int(points)))
+                return {"ok": False, "code": "no_career"}
+            pts = max(0, min(99, _safe_int(points, 21) or 0))
             if pts > 21 or lock_enabled:
                 self.hooks.enable_hook_4_bal_cap()
+            self._bal_lock_target = pts
             self.mem.write_u8(career + 0x016ECBEA, pts)
             self.mem.write_u32(self.hooks.sym_addr("cfgLockBALFocusPoints"), 1 if lock_enabled else 0)
-            return {"ok": True, "points": pts, "lock": lock_enabled}
+            return {"ok": True, "points": pts, "lock": bool(lock_enabled)}
 
     def set_freeze_clock(self, freeze: bool) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             if freeze:
-                self.hooks.enable_hook_5_match()
+                if not self.hooks.enable_hook_5_match():
+                    return {"ok": False, "code": "hook_failed"}
                 _, _, ms = self.sync_pointers()
                 if ms > 0x10000:
+                    # Wait briefly for newly installed clock tap to capture live ticks before latching
                     prot = self.mem.read_f32(self.hooks.sym_addr("valProtectedMatchTicks"))
+                    if prot == 0.0:
+                        for _ in range(15):
+                            time.sleep(0.01)
+                            prot = self.mem.read_f32(self.hooks.sym_addr("valProtectedMatchTicks"))
+                            if prot != 0.0:
+                                break
                     off_t = self.mem.read_f32(ms + 0x1168 + 0x0C)
                     self.mem.write_f32(self.hooks.sym_addr("valFrozenTotalTicks"), prot + off_t)
             self.mem.write_u32(self.hooks.sym_addr("cfgFreezeClock"), 1 if freeze else 0)
-            return {"ok": True, "freeze": freeze}
+            return {"ok": True, "freeze": bool(freeze)}
 
     # ------------------------------------------------------------------
     # JSON BACKUP EXPORT / IMPORT
@@ -1346,13 +1437,13 @@ class PESEngine:
     def export_player_json(self) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
             if not p:
-                return {"ok": False, "msg": "Selecione um jogador"}
+                return {"ok": False, "code": "no_player"}
             buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
             if not buf:
-                return {"ok": False}
+                return {"ok": False, "code": "read_failed"}
             name = buf[0x38:0x66].split(b"\x00", 1)[0].decode("utf-8", errors="replace").strip()
             ovr, _ = calc_ovr_from_buf(buf)
             return {
@@ -1365,25 +1456,24 @@ class PESEngine:
     def import_player_json(self, json_str: str) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
-                return {"ok": False}
+                return {"ok": False, "code": "not_connected"}
             _, p, _ = self.sync_pointers()
             if not p:
-                return {"ok": False, "msg": "Selecione um jogador"}
+                return {"ok": False, "code": "no_player"}
             try:
                 data = json.loads(json_str)
                 raw = bytes.fromhex(data["hex"])
                 if len(raw) != PLAYER_RECORD_SIZE:
-                    return {"ok": False, "msg": "Tamanho de backup inválido"}
+                    return {"ok": False, "code": "invalid_json"}
                 cur = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
                 if not cur:
-                    return {"ok": False}
-                self.push_undo(p, "Import JSON")
+                    return {"ok": False, "code": "read_failed"}
+                self.push_undo(p, "import_json")
                 merged = bytearray(raw)
-                # Preserve live RAM handles/IDs (0x2C..0x37 and 0x12C..0x133 and 0x160..0x167)
                 merged[0x2C:0x38] = cur[0x2C:0x38]
                 merged[0x12C:0x134] = cur[0x12C:0x134]
                 merged[0x160:0x168] = cur[0x160:0x168]
                 self.mem.write_bytes(p, bytes(merged))
                 return self.get_player_details(p)
-            except Exception as exc:
-                return {"ok": False, "msg": f"JSON inválido: {exc}"}
+            except Exception:
+                return {"ok": False, "code": "invalid_json"}

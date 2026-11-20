@@ -5,7 +5,6 @@ and x64 HookManager engine. Restores all game hooks cleanly on exit.
 """
 
 import atexit
-import os
 import sys
 from pathlib import Path
 
