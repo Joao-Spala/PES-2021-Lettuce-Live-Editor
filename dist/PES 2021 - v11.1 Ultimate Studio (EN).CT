@@ -3,13 +3,13 @@
   <CheatEntries>
     <CheatEntry>
       <ID>1</ID>
-      <Description>"[ 1. CENTRAL STUDIO v11.0 ] Painel Gráfico, Telemetria &amp; Moeda"</Description>
+      <Description>"[ 1. CENTRAL STUDIO v11.1 ] Studio GUI, Telemetry &amp; Currency"</Description>
       <GroupHeader>1</GroupHeader>
       <Color>0066CC</Color>
       <CheatEntries>
         <CheatEntry>
           <ID>2</ID>
-          <Description>"[ ★ ABRIR PAINEL STUDIO ] Interface Gráfica Pro v11.0 (PT-BR / EN)"</Description>
+          <Description>"[ ★ OPEN PRO STUDIO GUI ] Graphical Dashboard v11.1 (EN / PT-BR)"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -24,7 +24,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>3</ID>
-          <Description>"[ STATUS ] Telemetria ao Vivo (Modo / Clube / Jogador &amp; OVR)"</Description>
+          <Description>"[ STATUS ] Live Telemetry (Mode / Club / Player &amp; OVR)"</Description>
           <ShowAsSigned>0</ShowAsSigned>
           <Color>0066CC</Color>
           <VariableType>4 Bytes</VariableType>
@@ -32,11 +32,11 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>4</ID>
-          <Description>"[ MOEDA ] Seletor Rápido de Moeda (Inicia em Euro €)"</Description>
-          <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Euro (€) - Padrão
-1:Real (R$)
-2:Dólar ($)
-3:Libra (£)</DropDownList>
+          <Description>"[ CURRENCY ] Quick Currency Selector (Defaults to Euro €)"</Description>
+          <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Euro (€) - Default
+1:Brazilian Real (R$)
+2:US Dollar ($)
+3:British Pound (£)</DropDownList>
           <ShowAsSigned>0</ShowAsSigned>
           <Color>0066CC</Color>
           <VariableType>4 Bytes</VariableType>
@@ -44,16 +44,16 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>5</ID>
-          <Description>"[ MOTOR INTERNO ] Automático (Não Precisa Mexer)"</Description>
+          <Description>"[ INTERNAL ENGINE ] Automatic (No Action Needed)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>0066CC</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>6</ID>
-              <Description>"[ 1 ] Captura Automática de Jogador (Plano de Jogo / Elenco / Edit / Negociações)"</Description>
+              <Description>"[ 1 ] Automatic Player Capture (Game Plan / Squad / Edit / Negotiations)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v11.0 - Hook 1: Automatic Player Capture (Game Plan / Edit / Squad / Transfer) }
+              <AssemblerScript>{ PES 2021 v11.1 - Hook 1: Automatic Player Capture (Game Plan / Edit / Squad / Transfer) }
 [ENABLE]
 aobscanregion(INJECT_ptrPlayer,PES2021.exe+C6DC00,PES2021.exe+C6FE00,CB B8 02 00 00 00 0F 1F 40 00 66 0F 1F 84 00 00 00 00 00 0F 10 02 0F 11 01)
 alloc(newmem_p1,$1000,INJECT_ptrPlayer)
@@ -170,9 +170,9 @@ dealloc(newmem_p4)
             </CheatEntry>
             <CheatEntry>
               <ID>7</ID>
-              <Description>"[ 2 ] Motor de Taxa de Rescisão Exata (Release Fee Override)"</Description>
+              <Description>"[ 2 ] Exact Release Clause Override Engine"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v11.0 - Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
+              <AssemblerScript>{ PES 2021 v11.1 - Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
 [ENABLE]
 aobscanregion(INJECT_ReleaseFeeGetter,PES2021.exe+156AD00,PES2021.exe+156CF00,0F 29 74 24 40 48 8B DA 48 8B F1 0F 29 7C 24 30 48 8B 09)
 alloc(newmem_rfee,$1000,INJECT_ReleaseFeeGetter)
@@ -241,9 +241,9 @@ dealloc(newmem_rfee)
             </CheatEntry>
             <CheatEntry>
               <ID>8</ID>
-              <Description>"[ 3 ] Multiplicador Universal de Sub-XP (Treino ML, Base &amp; BAL)"</Description>
+              <Description>"[ 3 ] Universal Sub-XP Multiplier (Club, Youth &amp; BAL)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v11.0 Pro - Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
+              <AssemblerScript>{ PES 2021 v11.1 Pro - Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
 [ENABLE]
 aobscanregion(INJECT_TrainingXpAdder,PES2021.exe+12E0400,PES2021.exe+12E2500,45 8B C8 83 FA 6C 0F 8D 1E 01 00 00)
 alloc(newmem_txp,$1000,INJECT_TrainingXpAdder)
@@ -306,9 +306,9 @@ dealloc(newmem_txp)
             </CheatEntry>
             <CheatEntry>
               <ID>9</ID>
-              <Description>"[ 4 ] Destravar Limite de 21 Focus Points nas Setas do BAL"</Description>
+              <Description>"[ 4 ] Unlock 21 Focus Points Cap on BAL Sliders"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v11.0 Pro - Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
+              <AssemblerScript>{ PES 2021 v11.1 Pro - Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
 [ENABLE]
 aobscanregion(INJECT_BALFocusCap,PES2021.exe+BBEE00,PES2021.exe+BC0F00,0F BE 41 0A 2B C2 83 F8 15 77 09 48 63 C3)
 INJECT_BALFocusCap+08:
@@ -323,9 +323,9 @@ unregistersymbol(INJECT_BALFocusCap)
             </CheatEntry>
             <CheatEntry>
               <ID>10</ID>
-              <Description>"[ 5 ] Partida ao Vivo - Placar, Pênaltis &amp; Relógio (Sider-Safe)"</Description>
+              <Description>"[ 5 ] Live Match - Score, Penalties &amp; Clock (Sider-Safe)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v11.0 Pro - Hook 5: Sider-Safe Match HUD, Live Score, Penalties &amp; FNV-Safe Clock }
+              <AssemblerScript>{ PES 2021 v11.1 Pro - Hook 5: Sider-Safe Match HUD, Live Score, Penalties &amp; FNV-Safe Clock }
 [ENABLE]
 aobscanregion(INJECT_MatchHud,PES2021.exe+20F8F00,PES2021.exe+20FB000,49 8B F8 44 0F B6 E2 88 55 B7)
 alloc(newmem_mhud,$1000,INJECT_MatchHud)
@@ -400,9 +400,9 @@ dealloc(newmem_mclk)
             </CheatEntry>
             <CheatEntry>
               <ID>11</ID>
-              <Description>"[ 6 ] Stamina Seletiva em Campo (Casa / Fora / Ambos / Pressão)"</Description>
+              <Description>"[ 6 ] Selective Match Stamina (Home / Away / Both / Press)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
-              <AssemblerScript>{ PES 2021 v11.0 Pro - Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
+              <AssemblerScript>{ PES 2021 v11.1 Pro - Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
 [ENABLE]
 aobscanregion(INJECT_SelectiveStamina,PES2021.exe+A57E00,PES2021.exe+A59F00,6B 45 10 64 48 8B 5C 24 50)
 alloc(newmem_stam,$1000,INJECT_SelectiveStamina)
@@ -503,14 +503,14 @@ dealloc(newmem_stam)
     </CheatEntry>
     <CheatEntry>
       <ID>12</ID>
-      <Description>"[ 2. MASTER LEAGUE ] Finanças Formatadas (€) &amp; Squad Commander (Meu Elenco)"</Description>
+      <Description>"[ 2. MASTER LEAGUE ] Formatted Finances (€) &amp; Squad Commander"</Description>
       <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
       <GroupHeader>1</GroupHeader>
       <Color>3B8E1E</Color>
       <CheatEntries>
         <CheatEntry>
           <ID>13</ID>
-          <Description>"Orçamento de Transferências (Duplo-Clique: ex. 150M, 500k)"</Description>
+          <Description>"Transfer Budget (Double-Click: e.g. 150M, 500k)"</Description>
           <ShowAsSigned>1</ShowAsSigned>
           <Color>3B8E1E</Color>
           <VariableType>4 Bytes</VariableType>
@@ -521,7 +521,7 @@ dealloc(newmem_stam)
         </CheatEntry>
         <CheatEntry>
           <ID>14</ID>
-          <Description>"Orçamento de Salários (Duplo-Clique: ex. 30M, 500k)"</Description>
+          <Description>"Wage / Salary Budget (Double-Click: e.g. 30M, 500k)"</Description>
           <ShowAsSigned>1</ShowAsSigned>
           <Color>3B8E1E</Color>
           <VariableType>4 Bytes</VariableType>
@@ -532,7 +532,7 @@ dealloc(newmem_stam)
         </CheatEntry>
         <CheatEntry>
           <ID>15</ID>
-          <Description>"[ +50M ] Somar + 50 Milhões em Transferências"</Description>
+          <Description>"[ +50M ] Add + 50 Million to Transfer Budget"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -547,7 +547,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>16</ID>
-          <Description>"[ BILIONÁRIO ] Definir € 1,5 Bilhão (Transf.) + € 250 Milhões (Salários)"</Description>
+          <Description>"[ TYCOON ] Set € 1.5 Billion (Transfer) + € 250 Million (Wages)"</Description>
           <Color>3B8E1E</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -562,13 +562,13 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>17</ID>
-          <Description>"Squad Commander - Comandos de 1 Clique em Todo o Meu Elenco"</Description>
+          <Description>"Squad Commander - 1-Click Actions on Your Entire Squad"</Description>
           <GroupHeader>1</GroupHeader>
           <Color>CC5500</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>18</ID>
-              <Description>"[ ELENCO ] 100% Fôlego (Stamina) em Todo o Meu Elenco"</Description>
+              <Description>"[ SQUAD ] 100% Stamina Recovery for Entire Squad"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -583,7 +583,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>19</ID>
-              <Description>"[ ELENCO ] Seta Azul Piscando (Top Form) em Todo o Elenco"</Description>
+              <Description>"[ SQUAD ] Flashing Blue Arrow (Top Form) for Entire Squad"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -598,7 +598,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>20</ID>
-              <Description>"[ ELENCO ] Curar Todas as Lesões + Afeição 100% no Elenco"</Description>
+              <Description>"[ SQUAD ] Heal All Injuries + 100% Club Affection"</Description>
               <Color>807A00</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -613,7 +613,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>21</ID>
-              <Description>"[ ELENCO ] Blindar Contratos (+5 Anos + Remover Multas)"</Description>
+              <Description>"[ SQUAD ] Shield All Squad Contracts (+5 Yrs &amp; No Clause)"</Description>
               <Color>0066CC</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -628,7 +628,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>22</ID>
-              <Description>"[ ELENCO ] Ativar Breakthrough (Auge) + Zero Declínio 30+"</Description>
+              <Description>"[ SQUAD ] Trigger Squad Breakthrough + Zero 30+ Decline"</Description>
               <Color>A8326E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -643,7 +643,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>23</ID>
-              <Description>"[ ★ ELENCO +1 OVR DNA ] Subir +1 Overall em Todo o Elenco (Mantém Estilo!)"</Description>
+              <Description>"[ ★ SQUAD +1 OVR DNA ] Boost +1 Overall Across Squad (Preserves Style!)"</Description>
               <Color>2828C6</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -660,13 +660,13 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>24</ID>
-          <Description>"Negociações, Radar 30K &amp; Olheiros (RAM Real - 3 Listas + Shortlist)"</Description>
+          <Description>"Negotiations, Radar 30K &amp; Scouts (Live RAM - 3 Lists + Shortlist)"</Description>
           <GroupHeader>1</GroupHeader>
           <Color>0066CC</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>25</ID>
-              <Description>"[ CENTRAL OLHEIROS ] Abrir Gerenciador Visual dos 3 Olheiros &amp; Favoritos (RAM Real)"</Description>
+              <Description>"[ SCOUT HUB ] Open Visual Real-RAM Manager for Scouts 1-3 &amp; Shortlist"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -681,7 +681,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>26</ID>
-              <Description>"[ RADAR 30K ] Caçador Visual de Joias (Filtrar OVR / Idade / Posição / Contrato)"</Description>
+              <Description>"[ RADAR 30K ] Visual Wonderkid Finder (Filter OVR / Age / Position / Contract)"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -696,7 +696,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>27</ID>
-              <Description>"[ NEGÓCIO 100% ] Negociação Irrecusável (Lista Transf. + Multa € 1k + 1º Contato)"</Description>
+              <Description>"[ 100% DEAL ] Irresistible Deal (Transfer Listed + € 1k Fee + 1st Round)"</Description>
               <Color>2828C6</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -711,7 +711,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>28</ID>
-              <Description>"[ LIMPAR ] Limpar as 3 Listas de Observação dos Olheiros na RAM"</Description>
+              <Description>"[ CLEAR ] Clear All 3 Scout Observation Lists in RAM"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -728,14 +728,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>29</ID>
-          <Description>"Receitas Comerciais &amp; Balanço da Temporada"</Description>
+          <Description>"Commercial Revenue &amp; Season Ledger"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>3B8E1E</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>30</ID>
-              <Description>"Receita do Clube de Sócios / Torcedores"</Description>
+              <Description>"Fan Club Revenue"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrCareer</Address>
@@ -745,7 +745,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>31</ID>
-              <Description>"Receita de Merchandising / Produtos"</Description>
+              <Description>"Merchandising Revenue"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrCareer</Address>
@@ -755,7 +755,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>32</ID>
-              <Description>"Receita de Patrocínios"</Description>
+              <Description>"Sponsorship Revenue"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrCareer</Address>
@@ -765,7 +765,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>33</ID>
-              <Description>"Balanço de Transferências na Temporada"</Description>
+              <Description>"Season Transfer Balance"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrCareer</Address>
@@ -775,7 +775,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>34</ID>
-              <Description>"Balanço Salarial na Temporada"</Description>
+              <Description>"Season Wage Balance"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrCareer</Address>
@@ -785,7 +785,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>35</ID>
-              <Description>"Outras Despesas / Indenizações"</Description>
+              <Description>"Other Expenses / Compensation"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrCareer</Address>
@@ -797,14 +797,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>36</ID>
-          <Description>"Calendário da Carreira (Ano / Mês / Dia)"</Description>
+          <Description>"Career Calendar (Year / Month / Day)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>3B8E1E</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>37</ID>
-              <Description>"Ano Atual"</Description>
+              <Description>"Current Year"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrCareer</Address>
@@ -814,7 +814,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>38</ID>
-              <Description>"Mês Atual (1-12)"</Description>
+              <Description>"Current Month (1-12)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -824,7 +824,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>39</ID>
-              <Description>"Dia Atual (1-31)"</Description>
+              <Description>"Current Day (1-31)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -838,14 +838,14 @@ end)
     </CheatEntry>
     <CheatEntry>
       <ID>40</ID>
-      <Description>"[ 3. JOGADOR, OVERALL DNA &amp; CONTRATOS ] Edit Player v11.0 Pro (150+ Campos)"</Description>
+      <Description>"[ 3. PLAYER, OVERALL DNA &amp; CONTRACTS ] Edit Player v11.1 Pro (150+ Fields)"</Description>
       <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
       <GroupHeader>1</GroupHeader>
       <Color>807A00</Color>
       <CheatEntries>
         <CheatEntry>
           <ID>41</ID>
-          <Description>"[ RADAR 30K ] Busca Visual Avançada por Nome, ID, Posição, OVR &amp; Idade"</Description>
+          <Description>"[ RADAR 30K ] Visual Search &amp; Filter by Name, ID, Position, OVR &amp; Age"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -860,7 +860,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>42</ID>
-          <Description>"[ ★ OVERALL ATUAL ] Duplo-Clique p/ Escalar OVR Mantendo o DNA / Estilo!"</Description>
+          <Description>"[ ★ CURRENT OVERALL ] Double-Click to Scale OVR Preserving DNA / Style!"</Description>
           <ShowAsSigned>1</ShowAsSigned>
           <Color>3B8E1E</Color>
           <VariableType>4 Bytes</VariableType>
@@ -868,7 +868,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>43</ID>
-          <Description>"[ +1 OVR DNA ] Subir +1 Overall Proporcionalmente (Sem Mudar Estilo de Jogo)"</Description>
+          <Description>"[ +1 OVR DNA ] Boost +1 Overall Proportionally (Preserves Playing Style)"</Description>
           <Color>3B8E1E</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -883,7 +883,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>44</ID>
-          <Description>"[ -1 OVR DNA ] Reduzir -1 Overall Proporcionalmente (Sem Mudar Estilo de Jogo)"</Description>
+          <Description>"[ -1 OVR DNA ] Lower -1 Overall Proportionally (Preserves Playing Style)"</Description>
           <Color>0066CC</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -898,7 +898,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>45</ID>
-          <Description>"[ ★ LAB POSIÇÕES ] Abrir Laboratório Visual (+1 OVR Posição &amp; Grau C / B / A)"</Description>
+          <Description>"[ ★ POSITION LAB ] Open Visual Position Lab (+1 Pos OVR &amp; Grade C / B / A)"</Description>
           <Color>3B8E1E</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -913,7 +913,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>46</ID>
-          <Description>"[ TEAM ROLE ] Abrir Seletor Visual de Função de Equipe (22 Papéis + Nível 1-3)"</Description>
+          <Description>"[ TEAM ROLE ] Open Visual Team Role Picker (22 Roles + Level 1-3)"</Description>
           <Color>0066CC</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -928,7 +928,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>47</ID>
-          <Description>"[ DESFAZER / UNDO ] Reverter Última Edição no Jogador Selecionado (Até 10 Níveis)"</Description>
+          <Description>"[ UNDO EDIT ] Revert Last Edit on Selected Player (10-Level History)"</Description>
           <Color>2828C6</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -943,7 +943,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>48</ID>
-          <Description>"[ RAIO-X 13 POS ] Ver Melhor Posição Natural &amp; Top 5 Atributos DNA"</Description>
+          <Description>"[ 13-POS X-RAY ] View Best Natural Position &amp; Top 5 DNA Attributes"</Description>
           <Color>A8326E</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -958,16 +958,16 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>49</ID>
-          <Description>"1. Contrato Ativo, Salário, Multa Exata &amp; Contratação € 1k"</Description>
+          <Description>"1. Active Contract, Salary, Exact Release Fee &amp; € 1k Sign"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>50</ID>
-              <Description>"Possui Taxa de Rescisão / Multa Rescisória"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não (Sem Multa)
-1:Sim (Com Multa Rescisória)</DropDownList>
+              <Description>"Has Release Clause"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No (No Clause)
+1:Yes (Has Release Clause)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>807A00</Color>
               <VariableType>Binary</VariableType>
@@ -981,7 +981,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>51</ID>
-              <Description>"Taxa de Rescisão Atual (Visualização Calculada)"</Description>
+              <Description>"Current Release Clause (Live Computed)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <Color>807A00</Color>
               <VariableType>4 Bytes</VariableType>
@@ -989,7 +989,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>52</ID>
-              <Description>"Fixar Taxa de Rescisão Exata neste Atleta (Duplo-Clique: ex. 1k, 80M, 1B)"</Description>
+              <Description>"Set Exact Custom Release Clause (Double-Click: e.g. 1k, 80M, 1B)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <Color>3B8E1E</Color>
               <VariableType>4 Bytes</VariableType>
@@ -997,7 +997,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>53</ID>
-              <Description>"[ 1-CLIQUE ] Remover Override de Multa Exata deste Jogador"</Description>
+              <Description>"[ 1-CLICK ] Clear Custom Release Clause Override for Player"</Description>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
 {$lua}
@@ -1011,7 +1011,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>54</ID>
-              <Description>"Fator de Valorização na Base (Youth Slot)"</Description>
+              <Description>"Youth Academy Valuation Factor"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrPlayerReleaseSlot</Address>
@@ -1021,7 +1021,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>55</ID>
-              <Description>"Salário Anual Ativo (Duplo-Clique: ex. 5M, 500k)"</Description>
+              <Description>"Active Annual Salary (Double-Click: e.g. 5M, 500k)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <Color>3B8E1E</Color>
               <VariableType>4 Bytes</VariableType>
@@ -1032,7 +1032,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>56</ID>
-              <Description>"Valor de Mercado Base (Duplo-Clique: ex. 120M)"</Description>
+              <Description>"Base Market Value (Double-Click: e.g. 120M)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <Color>3B8E1E</Color>
               <VariableType>4 Bytes</VariableType>
@@ -1043,7 +1043,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>57</ID>
-              <Description>"Idade Base do Valor de Mercado (+0x178)"</Description>
+              <Description>"Market Value Snapshot Age (+0x178)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrPlayer</Address>
@@ -1053,7 +1053,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>58</ID>
-              <Description>"Overall (OVR) Base do Valor de Mercado (+0x179)"</Description>
+              <Description>"Market Value Snapshot OVR (+0x179)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrPlayer</Address>
@@ -1063,7 +1063,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>59</ID>
-              <Description>"[ ALVO € 1K ] Contratação Fácil (Multa € 1.000 + Afeição 100% + Destravar)"</Description>
+              <Description>"[ € 1K TARGET ] Easy Signing (€ 1,000 Clause + 100% Affection + Unlock)"</Description>
               <Color>2828C6</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -1078,14 +1078,14 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>60</ID>
-              <Description>"Bônus Ativos na Folha Salarial (Meu Elenco ML)"</Description>
+              <Description>"Active Payroll Bonuses (User Squad ML)"</Description>
               <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
               <GroupHeader>1</GroupHeader>
               <Color>807A00</Color>
               <CheatEntries>
                 <CheatEntry>
                   <ID>61</ID>
-                  <Description>"Salário Comprometido na Folha"</Description>
+                  <Description>"Committed Payroll Salary"</Description>
                   <ShowAsSigned>1</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
                   <Address>ptrPlayerSquadBonus</Address>
@@ -1095,7 +1095,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>62</ID>
-                  <Description>"Bônus Contratual #1 (Partida / Atuação)"</Description>
+                  <Description>"Appearance Bonus"</Description>
                   <ShowAsSigned>1</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
                   <Address>ptrPlayerSquadBonus</Address>
@@ -1105,7 +1105,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>63</ID>
-                  <Description>"Bônus Contratual #2 (Gol / Vitória)"</Description>
+                  <Description>"Goal / Win Bonus"</Description>
                   <ShowAsSigned>1</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
                   <Address>ptrPlayerSquadBonus</Address>
@@ -1115,7 +1115,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>64</ID>
-                  <Description>"Bônus Contratual #3 (Clean Sheet / Extra)"</Description>
+                  <Description>"Clean Sheet / Extra Bonus"</Description>
                   <ShowAsSigned>1</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
                   <Address>ptrPlayerSquadBonus</Address>
@@ -1127,14 +1127,14 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>65</ID>
-              <Description>"Datas de Término, Chegada &amp; Última Renovação"</Description>
+              <Description>"Contract Expiry, Arrival &amp; Last Renewal Dates"</Description>
               <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
               <GroupHeader>1</GroupHeader>
               <Color>807A00</Color>
               <CheatEntries>
                 <CheatEntry>
                   <ID>66</ID>
-                  <Description>"Término do Contrato - Ano"</Description>
+                  <Description>"Contract Expiry - Year"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>2 Bytes</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1144,7 +1144,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>67</ID>
-                  <Description>"Término do Contrato - Mês (1-12)"</Description>
+                  <Description>"Contract Expiry - Month (1-12)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1154,7 +1154,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>68</ID>
-                  <Description>"Término do Contrato - Dia (1-31)"</Description>
+                  <Description>"Contract Expiry - Day (1-31)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1164,7 +1164,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>69</ID>
-                  <Description>"Última Assinatura / Renovação - Ano (65535 = Sem Trava)"</Description>
+                  <Description>"Last Signing / Renewal - Year (65535 = Unlocked)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>2 Bytes</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1174,7 +1174,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>70</ID>
-                  <Description>"Última Assinatura / Renovação - Mês"</Description>
+                  <Description>"Last Signing / Renewal - Month"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1184,7 +1184,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>71</ID>
-                  <Description>"Última Assinatura / Renovação - Dia"</Description>
+                  <Description>"Last Signing / Renewal - Day"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1194,7 +1194,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>72</ID>
-                  <Description>"Chegada ao Clube - Ano"</Description>
+                  <Description>"Club Arrival - Year"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>2 Bytes</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1204,7 +1204,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>73</ID>
-                  <Description>"Chegada ao Clube - Mês"</Description>
+                  <Description>"Club Arrival - Month"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1214,7 +1214,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>74</ID>
-                  <Description>"Chegada ao Clube - Dia"</Description>
+                  <Description>"Club Arrival - Day"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Byte</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1224,7 +1224,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>75</ID>
-                  <Description>"[ 1-CLIQUE ] Destravar Renegociação Imediata"</Description>
+                  <Description>"[ 1-CLICK ] Unlock Instant Renegotiation"</Description>
                   <Color>CC5500</Color>
                   <VariableType>Auto Assembler Script</VariableType>
                   <AssemblerScript>[ENABLE]
@@ -1241,14 +1241,14 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>76</ID>
-              <Description>"Empréstimo, Lista de Transferências &amp; Afeição (0-100%)"</Description>
+              <Description>"Loan Status, Transfer List &amp; Club Affection (0-100%)"</Description>
               <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
               <GroupHeader>1</GroupHeader>
               <Color>807A00</Color>
               <CheatEntries>
                 <CheatEntry>
                   <ID>77</ID>
-                  <Description>"Afeição pelo Clube / Treinador (0-100%)"</Description>
+                  <Description>"Club / Manager Affection (0-100%)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <Color>3B8E1E</Color>
                   <VariableType>Binary</VariableType>
@@ -1262,9 +1262,9 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>78</ID>
-                  <Description>"Está Emprestado (Is On Loan)"</Description>
-                  <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+                  <Description>"Is Currently On Loan"</Description>
+                  <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Binary</VariableType>
                   <BitStart>0</BitStart>
@@ -1277,7 +1277,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>79</ID>
-                  <Description>"Clube Detentor do Passe (RAM)"</Description>
+                  <Description>"Parent Club Handle (Live RAM)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1287,7 +1287,7 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>80</ID>
-                  <Description>"Clube Anterior / Origem (RAM)"</Description>
+                  <Description>"Previous / Origin Club Handle (Live RAM)"</Description>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>4 Bytes</VariableType>
                   <Address>ptrPlayer</Address>
@@ -1297,9 +1297,9 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>81</ID>
-                  <Description>"Na Lista de Transferências"</Description>
-                  <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+                  <Description>"Is Transfer Listed"</Description>
+                  <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Binary</VariableType>
                   <BitStart>1</BitStart>
@@ -1312,9 +1312,9 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>82</ID>
-                  <Description>"Na Lista de Empréstimo"</Description>
-                  <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+                  <Description>"Is Loan Listed"</Description>
+                  <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Binary</VariableType>
                   <BitStart>2</BitStart>
@@ -1327,9 +1327,9 @@ end)
                 </CheatEntry>
                 <CheatEntry>
                   <ID>83</ID>
-                  <Description>"Jogador Listado"</Description>
-                  <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+                  <Description>"Is Listed Player"</Description>
+                  <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
                   <ShowAsSigned>0</ShowAsSigned>
                   <VariableType>Binary</VariableType>
                   <BitStart>1</BitStart>
@@ -1346,14 +1346,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>84</ID>
-          <Description>"2. Macros de 1 Clique, Rejuvenescer &amp; Backup JSON"</Description>
+          <Description>"2. 1-Click Macros, Rejuvenate &amp; JSON Backup"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>CC5500</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>85</ID>
-              <Description>"[ 1-CLIQUE ] Rejuvenescer (-2 Anos) &amp; Sincronizar Valor de Mercado"</Description>
+              <Description>"[ 1-CLICK ] Rejuvenate (-2 Yrs) &amp; Sync Market Valuation"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -1368,7 +1368,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>86</ID>
-              <Description>"[ 1-CLIQUE ] Todas as 13 Posições Jogáveis em Aptidão 'A'"</Description>
+              <Description>"[ 1-CLICK ] Set All 13 Playable Positions to Grade 'A'"</Description>
               <Color>A8326E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -1383,7 +1383,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>87</ID>
-              <Description>"[ 1-CLIQUE ] Desbloquear Todas as 41 Habilidades (Skills)"</Description>
+              <Description>"[ 1-CLICK ] Unlock All 41 Player Skills"</Description>
               <Color>0066CC</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -1398,7 +1398,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>88</ID>
-              <Description>"[ 1-CLIQUE ] Pé Ruim 4/4 + Forma 8 + Lesão 3 + Curar"</Description>
+              <Description>"[ 1-CLICK ] Weak Foot 4/4 + Form 8 + Injury Res 3 + Heal"</Description>
               <Color>807A00</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -1413,7 +1413,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>89</ID>
-              <Description>"[ 1-CLIQUE ] Somar +5 em Todos os Atributos (Até 99)"</Description>
+              <Description>"[ 1-CLICK ] Add +5 to All Attributes (Capped at 99)"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -1428,7 +1428,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>90</ID>
-              <Description>"[ 1-CLIQUE ] Todos os 25 Atributos em 99"</Description>
+              <Description>"[ 1-CLICK ] Max All 25 Attributes to 99"</Description>
               <Color>2828C6</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -1443,7 +1443,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>91</ID>
-              <Description>"[ BACKUP JSON ] Exportar Jogador Selecionado (.json)"</Description>
+              <Description>"[ JSON BACKUP ] Export Selected Player (.json)"</Description>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
 {$lua}
@@ -1457,7 +1457,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>92</ID>
-              <Description>"[ RESTORE JSON ] Importar Arquivo .json no Jogador Atual"</Description>
+              <Description>"[ JSON RESTORE ] Import .json into Selected Player"</Description>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
 {$lua}
@@ -1473,14 +1473,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>93</ID>
-          <Description>"3. Identidade, Nomes UTF-8 (60B) &amp; Clubes ao Vivo"</Description>
+          <Description>"3. Identity, UTF-8 Names (60B) &amp; Live Club Handles"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>94</ID>
-              <Description>"ID do Jogador (Player ID)"</Description>
+              <Description>"Player ID"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrPlayer</Address>
@@ -1490,7 +1490,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>95</ID>
-              <Description>"Nome do Jogador (UTF-8 - Até 60 Bytes)"</Description>
+              <Description>"Player Name (UTF-8 - Up to 60 Bytes)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>String</VariableType>
               <Length>60</Length>
@@ -1504,7 +1504,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>96</ID>
-              <Description>"Nome na Camisa - Clube (UTF-8)"</Description>
+              <Description>"Shirt Name - Club (UTF-8)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>String</VariableType>
               <Length>60</Length>
@@ -1518,7 +1518,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>97</ID>
-              <Description>"Nome na Camisa - Seleção (UTF-8)"</Description>
+              <Description>"Shirt Name - National Team (UTF-8)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>String</VariableType>
               <Length>60</Length>
@@ -1532,7 +1532,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>98</ID>
-              <Description>"Clube Atual (Decodificado ao Vivo na RAM)"</Description>
+              <Description>"Current Club (Live RAM Decoded)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>3B8E1E</Color>
               <VariableType>4 Bytes</VariableType>
@@ -1543,7 +1543,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>99</ID>
-              <Description>"Seleção Nacional (Decodificada ao Vivo na RAM)"</Description>
+              <Description>"National Team (Live RAM Decoded)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrPlayer</Address>
@@ -1553,7 +1553,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>100</ID>
-              <Description>"Nacionalidade / País (221 Países)"</Description>
+              <Description>"Nationality / Country (221 Countries)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 'None'
 1: 'Afghanistan'
 2: 'Bahrain'
@@ -1784,7 +1784,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>101</ID>
-              <Description>"Idade (15-50)"</Description>
+              <Description>"Age (15-50)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -1797,7 +1797,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>102</ID>
-              <Description>"Altura (cm)"</Description>
+              <Description>"Height (cm)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -1810,7 +1810,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>103</ID>
-              <Description>"Peso (kg)"</Description>
+              <Description>"Weight (kg)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -1823,9 +1823,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>104</ID>
-              <Description>"Pé Dominante"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Direito (Right)
-1:Esquerdo (Left)</DropDownList>
+              <Description>"Stronger Foot"</Description>
+              <DropDownList DisplayValueAsItem="1">0:Right Foot
+1:Left Foot</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -1838,7 +1838,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>105</ID>
-              <Description>"Comemoração de Gol Principal (+0x02)"</Description>
+              <Description>"Goal Celebration #1 (+0x02)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrPlayer</Address>
@@ -1848,7 +1848,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>106</ID>
-              <Description>"ID de Narração (Commentary ID)"</Description>
+              <Description>"Commentary Callname ID"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrPlayer</Address>
@@ -1860,14 +1860,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>107</ID>
-          <Description>"4. Condição Física, Seta de Forma, Pé Ruim &amp; Lesões"</Description>
+          <Description>"4. Fitness, Form Arrow, Weak Foot &amp; Injuries"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>108</ID>
-              <Description>"Barra de Fôlego / Stamina (0-100)"</Description>
+              <Description>"Fatigue / Stamina Gauge (0-100)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -1880,12 +1880,12 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>109</ID>
-              <Description>"Seta de Forma para a Próxima Partida"</Description>
-              <DropDownList DisplayValueAsItem="1">0:0 - Péssima (Seta Vermelha p/ Baixo)
-1:1 - Ruim (Seta Laranja Diagonal)
-2:2 - Normal (Seta Amarela Horizontal)
-3:3 - Boa (Seta Verde Diagonal)
-4:4 - Excelente / Top Form (Seta Azul p/ Cima)</DropDownList>
+              <Description>"Next Match Form Arrow"</Description>
+              <DropDownList DisplayValueAsItem="1">0:0 - Terrible (Red Down Arrow)
+1:1 - Poor (Orange Diagonal Arrow)
+2:2 - Normal (Yellow Flat Arrow)
+3:3 - Good (Green Diagonal Arrow)
+4:4 - Top Form (Blue Up Arrow)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -1898,9 +1898,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>110</ID>
-              <Description>"Seta Piscando (Em Destaque)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Flashing Form Arrow"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -1913,7 +1913,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>111</ID>
-              <Description>"Dias Indisponível por Lesão (0 = Saudável)"</Description>
+              <Description>"Injury Duration Remaining (0 = Healthy)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrPlayer</Address>
@@ -1923,7 +1923,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>112</ID>
-              <Description>"Uso do Pé Ruim (1-4)"</Description>
+              <Description>"Weak Foot Usage (1-4)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 1
 1: 2
 2: 3
@@ -1940,7 +1940,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>113</ID>
-              <Description>"Precisão do Pé Ruim (1-4)"</Description>
+              <Description>"Weak Foot Accuracy (1-4)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 1
 1: 2
 2: 3
@@ -1957,7 +1957,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>114</ID>
-              <Description>"Forma Física / Regularidade (1-8)"</Description>
+              <Description>"Conditioning / Form (1-8)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 1
 1: 2
 2: 3
@@ -1978,7 +1978,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>115</ID>
-              <Description>"Resistência a Lesões (1-3)"</Description>
+              <Description>"Injury Resistance (1-3)"</Description>
               <DropDownList DisplayValueAsItem="1">0: 1
 1: 2
 2: 3</DropDownList>
@@ -1996,14 +1996,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>116</ID>
-          <Description>"5. Posição de Origem &amp; 13 Posições Jogáveis (C / B / A)"</Description>
+          <Description>"5. Registered Position &amp; 13 Playable Positions (C / B / A)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>117</ID>
-              <Description>"[ 1-CLIQUE ] Promover Todas as Secundárias ('B' → 'A')"</Description>
+              <Description>"[ 1-CLICK ] Promote All Secondary Positions ('B' → 'A')"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -2018,7 +2018,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>118</ID>
-              <Description>"[ +1 OVR POSIÇÃO ] Subir +1 OVR em Posição Específica..."</Description>
+              <Description>"[ +1 POS OVR ] Boost +1 OVR in Specific Position..."</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -2033,20 +2033,20 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>126</ID>
-              <Description>"Posição de Origem (Registered Position)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:GL (GK) - Goleiro
-1:ZAG (CB) - Zagueiro
-2:LE (LB) - Lateral Esquerdo
-3:LD (RB) - Lateral Direito
-4:VOL (DMF) - Volante
-5:MLG (CMF) - Meia de Ligação
-6:MLE (LMF) - Meia Esquerda
-7:MLD (RMF) - Meia Direita
-8:MAT (AMF) - Meia Atacante
-9:PTE (LWF) - Ponta Esquerda
-10:PTD (RWF) - Ponta Direita
-11:SA (SS) - Segundo Atacante
-12:CA (CF) - Centroavante</DropDownList>
+              <Description>"Registered Position"</Description>
+              <DropDownList DisplayValueAsItem="1">0:GK - Goalkeeper
+1:CB - Center Back
+2:LB - Left Back
+3:RB - Right Back
+4:DMF - Defensive Midfielder
+5:CMF - Center Midfielder
+6:LMF - Left Midfielder
+7:RMF - Right Midfielder
+8:AMF - Attacking Midfielder
+9:LWF - Left Wing Forward
+10:RWF - Right Wing Forward
+11:SS - Second Striker
+12:CF - Center Forward</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>4</BitStart>
@@ -2059,10 +2059,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>127</ID>
-              <Description>"CA (CF) - Centroavante"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"CF - Center Forward"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>1</BitStart>
@@ -2075,10 +2075,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>128</ID>
-              <Description>"SA (SS) - Segundo Atacante"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"SS - Second Striker"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>3</BitStart>
@@ -2091,10 +2091,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>129</ID>
-              <Description>"PTE (LWF) - Ponta Esquerda"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"LWF - Left Wing Forward"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2107,10 +2107,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>130</ID>
-              <Description>"PTD (RWF) - Ponta Direita"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"RWF - Right Wing Forward"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2123,10 +2123,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>131</ID>
-              <Description>"MAT (AMF) - Meia Atacante"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"AMF - Attacking Midfielder"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>2</BitStart>
@@ -2139,10 +2139,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>132</ID>
-              <Description>"MLE (LMF) - Meia Esquerda"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"LMF - Left Midfielder"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2155,10 +2155,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>133</ID>
-              <Description>"MLD (RMF) - Meia Direita"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"RMF - Right Midfielder"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>2</BitStart>
@@ -2171,10 +2171,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>134</ID>
-              <Description>"MLG (CMF) - Meia de Ligação"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"CMF - Center Midfielder"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2187,10 +2187,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>135</ID>
-              <Description>"VOL (DMF) - Volante"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"DMF - Defensive Midfielder"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>4</BitStart>
@@ -2203,10 +2203,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>136</ID>
-              <Description>"LE (LB) - Lateral Esquerdo"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"LB - Left Back"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2219,10 +2219,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>137</ID>
-              <Description>"LD (RB) - Lateral Direito"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"RB - Right Back"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2235,10 +2235,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>138</ID>
-              <Description>"ZAG (CB) - Zagueiro"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"CB - Center Back"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>4</BitStart>
@@ -2251,10 +2251,10 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>139</ID>
-              <Description>"GL (GK) - Goleiro"</Description>
-              <DropDownList DisplayValueAsItem="1">0:C (Sem Aptidão)
-1:B (Secundária)
-2:A (Domínio Total)</DropDownList>
+              <Description>"GK - Goalkeeper"</Description>
+              <DropDownList DisplayValueAsItem="1">0:C (Unfamiliar)
+1:B (Secondary)
+2:A (Full Mastery)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>2</BitStart>
@@ -2269,14 +2269,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>119</ID>
-          <Description>"6. Todos os 25 Atributos Técnicos, Físicos, Defensivos &amp; GK (40-99)"</Description>
+          <Description>"6. All 25 Technical, Physical, Defensive &amp; GK Attributes (40-99)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>140</ID>
-              <Description>"Talento Ofensivo (Offensive Awareness)"</Description>
+              <Description>"Offensive Awareness"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2289,7 +2289,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>141</ID>
-              <Description>"Controle de Bola (Ball Control)"</Description>
+              <Description>"Ball Control"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2302,7 +2302,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>142</ID>
-              <Description>"Drible (Dribbling)"</Description>
+              <Description>"Dribbling"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2315,7 +2315,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>143</ID>
-              <Description>"Condução Firme (Tight Possession)"</Description>
+              <Description>"Tight Possession"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2328,7 +2328,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>144</ID>
-              <Description>"Passe Rasteiro (Low Pass)"</Description>
+              <Description>"Low Pass"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2341,7 +2341,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>145</ID>
-              <Description>"Passe Alto (Lofted Pass)"</Description>
+              <Description>"Lofted Pass"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2354,7 +2354,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>146</ID>
-              <Description>"Finalização (Finishing)"</Description>
+              <Description>"Finishing"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -2367,7 +2367,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>147</ID>
-              <Description>"Cabeceio (Heading)"</Description>
+              <Description>"Heading"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2380,7 +2380,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>148</ID>
-              <Description>"Chute Colocado / Bola Parada (Place Kicking)"</Description>
+              <Description>"Place Kicking"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2393,7 +2393,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>149</ID>
-              <Description>"Curva (Curl)"</Description>
+              <Description>"Curl"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2406,7 +2406,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>150</ID>
-              <Description>"Velocidade (Speed)"</Description>
+              <Description>"Speed"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -2419,7 +2419,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>151</ID>
-              <Description>"Aceleração (Acceleration)"</Description>
+              <Description>"Acceleration"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -2432,7 +2432,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>152</ID>
-              <Description>"Força do Chute (Kicking Power)"</Description>
+              <Description>"Kicking Power"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2445,7 +2445,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>153</ID>
-              <Description>"Impulsão (Jump)"</Description>
+              <Description>"Jump"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2458,7 +2458,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>154</ID>
-              <Description>"Contato Físico (Physical Contact)"</Description>
+              <Description>"Physical Contact"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2471,7 +2471,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>155</ID>
-              <Description>"Equilíbrio (Balance)"</Description>
+              <Description>"Balance"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2484,7 +2484,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>156</ID>
-              <Description>"Resistência / Fôlego (Stamina)"</Description>
+              <Description>"Stamina"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2497,7 +2497,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>157</ID>
-              <Description>"Talento Defensivo (Defensive Awareness)"</Description>
+              <Description>"Defensive Awareness"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2510,7 +2510,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>158</ID>
-              <Description>"Desarme (Ball Winning)"</Description>
+              <Description>"Ball Winning"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -2523,7 +2523,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>159</ID>
-              <Description>"Agressividade (Aggression)"</Description>
+              <Description>"Aggression"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2536,7 +2536,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>160</ID>
-              <Description>"Talento de Goleiro (GK Awareness)"</Description>
+              <Description>"GK Awareness"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -2549,7 +2549,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>161</ID>
-              <Description>"Firmeza de Goleiro (GK Catching)"</Description>
+              <Description>"GK Catching"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -2562,7 +2562,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>162</ID>
-              <Description>"Afastar de Goleiro (GK Clearing)"</Description>
+              <Description>"GK Clearing"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2575,7 +2575,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>163</ID>
-              <Description>"Reflexos de Goleiro (GK Reflexes)"</Description>
+              <Description>"GK Reflexes"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2588,7 +2588,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>164</ID>
-              <Description>"Alcance / Cobertura (GK Reach)"</Description>
+              <Description>"GK Reach"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2603,16 +2603,16 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>120</ID>
-          <Description>"7. Estilo de Jogo &amp; Todas as 41 Habilidades (Player Skills)"</Description>
+          <Description>"7. Playing Style &amp; All 41 Player Skills"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>165</ID>
-              <Description>"Pedalada Simples (Scissors Feint)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Scissors Feint"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>3</BitStart>
@@ -2625,9 +2625,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>166</ID>
-              <Description>"Toque Duplo (Double Touch)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Double Touch"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2640,9 +2640,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>167</ID>
-              <Description>"Elástico (Flip Flap)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Flip Flap"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>4</BitStart>
@@ -2655,9 +2655,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>168</ID>
-              <Description>"Roleta / Giro de Marselha (Marseille Turn)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Marseille Turn"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2670,9 +2670,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>169</ID>
-              <Description>"Chapéu / Sombreiro (Sombrero)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Sombrero"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2685,9 +2685,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>170</ID>
-              <Description>"Corte de Letra (Cross Over Turn)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Cross Over Turn"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>1</BitStart>
@@ -2700,9 +2700,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>171</ID>
-              <Description>"Puxada e Giro (Cut Behind &amp; Turn)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Cut Behind &amp; Turn"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -2715,9 +2715,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>172</ID>
-              <Description>"Toque Escocês (Scotch Move)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Scotch Move"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2730,9 +2730,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>173</ID>
-              <Description>"Domínio Pisando na Bola (Step On Control)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Step On Skill Control"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>3</BitStart>
@@ -2745,9 +2745,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>174</ID>
-              <Description>"Cabeceio Preciso - Skill (Heading)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Heading (Player Skill)"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>1</BitStart>
@@ -2760,9 +2760,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>175</ID>
-              <Description>"Chute Colocado de Longe (Long Range Drive)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Long Range Drive"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>2</BitStart>
@@ -2775,9 +2775,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>176</ID>
-              <Description>"Cavadinha Precisa (Chip Shot Control)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Chip Shot Control"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>2</BitStart>
@@ -2790,9 +2790,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>177</ID>
-              <Description>"Chute de Longa Distância (Long Range Shooting)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Long Range Shooting"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>2</BitStart>
@@ -2805,9 +2805,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>178</ID>
-              <Description>"Folha Seca (Knuckle Shot)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Knuckle Shot"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>3</BitStart>
@@ -2820,9 +2820,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>179</ID>
-              <Description>"Chute com Queda Rápida (Dipping Shot)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Dipping Shot"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>4</BitStart>
@@ -2835,9 +2835,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>180</ID>
-              <Description>"Chute Ascendente (Rising Shots)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Rising Shots"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2850,9 +2850,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>181</ID>
-              <Description>"Finalização Acrobática (Acrobatic Finishing)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Acrobatic Finishing"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>4</BitStart>
@@ -2865,9 +2865,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>182</ID>
-              <Description>"Toque de Calcanhar (Heel Trick)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Heel Trick"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -2880,9 +2880,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>183</ID>
-              <Description>"Chute de Primeira (First-time Shot)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"First-time Shot"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -2895,9 +2895,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>184</ID>
-              <Description>"Passe de Primeira (One-touch Pass)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"One-touch Pass"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -2910,9 +2910,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>185</ID>
-              <Description>"Passe em Profundidade (Through Passing)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Through Passing"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>3</BitStart>
@@ -2925,9 +2925,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>186</ID>
-              <Description>"Passe na Medida (Weighted Pass)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Weighted Pass"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -2940,9 +2940,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>187</ID>
-              <Description>"Cruzamento Preciso (Pinpoint Crossing)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Pinpoint Crossing"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>1</BitStart>
@@ -2955,9 +2955,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>188</ID>
-              <Description>"Trivela (Outside Curler)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Outside Curler"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>2</BitStart>
@@ -2970,9 +2970,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>189</ID>
-              <Description>"Letra (Rabona)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Rabona"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>3</BitStart>
@@ -2985,9 +2985,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>190</ID>
-              <Description>"Passe Sem Olhar (No Look Pass)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"No Look Pass"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -3000,9 +3000,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>191</ID>
-              <Description>"Lançamento Tenso (Low Lofted Pass)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Low Lofted Pass"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>4</BitStart>
@@ -3015,9 +3015,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>192</ID>
-              <Description>"Reposição Baixa de Goleiro (GK Low Punt)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"GK Low Punt"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -3030,9 +3030,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>193</ID>
-              <Description>"Reposição Alta de Goleiro (GK High Punt)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"GK High Punt"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -3045,9 +3045,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>194</ID>
-              <Description>"Lateral Longo (Long Throw)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Long Throw"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -3060,9 +3060,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>195</ID>
-              <Description>"Arremesso Longo do Goleiro (GK Long Throw)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"GK Long Throw"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -3075,9 +3075,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>196</ID>
-              <Description>"Especialista em Pênaltis (Penalty Specialist)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Penalty Specialist"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -3090,9 +3090,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>197</ID>
-              <Description>"Pegador de Pênaltis (GK Penalty Saver)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"GK Penalty Saver"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>1</BitStart>
@@ -3105,9 +3105,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>198</ID>
-              <Description>"Malícia / Cavar Falta (Gamesmanship)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Gamesmanship"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -3120,9 +3120,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>199</ID>
-              <Description>"Marcação Individual (Man Marking)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Man Marking"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>1</BitStart>
@@ -3135,9 +3135,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>200</ID>
-              <Description>"Voltar para Marcar (Track Back)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Track Back"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>2</BitStart>
@@ -3150,9 +3150,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>201</ID>
-              <Description>"Interceptação (Interception)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Interception"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -3165,9 +3165,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>202</ID>
-              <Description>"Corte Acrobático (Acrobatic Clear)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Acrobatic Clear"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>3</BitStart>
@@ -3180,9 +3180,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>203</ID>
-              <Description>"Liderança / Capitão (Captaincy)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Captaincy"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>4</BitStart>
@@ -3195,9 +3195,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>204</ID>
-              <Description>"Super Substituto / Talismã (Super-Sub)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Super-Sub"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>5</BitStart>
@@ -3210,9 +3210,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>205</ID>
-              <Description>"Espírito Guerreiro (Fighting Spirit)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"Fighting Spirit"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -3225,29 +3225,29 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>206</ID>
-              <Description>"Estilo de Jogo do Atleta (Playing Style)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Nenhum (-)
-1:Artilheiro (Goal Poacher)
-2:Puxador de Marcação (Dummy Runner)
-3:Homem de Área (Fox in the Box)
-4:Ala Produtivo (Prolific Winger)
-5:Clássico Camisa 10 (Classic No. 10)
-6:Jogador de Infiltração (Hole Player)
-7:Área a Área (Box-to-Box)
-8:Primeiro Volante (Anchor Man)
-9:O Destruidor (The Destroyer)
-10:Atacante Extra (Extra Frontman)
-11:Lateral Ofensivo (Offensive Full-back)
-12:Lateral Defensivo (Defensive Full-back)
-13:Pivô (Target Man)
-14:Armador Criativo (Creative Playmaker)
-15:Provocador / Saída de Bola (Build Up)
-16:Goleiro Ofensivo (Offensive Goalkeeper)
-17:Goleiro Defensivo (Defensive Goalkeeper)
-18:Ala Móvel (Roaming Flank)
-19:Especialista em Cruzamento (Cross Specialist)
-20:Orquestrador (Orchestrator)
-21:Lateral Finalizador (Full-back Finisher)</DropDownList>
+              <Description>"Playing Style"</Description>
+              <DropDownList DisplayValueAsItem="1">0:-
+1:Goal Poacher
+2:Dummy Runner
+3:Fox in the Box
+4:Profilic Winger
+5:Classic No. 10
+6:Hole Player
+7:Box-to-Box
+8:Anchor Man
+9:The Destroyer
+10:Extra Frontman
+11:Offensive Full-back
+12:Defensive Full-back
+13:Target Man
+14:Creative Playmaker
+15:Build Up
+16:Offensive Goalkeeper
+17:Defensive Goalkeeper
+18:Roaming Flank
+19:Cross Specialist
+20:Orchestrator
+21:Full-back Finisher</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>A8326E</Color>
               <VariableType>Binary</VariableType>
@@ -3263,14 +3263,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>121</ID>
-          <Description>"8. Estilos IA COM &amp; Papel no Time (Team Role)"</Description>
+          <Description>"8. COM AI Playing Styles &amp; Team Role"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>807A00</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>122</ID>
-              <Description>"[ PRESET ] Tornar LENDA (Nível 3)"</Description>
+              <Description>"[ PRESET ] Make LEGEND (Level 3)"</Description>
               <Color>0066CC</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -3285,7 +3285,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>123</ID>
-              <Description>"[ PRESET ] Tornar BANDEIRA (Nível 3)"</Description>
+              <Description>"[ PRESET ] Make BANDIERA (Level 3)"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -3300,7 +3300,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>124</ID>
-              <Description>"[ PRESET ] Tornar MAESTRO (Nível 3)"</Description>
+              <Description>"[ PRESET ] Make MAESTRO (Level 3)"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -3315,7 +3315,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>125</ID>
-              <Description>"[ PRESET ] Tornar GENERAL (Nível 3)"</Description>
+              <Description>"[ PRESET ] Make GENERAL (Level 3)"</Description>
               <Color>A8326E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -3330,9 +3330,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>207</ID>
-              <Description>"[IA COM] Driblador (Trickster)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"[COM AI] Trickster"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -3345,9 +3345,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>208</ID>
-              <Description>"[IA COM] Arrancada em Zigue-Zague (Mazing Run)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"[COM AI] Mazing Run"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -3360,9 +3360,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>209</ID>
-              <Description>"[IA COM] Bala Veloz (Speeding Bullet)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"[COM AI] Speeding Bullet"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -3375,9 +3375,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>210</ID>
-              <Description>"[IA COM] Corrida Incisiva (Incisive Run)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"[COM AI] Incisive Run"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>7</BitStart>
@@ -3390,9 +3390,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>211</ID>
-              <Description>"[IA COM] Especialista em Bola Longa (Long Ball Expert)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"[COM AI] Long Ball Expert"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -3405,9 +3405,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>212</ID>
-              <Description>"[IA COM] Cruzamento Antecipado (Early Cross)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"[COM AI] Early Cross"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>1</BitStart>
@@ -3420,9 +3420,9 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>213</ID>
-              <Description>"[IA COM] Chutador de Longe (Long Ranger)"</Description>
-              <DropDownList DisplayValueAsItem="1">0:Não
-1:Sim</DropDownList>
+              <Description>"[COM AI] Long Ranger"</Description>
+              <DropDownList DisplayValueAsItem="1">0:No
+1:Yes</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>2</BitStart>
@@ -3435,7 +3435,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>214</ID>
-              <Description>"Papel no Time (Team Role)"</Description>
+              <Description>"Team Role"</Description>
               <DropDownList DisplayValueAsItem="1">0:-
 1:Youth Prospect
 2:Protégé
@@ -3471,7 +3471,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>215</ID>
-              <Description>"Nível do Papel no Time (Level)"</Description>
+              <Description>"Team Role Level"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>6</BitStart>
@@ -3484,7 +3484,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>216</ID>
-              <Description>"Espírito Coletivo &lt;-&gt; Lobo Solitário"</Description>
+              <Description>"Team Player - Lone Wolf"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrPlayer</Address>
@@ -3494,7 +3494,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>217</ID>
-              <Description>"Paixão &lt;-&gt; Frieza"</Description>
+              <Description>"Passion - Composure"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrPlayer</Address>
@@ -3504,7 +3504,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>218</ID>
-              <Description>"Técnica &lt;-&gt; Força"</Description>
+              <Description>"Technique - Strength"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrPlayer</Address>
@@ -3514,7 +3514,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>219</ID>
-              <Description>"Visão &lt;-&gt; Instinto"</Description>
+              <Description>"Insight - Instinct"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrPlayer</Address>
@@ -3524,7 +3524,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>220</ID>
-              <Description>"Impacto / Carisma (Impact)"</Description>
+              <Description>"Impact"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrPlayer</Address>
@@ -3536,7 +3536,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>221</ID>
-          <Description>"9. Diagnóstico Técnico de Ponteiros (Avançado)"</Description>
+          <Description>"9. Technical Pointer Diagnostics (Advanced)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <CheatEntries>
@@ -3574,20 +3574,20 @@ end)
     </CheatEntry>
     <CheatEntry>
       <ID>226</ID>
-      <Description>"[ 4. TREINO &amp; ESTRELATO ] Multiplicador Sub-XP, Base &amp; Suite BAL"</Description>
+      <Description>"[ 4. TRAINING &amp; BAL ] Sub-XP Multiplier, Youth &amp; Become a Legend Suite"</Description>
       <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
       <GroupHeader>1</GroupHeader>
       <Color>A8326E</Color>
       <CheatEntries>
         <CheatEntry>
           <ID>227</ID>
-          <Description>"Velocidade de Evolução Sub-XP (Clube, Base &amp; BAL)"</Description>
-          <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:1x - Evolução Original
-1:2x - Evolução Dobrada
-2:5x - Evolução Rápida
-3:10x - Super Treino
-4:50x - Turbo Extremo
-5:Instantâneo (10.000 XP - Nível / Posição / Skill em 1 Dia!)</DropDownList>
+          <Description>"Sub-XP Training Multiplier (Your Club, Youth &amp; BAL)"</Description>
+          <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:1x - Default Progression
+1:2x - Double Speed
+2:5x - Fast Progression
+3:10x - Super Training
+4:50x - Extreme Turbo
+5:Instant (10,000 XP - Stat / Position / Skill in 1 Day!)</DropDownList>
           <ShowAsSigned>0</ShowAsSigned>
           <Color>A8326E</Color>
           <VariableType>4 Bytes</VariableType>
@@ -3595,7 +3595,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>228</ID>
-          <Description>"[ 1-CLIQUE ] Encher 25 Barras de Sub-XP do Atleta Selecionado (9.999 / 10.000)"</Description>
+          <Description>"[ 1-CLICK ] Fill All 25 Sub-XP Bars of Selected Player (9,999 / 10,000)"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -3610,13 +3610,13 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>229</ID>
-          <Description>"Suite Rumo ao Estrelato (Become a Legend - BAL)"</Description>
+          <Description>"Become a Legend (BAL) Complete Suite"</Description>
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>230</ID>
-              <Description>"[ BAL 1-CLIQUE ] Carregar Meu Jogador do Estrelato no Editor"</Description>
+              <Description>"[ BAL 1-CLICK ] Select My Legend Pro into Studio &amp; Editor"</Description>
               <Color>CC5500</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -3631,7 +3631,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>231</ID>
-              <Description>"Focus Points Restantes no BAL"</Description>
+              <Description>"Remaining BAL Focus Points"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>A8326E</Color>
               <VariableType>Byte</VariableType>
@@ -3642,16 +3642,16 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>232</ID>
-              <Description>"Travar Focus Points Sempre em 99"</Description>
-              <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Desativado
-1:Ativado (99 Pontos Infinitos)</DropDownList>
+              <Description>"Lock BAL Focus Points at 99"</Description>
+              <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Disabled
+1:Locked at 99 Points</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>cfgLockBALFocusPoints</Address>
             </CheatEntry>
             <CheatEntry>
               <ID>233</ID>
-              <Description>"[ BAL 1-CLIQUE ] Colocar 10 Barras no Máximo + 99 Pontos"</Description>
+              <Description>"[ BAL 1-CLICK ] Max All 10 Training Sliders + 99 Focus Points"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -3666,49 +3666,49 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>234</ID>
-              <Description>"Habilidade (Skill) em Treinamento no BAL"</Description>
-              <DropDownList DisplayValueAsItem="1">60:Pedalada Simples (Scissors Feint)
-61:Toque Duplo (Double Touch)
-62:Elástico (Flip Flap)
-63:Roleta (Marseille Turn)
-64:Chapéu (Sombrero)
-65:Corte de Letra (Cross Over Turn)
-66:Puxada e Giro (Cut Behind &amp; Turn)
-67:Toque Escocês (Scotch Move)
-68:Domínio Pisando na Bola (Step On Skill)
-69:Cabeceio (Heading)
-70:Chute Colocado de Longe (Long Range Drive)
-71:Cavadinha Precisa (Chip Shot Control)
-72:Chute de Longa Distância (Long Range Shooting)
-73:Folha Seca (Knuckle Shot)
-74:Chute com Queda (Dipping Shot)
-75:Chute Ascendente (Rising Shots)
-76:Finalização Acrobática (Acrobatic Finishing)
-77:Toque de Calcanhar (Heel Trick)
-78:Chute de Primeira (First-time Shot)
-79:Passe de Primeira (One-touch Pass)
-80:Passe em Profundidade (Through Passing)
-81:Passe na Medida (Weighted Pass)
-82:Cruzamento Preciso (Pinpoint Crossing)
-83:Trivela (Outside Curler)
-84:Letra (Rabona)
-85:Passe Sem Olhar (No Look Pass)
-86:Lançamento Tenso (Low Lofted Pass)
-87:Reposição Baixa GK
-88:Reposição Alta GK
-89:Lateral Longo (Long Throw)
-90:Arremesso Longo GK
-91:Especialista em Pênaltis
-92:Pegador de Pênaltis GK
-93:Malícia (Gamesmanship)
-94:Marcação Individual (Man Marking)
-95:Voltar para Marcar (Track Back)
-96:Interceptação (Interception)
-97:Corte Acrobático (Acrobatic Clear)
-98:Capitão / Liderança (Captaincy)
-99:Super Substituto (Super-Sub)
-100:Espírito Guerreiro (Fighting Spirit)
-108:Nenhuma (Sem Treino de Skill)</DropDownList>
+              <Description>"Active BAL Skill Training Slot"</Description>
+              <DropDownList DisplayValueAsItem="1">60:Scissors Feint
+61:Double Touch
+62:Flip Flap
+63:Marseille Turn
+64:Sombrero
+65:Cross Over Turn
+66:Cut Behind &amp; Turn
+67:Scotch Move
+68:Step On Skill Control
+69:Heading
+70:Long Range Drive
+71:Chip Shot Control
+72:Long Range Shooting
+73:Knuckle Shot
+74:Dipping Shot
+75:Rising Shots
+76:Acrobatic Finishing
+77:Heel Trick
+78:First-time Shot
+79:One-touch Pass
+80:Through Passing
+81:Weighted Pass
+82:Pinpoint Crossing
+83:Outside Curler
+84:Rabona
+85:No Look Pass
+86:Low Lofted Pass
+87:GK Low Punt
+88:GK High Punt
+89:Long Throw
+90:GK Long Throw
+91:Penalty Specialist
+92:GK Penalty Saver
+93:Gamesmanship
+94:Man Marking
+95:Track Back
+96:Interception
+97:Acrobatic Clear
+98:Captaincy
+99:Super-Sub
+100:Fighting Spirit
+108:None (No Active Skill)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrCareer</Address>
@@ -3718,7 +3718,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>235</ID>
-              <Description>"[ BAL 1-CLIQUE ] Aprender Habilidade em Treino Agora (99,99%)"</Description>
+              <Description>"[ BAL 1-CLICK ] Instant Learn Active Skill Now (99.99%)"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -3733,21 +3733,21 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>236</ID>
-              <Description>"Posição em Treinamento no BAL"</Description>
-              <DropDownList DisplayValueAsItem="1">1:CA (CF) - Centroavante
-2:SA (SS) - Segundo Atacante
-3:PTE (LWF) - Ponta Esquerda
-4:PTD (RWF) - Ponta Direita
-5:MAT (AMF) - Meia Atacante
-6:VOL (DMF) - Volante
-7:MLG (CMF) - Meia de Ligação
-8:MLE (LMF) - Meia Esquerda
-9:MLD (RMF) - Meia Direita
-10:ZAG (CB) - Zagueiro
-11:LE (LB) - Lateral Esquerdo
-12:LD (RB) - Lateral Direito
-13:GL (GK) - Goleiro
-108:Nenhuma (Sem Treino de Posição)</DropDownList>
+              <Description>"Active BAL Position Training Slot"</Description>
+              <DropDownList DisplayValueAsItem="1">1:CF - Center Forward
+2:SS - Second Striker
+3:LWF - Left Wing Forward
+4:RWF - Right Wing Forward
+5:AMF - Attacking Midfielder
+6:DMF - Defensive Midfielder
+7:CMF - Center Midfielder
+8:LMF - Left Midfielder
+9:RMF - Right Midfielder
+10:CB - Center Back
+11:LB - Left Back
+12:RB - Right Back
+13:GK - Goalkeeper
+108:None (No Active Position)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>4 Bytes</VariableType>
               <Address>ptrCareer</Address>
@@ -3757,7 +3757,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>237</ID>
-              <Description>"[ BAL 1-CLIQUE ] Aprender Posição em Treino Agora (99,99%)"</Description>
+              <Description>"[ BAL 1-CLICK ] Instant Learn Active Position Now (99.99%)"</Description>
               <Color>3B8E1E</Color>
               <VariableType>Auto Assembler Script</VariableType>
               <AssemblerScript>[ENABLE]
@@ -3774,14 +3774,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>238</ID>
-          <Description>"As 10 Barras Individuais de Treino do BAL"</Description>
+          <Description>"All 10 Individual BAL Training Sliders"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>239</ID>
-              <Description>"Barra 1 - Chute (Shooting)"</Description>
+              <Description>"Slider 1 - Shooting"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3791,7 +3791,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>240</ID>
-              <Description>"Barra 2 - Passe (Passing)"</Description>
+              <Description>"Slider 2 - Passing"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3801,7 +3801,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>241</ID>
-              <Description>"Barra 3 - Drible (Dribbling)"</Description>
+              <Description>"Slider 3 - Dribbling"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3811,7 +3811,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>242</ID>
-              <Description>"Barra 4 - Destreza / Ataque (Dexterity)"</Description>
+              <Description>"Slider 4 - Dexterity"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3821,7 +3821,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>243</ID>
-              <Description>"Barra 5 - Velocidade / Explosão (Lower Body)"</Description>
+              <Description>"Slider 5 - Lower Body Strength"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3831,7 +3831,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>244</ID>
-              <Description>"Barra 6 - Jogo Aéreo / Físico (Aerial)"</Description>
+              <Description>"Slider 6 - Aerial Strength"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3841,7 +3841,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>245</ID>
-              <Description>"Barra 7 - Defesa (Defending)"</Description>
+              <Description>"Slider 7 - Defending"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3851,7 +3851,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>246</ID>
-              <Description>"Barra 8 - Goleiro (GK)"</Description>
+              <Description>"Slider 8 - Goalkeeping"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3861,7 +3861,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>247</ID>
-              <Description>"Barra 9 - Foco em Habilidade (Skill)"</Description>
+              <Description>"Slider 9 - Skill Training"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3871,7 +3871,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>248</ID>
-              <Description>"Barra 10 - Foco em Posição (Position)"</Description>
+              <Description>"Slider 10 - Position Training"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3883,14 +3883,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>249</ID>
-          <Description>"Status no Elenco &amp; Confiança do Técnico (BAL)"</Description>
+          <Description>"Squad Status &amp; Manager Trust (BAL)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>250</ID>
-              <Description>"Status no Clube Principal (0=Reserva .. 3=Titular)"</Description>
+              <Description>"Club Squad Role (0=Reserve .. 3=Key Starter)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3900,7 +3900,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>251</ID>
-              <Description>"Flags de Moral / Titularidade no Clube"</Description>
+              <Description>"Club Morale &amp; Starter Flags"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3910,7 +3910,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>252</ID>
-              <Description>"Status Secundário / Seleção"</Description>
+              <Description>"National Team / Secondary Status"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrCareer</Address>
@@ -3922,22 +3922,22 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>253</ID>
-          <Description>"Auge (Breakthrough), Pico de Idade &amp; Anti-Declínio 30+"</Description>
+          <Description>"Breakthrough Surge, Peak Age &amp; Anti-Decline 30+"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>254</ID>
-              <Description>"Curva de Desenvolvimento / Declínio Pós-30"</Description>
-              <DropDownList DisplayValueAsItem="1">0:0 - Precoce (Pico Cedo)
-1:1 - Padrão Equilibrado
-2:2 - Desenvolvimento Tardio
-3:3 - Duradouro / Longevo (Pouco Declínio 30+)
-4:4 - Precoce + Duradouro
-5:5 - Padrão + Duradouro
-6:6 - Tardio + Duradouro (Eterno Craque)
-7:7 - Curva Especial Lenda</DropDownList>
+              <Description>"Growth / Post-30 Decline Curve"</Description>
+              <DropDownList DisplayValueAsItem="1">0:0 - Early Peak
+1:1 - Standard Balanced
+2:2 - Late Developer
+3:3 - Sustained / Longevity (Minimal 30+ Decline)
+4:4 - Early + Sustained
+5:5 - Standard + Sustained
+6:6 - Late + Sustained (Eternal Prime)
+7:7 - Special Legend Curve</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>4</BitStart>
@@ -3950,7 +3950,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>255</ID>
-              <Description>"Estado de Auge / Breakthrough (2 = Em Explosão!)"</Description>
+              <Description>"Breakthrough State (2 = Active Surge!)"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>0</BitStart>
@@ -3963,7 +3963,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>256</ID>
-              <Description>"Idade de Pico Calculada"</Description>
+              <Description>"Computed Peak Age"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Binary</VariableType>
               <BitStart>1</BitStart>
@@ -3978,14 +3978,14 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>257</ID>
-          <Description>"Inspector das 25 Barras de Sub-XP (0..10.000)"</Description>
+          <Description>"25 Sub-XP Bars Inspector (0..10,000)"</Description>
           <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
           <GroupHeader>1</GroupHeader>
           <Color>A8326E</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>258</ID>
-              <Description>"Sub-XP: Talento Ofensivo (0..10000)"</Description>
+              <Description>"Sub-XP: Offensive Awareness (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -3995,7 +3995,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>259</ID>
-              <Description>"Sub-XP: Talento Defensivo (0..10000)"</Description>
+              <Description>"Sub-XP: Defensive Awareness (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4005,7 +4005,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>260</ID>
-              <Description>"Sub-XP: Talento de Goleiro (0..10000)"</Description>
+              <Description>"Sub-XP: GK Awareness (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4015,7 +4015,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>261</ID>
-              <Description>"Sub-XP: Drible (0..10000)"</Description>
+              <Description>"Sub-XP: Dribbling (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4025,7 +4025,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>262</ID>
-              <Description>"Sub-XP: Bola Parada (0..10000)"</Description>
+              <Description>"Sub-XP: Place Kicking (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4035,7 +4035,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>263</ID>
-              <Description>"Sub-XP: Finalização (0..10000)"</Description>
+              <Description>"Sub-XP: Finishing (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4045,7 +4045,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>264</ID>
-              <Description>"Sub-XP: Passe Rasteiro (0..10000)"</Description>
+              <Description>"Sub-XP: Low Pass (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4055,7 +4055,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>265</ID>
-              <Description>"Sub-XP: Passe Alto (0..10000)"</Description>
+              <Description>"Sub-XP: Lofted Pass (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4065,7 +4065,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>266</ID>
-              <Description>"Sub-XP: Cabeceio (0..10000)"</Description>
+              <Description>"Sub-XP: Heading (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4075,7 +4075,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>267</ID>
-              <Description>"Sub-XP: Curva (0..10000)"</Description>
+              <Description>"Sub-XP: Curl (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4085,7 +4085,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>268</ID>
-              <Description>"Sub-XP: Resistência (0..10000)"</Description>
+              <Description>"Sub-XP: Stamina (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4095,7 +4095,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>269</ID>
-              <Description>"Sub-XP: Velocidade (0..10000)"</Description>
+              <Description>"Sub-XP: Speed (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4105,7 +4105,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>270</ID>
-              <Description>"Sub-XP: Força do Chute (0..10000)"</Description>
+              <Description>"Sub-XP: Kicking Power (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4115,7 +4115,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>271</ID>
-              <Description>"Sub-XP: Impulsão (0..10000)"</Description>
+              <Description>"Sub-XP: Jump (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4125,7 +4125,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>272</ID>
-              <Description>"Sub-XP: Alcance GK (0..10000)"</Description>
+              <Description>"Sub-XP: GK Reach (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4135,7 +4135,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>273</ID>
-              <Description>"Sub-XP: Afastar GK (0..10000)"</Description>
+              <Description>"Sub-XP: GK Clearing (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4145,7 +4145,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>274</ID>
-              <Description>"Sub-XP: Reflexos GK (0..10000)"</Description>
+              <Description>"Sub-XP: GK Reflexes (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4155,7 +4155,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>275</ID>
-              <Description>"Sub-XP: Firmeza GK (0..10000)"</Description>
+              <Description>"Sub-XP: GK Catching (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4165,7 +4165,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>276</ID>
-              <Description>"Sub-XP: Controle de Bola (0..10000)"</Description>
+              <Description>"Sub-XP: Ball Control (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4175,7 +4175,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>277</ID>
-              <Description>"Sub-XP: Contato Físico (0..10000)"</Description>
+              <Description>"Sub-XP: Physical Contact (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4185,7 +4185,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>278</ID>
-              <Description>"Sub-XP: Equilíbrio (0..10000)"</Description>
+              <Description>"Sub-XP: Balance (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4195,7 +4195,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>279</ID>
-              <Description>"Sub-XP: Aceleração (0..10000)"</Description>
+              <Description>"Sub-XP: Acceleration (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4205,7 +4205,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>280</ID>
-              <Description>"Sub-XP: Desarme (0..10000)"</Description>
+              <Description>"Sub-XP: Ball Winning (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4215,7 +4215,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>281</ID>
-              <Description>"Sub-XP: Condução Firme (0..10000)"</Description>
+              <Description>"Sub-XP: Tight Possession (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4225,7 +4225,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>282</ID>
-              <Description>"Sub-XP: Agressividade (0..10000)"</Description>
+              <Description>"Sub-XP: Aggression (0..10000)"</Description>
               <ShowAsSigned>1</ShowAsSigned>
               <VariableType>2 Bytes</VariableType>
               <Address>ptrPlayerTraining</Address>
@@ -4239,14 +4239,14 @@ end)
     </CheatEntry>
     <CheatEntry>
       <ID>283</ID>
-      <Description>"[ 5. PARTIDA AO VIVO ] Relógio Exato, Placar, Pênaltis &amp; Stamina"</Description>
+      <Description>"[ 5. LIVE MATCH ] Exact Match Clock, Score, Penalties &amp; Stamina"</Description>
       <Options moHideChildren="1" moManualExpandCollapse="1" moAllowManualCollapseAndExpand="1" />
       <GroupHeader>1</GroupHeader>
       <Color>2828C6</Color>
       <CheatEntries>
         <CheatEntry>
           <ID>284</ID>
-          <Description>"[ RELÓGIO ] Tempo da Partida (Duplo-Clique p/ Definir Minuto Exato: 15, 44, 88)"</Description>
+          <Description>"[ CLOCK ] Live Match Time (Double-Click to Set Exact Minute: 15, 44, 88)"</Description>
           <ShowAsSigned>0</ShowAsSigned>
           <Color>2828C6</Color>
           <VariableType>Float</VariableType>
@@ -4257,11 +4257,11 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>285</ID>
-          <Description>"Período da Partida"</Description>
-          <DropDownList DisplayValueAsItem="1">1:1º Tempo
-3:2º Tempo
-5:1ª Prorrogação
-7:2ª Prorrogação</DropDownList>
+          <Description>"Match Period / Half"</Description>
+          <DropDownList DisplayValueAsItem="1">1:1st Half
+3:2nd Half
+5:1st Extra Time
+7:2nd Extra Time</DropDownList>
           <ShowAsSigned>0</ShowAsSigned>
           <VariableType>4 Bytes</VariableType>
           <Address>ptrMatchState</Address>
@@ -4271,16 +4271,16 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>286</ID>
-          <Description>"Congelar Relógio da Partida"</Description>
-          <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Desativado (Relógio Correndo Normal)
-1:Congelado no Segundo Atual</DropDownList>
+          <Description>"Freeze Live Match Clock"</Description>
+          <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Disabled (Normal Clock)
+1:Frozen at Current Second</DropDownList>
           <ShowAsSigned>0</ShowAsSigned>
           <VariableType>4 Bytes</VariableType>
           <Address>cfgFreezeClock</Address>
         </CheatEntry>
         <CheatEntry>
           <ID>287</ID>
-          <Description>"[ MINUTO 44' ] Pular para 44:00 (Fim do 1º Tempo)"</Description>
+          <Description>"[ MINUTE 44' ] Jump to 44:00 (End of 1st Half)"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -4295,7 +4295,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>288</ID>
-          <Description>"[ MINUTO 88' ] Pular para 88:00 (Minutos Finais)"</Description>
+          <Description>"[ MINUTE 88' ] Jump to 88:00 (Final Minutes)"</Description>
           <Color>CC5500</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -4310,7 +4310,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>289</ID>
-          <Description>"[ +10 MIN ] Avançar +10 Minutos no Relógio"</Description>
+          <Description>"[ +10 MIN ] Advance Clock by +10 Minutes"</Description>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
 {$lua}
@@ -4324,7 +4324,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>290</ID>
-          <Description>"[ -10 MIN ] Voltar -10 Minutos no Relógio"</Description>
+          <Description>"[ -10 MIN ] Rewind Clock by -10 Minutes"</Description>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
 {$lua}
@@ -4338,7 +4338,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>291</ID>
-          <Description>"[ 00:00 ] Reiniciar Tempo Atual"</Description>
+          <Description>"[ 00:00 ] Restart Current Half"</Description>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
 {$lua}
@@ -4352,7 +4352,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>292</ID>
-          <Description>"[ APITO ] Encerrar Tempo Atual Agora"</Description>
+          <Description>"[ WHISTLE ] End Current Half Immediately"</Description>
           <Color>2828C6</Color>
           <VariableType>Auto Assembler Script</VariableType>
           <AssemblerScript>[ENABLE]
@@ -4367,7 +4367,7 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>293</ID>
-          <Description>"Minutos de Acréscimo no Placar (-1 = Sem Acréscimo)"</Description>
+          <Description>"Added Injury Time Display (-1 = None)"</Description>
           <ShowAsSigned>1</ShowAsSigned>
           <VariableType>4 Bytes</VariableType>
           <Address>ptrMatchHud</Address>
@@ -4377,13 +4377,13 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>294</ID>
-          <Description>"Placar ao Vivo &amp; Disputa de Pênaltis"</Description>
+          <Description>"Live Match Score &amp; Penalty Shootout"</Description>
           <GroupHeader>1</GroupHeader>
           <Color>2828C6</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>295</ID>
-              <Description>"Gols - Time Mandante (Casa) [Sincroniza Motor + Placar]"</Description>
+              <Description>"Goals - Home Team [Syncs Engine + Scoreboard]"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>3B8E1E</Color>
               <VariableType>Byte</VariableType>
@@ -4394,7 +4394,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>296</ID>
-              <Description>"Gols - Time Visitante (Fora) [Sincroniza Motor + Placar]"</Description>
+              <Description>"Goals - Away Team [Syncs Engine + Scoreboard]"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>3B8E1E</Color>
               <VariableType>Byte</VariableType>
@@ -4405,7 +4405,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>297</ID>
-              <Description>"Pênaltis Convertidos - Mandante (Casa)"</Description>
+              <Description>"Penalty Shootout Goals - Home"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrMatchCore</Address>
@@ -4415,7 +4415,7 @@ end)
             </CheatEntry>
             <CheatEntry>
               <ID>298</ID>
-              <Description>"Pênaltis Convertidos - Visitante (Fora)"</Description>
+              <Description>"Penalty Shootout Goals - Away"</Description>
               <ShowAsSigned>0</ShowAsSigned>
               <VariableType>Byte</VariableType>
               <Address>ptrMatchCore</Address>
@@ -4427,19 +4427,19 @@ end)
         </CheatEntry>
         <CheatEntry>
           <ID>299</ID>
-          <Description>"Stamina Seletiva em Campo"</Description>
+          <Description>"Selective On-Pitch Stamina"</Description>
           <GroupHeader>1</GroupHeader>
           <Color>2828C6</Color>
           <CheatEntries>
             <CheatEntry>
               <ID>300</ID>
-              <Description>"Modo de Stamina durante a Partida"</Description>
-              <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Desativado (Desgaste Original)
-1:Stamina 100% - Apenas Time Mandante (Casa)
-2:Stamina 100% - Apenas Time Visitante (Fora)
-3:Stamina 100% - Ambos os Times
-4:Pressão Total Casa (Casa 100% + Drenar Visitante p/ 5%)
-5:Pressão Total Fora (Fora 100% + Drenar Casa p/ 5%)</DropDownList>
+              <Description>"Live Match Stamina Mode"</Description>
+              <DropDownList DisplayValueAsItem="1" DescriptionOnly="1" ReadOnly="1">0:Disabled (Default Fatigue)
+1:100% Stamina - Home Team Only
+2:100% Stamina - Away Team Only
+3:100% Stamina - Both Teams
+4:Home Total Press (Home 100% + Drain Away to 5%)
+5:Away Total Press (Away 100% + Drain Home to 5%)</DropDownList>
               <ShowAsSigned>0</ShowAsSigned>
               <Color>3B8E1E</Color>
               <VariableType>4 Bytes</VariableType>
@@ -4452,7 +4452,7 @@ end)
   </CheatEntries>
   <UserdefinedSymbols />
   <LuaScript>-- ============================================================================
--- PES 2021 - v11.0 ULTIMATE STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
+-- PES 2021 - v11.1 ULTIMATE STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
 -- Bilingual Core Engine (PT-BR &amp; EN) + Konami Exact OVR DNA Solver + Canvas GUI
 -- + Visual Studio Modals (Radar 30K, Position Lab, Team Role, Real-RAM Scouts)
 -- + 10-Level Automatic Player Undo Stack
@@ -4468,10 +4468,10 @@ if PES10 then
 end
 
 PES10 = PES10 or {}
-PES10.VERSION = "11.0 Ultimate Studio"
+PES10.VERSION = "11.1 Ultimate Studio"
 PES10.PROCESS_NAME = "PES2021.exe"
 PES10.openModals = {}
-PES10.lang = "pt"
+PES10.lang = "en"
 if PES10.lang ~= "en" and PES10.lang ~= "pt" then
   PES10.lang = "pt"
 end
@@ -7861,7 +7861,7 @@ function PES10.asyncActionButton(memrec, fn)
 end
 
 -- ============================================================================
--- PES 2021 v11.0 ULTIMATE STUDIO - VISUAL INTERACTIVE MODALS (DPI-AWARE)
+-- PES 2021 v11.1 ULTIMATE STUDIO - VISUAL INTERACTIVE MODALS (DPI-AWARE)
 -- Zero clunky text prompts: 1-click Position Lab, Team Role, Real-RAM Scouts &amp; Radar 30K
 -- ============================================================================
 function PES10.uiScale()
@@ -8865,7 +8865,7 @@ function PES10.openBioConditionModal()
 end
 
 -- ============================================================================
--- PES 2021 v11.0 ULTIMATE STUDIO - DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
+-- PES 2021 v11.1 ULTIMATE STUDIO - DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
 -- Pixel-exact symmetric layout, DPI-aware, stateful active glow &amp; zero clipping
 -- ============================================================================
 function PES10.openDashboard()
@@ -8930,7 +8930,7 @@ function PES10.openDashboard()
   local FOOTER_Y = H - FOOTER_H
 
   local f = createForm(false)
-  f.Caption = "PES 2021 - v11.0 Ultimate Studio (PT-BR / EN)"
+  f.Caption = "PES 2021 - v11.1 Ultimate Studio (PT-BR / EN)"
   pcall(function() f.BorderStyle = "bsSingle" end)
   f.Color = C_BG
   f.DoubleBuffered = true
@@ -9530,7 +9530,7 @@ function PES10.openDashboard()
 
     local maxHdrTextW = currStartX - PAD_X - S(16)
     setFont(c, 12, C_TEXT, true)
-    drawTextLeft(c, PAD_X, S(12), C_HDR, "PES 2021  •  v11.0 ULTIMATE STUDIO", maxHdrTextW)
+    drawTextLeft(c, PAD_X, S(12), C_HDR, "PES 2021  •  v11.1 ULTIMATE STUDIO", maxHdrTextW)
     setFont(c, 8, tel.attached and C_GREEN or C_SUBTEXT, false)
     drawTextLeft(c, PAD_X, S(41), C_HDR, tel.hdrSub, maxHdrTextW)
 

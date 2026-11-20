@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [11.1.0] - 2026-11-20 - Universal Capture & Full Studio Control
+
+### Added / Adicionado
+- **Universal 4-Point Player Capture (`Hook 1`)**: Automatically captures the currently highlighted player across **Game Plan**, **Transfer / Search Lists**, **Scout Observation Lists**, **Training Lists**, **Squad List**, and **Edit Player** (`INJECT_ptrPlayerListUI` at `RVA 0xF27462` + `INJECT_ptrPlayerGamePlan` at `RVA 0xDDCA5C`).
+- **Complete Player Studio Tab (100% of Cheat Table in Visual Modals)**: Added full interactive dark modals for **All 25 Attributes (`40-99`)**, **22 Playing Styles & 41 Player Skills**, **Contracts, Exact Release Clause & Flags**, and **Bio, Condition, Stamina, Form Arrow, Breakthrough + Anti-Decline 30+ & JSON Backup/Restore**.
+- **Bidirectional Isolated Secondary Position OVR**: Position Lab now gives full bidirectional control (`-1 OVR`, `+1 OVR`, exact `40-99` target input, `Match Primary OVR`, `Set as Primary`, `Grade A/B/C`) while minimizing cross-position bleed.
+
+### Changed / Aprimorado
+- **100% Pure Native Scout Observation Lists**: Inserting a player into **Scouts 1-3** or **Shortlist** now strictly writes the player's 64-bit handle to Master League RAM with zero unwanted side effects on release clause, affection, or transfer-listed flags. **Irresistible Deal** remains an explicit separate action.
+- **Zero-Freeze Performance & Invisible Auto-Healing Hooks**: Replaced full-module AOB scans (`522 MB`) with `±4 KB` `aobscanregion` scans (`72 KB`, `< 5ms` arming), added silent automatic recovery of stale `0xE9` hook bytes left in RAM from unclean CE exits, added telemetry caching, and fixed re-entrant `C stack overflow` on reload.
+- **Cleaner Studio Copy**: Shortened menu titles and subtitles across all 4 tabs and 32 cards (PT-BR & EN).
+
+---
+
 ## [11.0.0] - 2026-11-19 - Ultimate Studio
 
 ### Added / Adicionado

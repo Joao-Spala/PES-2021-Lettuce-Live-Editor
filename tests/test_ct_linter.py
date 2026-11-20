@@ -6,8 +6,8 @@ import xml.etree.ElementTree as ET
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 CT_EDITIONS = [
-    REPO_ROOT / "dist" / "PES 2021 - v11.0 Ultimate Studio (PT-BR).CT",
-    REPO_ROOT / "dist" / "PES 2021 - v11.0 Ultimate Studio (EN).CT",
+    REPO_ROOT / "dist" / "PES 2021 - v11.1 Ultimate Studio (PT-BR).CT",
+    REPO_ROOT / "dist" / "PES 2021 - v11.1 Ultimate Studio (EN).CT",
 ]
 
 

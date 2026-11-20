@@ -1,5 +1,5 @@
 -- ============================================================================
--- PES 2021 - v11.0 ULTIMATE STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
+-- PES 2021 - v11.1 ULTIMATE STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
 -- Bilingual Core Engine (PT-BR & EN) + Konami Exact OVR DNA Solver + Canvas GUI
 -- + Visual Studio Modals (Radar 30K, Position Lab, Team Role, Real-RAM Scouts)
 -- + 10-Level Automatic Player Undo Stack
@@ -15,7 +15,7 @@ if PES10 then
 end
 
 PES10 = PES10 or {}
-PES10.VERSION = "11.0 Ultimate Studio"
+PES10.VERSION = "11.1 Ultimate Studio"
 PES10.PROCESS_NAME = "PES2021.exe"
 PES10.openModals = {}
 PES10.lang = "__DEFAULT_LANG__"
@@ -2744,7 +2744,7 @@ function PES10.asyncActionButton(memrec, fn)
 end
 
 -- ============================================================================
--- PES 2021 v11.0 ULTIMATE STUDIO - VISUAL INTERACTIVE MODALS (DPI-AWARE)
+-- PES 2021 v11.1 ULTIMATE STUDIO - VISUAL INTERACTIVE MODALS (DPI-AWARE)
 -- Zero clunky text prompts: 1-click Position Lab, Team Role, Real-RAM Scouts & Radar 30K
 -- ============================================================================
 function PES10.uiScale()
@@ -3748,7 +3748,7 @@ function PES10.openBioConditionModal()
 end
 
 -- ============================================================================
--- PES 2021 v11.0 ULTIMATE STUDIO - DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
+-- PES 2021 v11.1 ULTIMATE STUDIO - DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
 -- Pixel-exact symmetric layout, DPI-aware, stateful active glow & zero clipping
 -- ============================================================================
 function PES10.openDashboard()
@@ -3813,7 +3813,7 @@ function PES10.openDashboard()
   local FOOTER_Y = H - FOOTER_H
 
   local f = createForm(false)
-  f.Caption = "PES 2021 - v11.0 Ultimate Studio (PT-BR / EN)"
+  f.Caption = "PES 2021 - v11.1 Ultimate Studio (PT-BR / EN)"
   pcall(function() f.BorderStyle = "bsSingle" end)
   f.Color = C_BG
   f.DoubleBuffered = true
@@ -4413,7 +4413,7 @@ function PES10.openDashboard()
 
     local maxHdrTextW = currStartX - PAD_X - S(16)
     setFont(c, 12, C_TEXT, true)
-    drawTextLeft(c, PAD_X, S(12), C_HDR, "PES 2021  •  v11.0 ULTIMATE STUDIO", maxHdrTextW)
+    drawTextLeft(c, PAD_X, S(12), C_HDR, "PES 2021  •  v11.1 ULTIMATE STUDIO", maxHdrTextW)
     setFont(c, 8, tel.attached and C_GREEN or C_SUBTEXT, false)
     drawTextLeft(c, PAD_X, S(41), C_HDR, tel.hdrSub, maxHdrTextW)
 

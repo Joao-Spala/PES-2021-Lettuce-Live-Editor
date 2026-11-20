@@ -12,8 +12,8 @@ import zlib
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 LUA_DLL = os.environ.get("CE_LUA_DLL", r"C:\Program Files\Cheat Engine 7.2\lua53-64.dll")
-CT_PT = REPO_ROOT / "dist" / "PES 2021 - v11.0 Ultimate Studio (PT-BR).CT"
-CT_EN = REPO_ROOT / "dist" / "PES 2021 - v11.0 Ultimate Studio (EN).CT"
+CT_PT = REPO_ROOT / "dist" / "PES 2021 - v11.1 Ultimate Studio (PT-BR).CT"
+CT_EN = REPO_ROOT / "dist" / "PES 2021 - v11.1 Ultimate Studio (EN).CT"
 
 # ============================================================================
 # WIN32 GDI DIB SECTION + CLEARTYPE SEGOE UI CANVAS BACKEND
@@ -833,7 +833,7 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
         clicked_n = int(run_lua_chunk(L, click_test, f"click_all_{expected_lang}_{dpi}"))
         assert clicked_n >= 52, f"Expected >= 52 hitbox clicks across 4 tabs, got {clicked_n}"
 
-    # v11.0 Behavioral QA: Undo Stack, Secondary Position +1 OVR, Team Role & Real-RAM Scout Lists
+    # v11.1 Behavioral QA: Undo Stack, Secondary Position +1 OVR, Team Role & Real-RAM Scout Lists
     v11_test = """
     local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
     assert(p ~= 0, "Mock player must be selected")
@@ -913,7 +913,7 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
 
     print(
         f"EDITION QA PASSED [{expected_lang.upper()}]: {ct_path.name} | "
-        f"{btn_count} Lua buttons | 96/120/144 DPI GDI pixel-verified | 0 overlaps | 0 truncations | v11.0 Behavioral OK!"
+        f"{btn_count} Lua buttons | 96/120/144 DPI GDI pixel-verified | 0 overlaps | 0 truncations | v11.1 Behavioral OK!"
     )
     lua.lua_close(L)
 
