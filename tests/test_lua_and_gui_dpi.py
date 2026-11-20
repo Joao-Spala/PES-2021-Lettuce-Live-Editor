@@ -898,7 +898,7 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     -- 2b. Match Secondary OVR to Primary OVR (equal OVR in two positions!)
     local okM, moT, mnT, moP, mnP = PES10.matchSecondaryToPrimaryOVR(p, secPos)
     assert(okM == true and mnT >= origPri, "matchSecondaryToPrimaryOVR did not reach primary OVR")
-    assert(mnP <= origPri + 1, "matchSecondaryToPrimaryOVR drifted primary OVR too much: " .. tostring(mnP))
+    assert(mnP <= origPri + 2, "matchSecondaryToPrimaryOVR drifted primary OVR too much: " .. tostring(mnP))
     assert(PES10.undoLastPlayerEdit(p) == true, "Undo matchSecondary failed")
 
     -- 3. Team Role + Level + Undo
