@@ -876,14 +876,35 @@ function PES10.syncAllDynamicPointers()
     end
     writeInteger(sb + PES10.SYM_OFFSETS.valComputedReleaseFee, PES10.estimateReleaseFeeRaw(career, pAddr, pHandle))
     writeInteger(sb + PES10.SYM_OFFSETS.valComputedOVR, PES10.calcPlayerOVR(pAddr))
+    if pAddr ~= PES10._lastNotifiedPlayer then
+      PES10._lastNotifiedPlayer = pAddr
+      PES10.notifyModalsPlayerChanged(pAddr)
+    end
   else
     PES10._lastPlayerKey = ""
+    PES10._lastNotifiedPlayer = 0
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerTraining, 0)
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerSquadBonus, 0)
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerReleaseSlot, 0)
     writeQword(sb + PES10.SYM_OFFSETS.ptrPlayerGrowthDesc, 0)
     writeInteger(sb + PES10.SYM_OFFSETS.valComputedOVR, 0)
   end
+end
+
+function PES10.notifyModalsPlayerChanged(newP)
+  if not newP or newP <= 0x10000 or not PES10.openModals then return end
+  if PES10._inNotifyModals then return end
+  PES10._inNotifyModals = true
+  local newName = readString(newP + 0x38, 46, false) or PES10.T("Atleta", "Player")
+  for _, m in pairs(PES10.openModals) do
+    if m and m._onPlayerChange then
+      local okVis, vis = pcall(function() return m.Visible end)
+      if okVis and vis then
+        pcall(m._onPlayerChange, newP, newName)
+      end
+    end
+  end
+  PES10._inNotifyModals = false
 end
 
 -- ============================================================================
@@ -3867,6 +3888,11 @@ function PES10.openPositionLabModal()
   end, "gold")
   makeModalBtn(ftr, W - S(126), yF, S(110), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
+  f._onPlayerChange = function(newP, newName)
+    p = newP; pName = newName
+    f.Caption = PES10.T("Laboratório de Posições - ", "Position Lab - ") .. pName
+    refreshList(grid.getSelectedIndex())
+  end
   refreshList(1)
   f.show()
 end
@@ -3944,6 +3970,11 @@ function PES10.openTeamRoleModal()
   end, "gold")
   makeModalBtn(ftr, W - S(126), yF, S(110), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
+  f._onPlayerChange = function(newP, newName)
+    p = newP; pName = newName
+    f.Caption = PES10.T("Função de Equipe - ", "Team Role - ") .. pName
+    refreshRole()
+  end
   refreshRole()
   f.show()
 end
@@ -4045,6 +4076,9 @@ function PES10.openScoutListsModal()
   end, "danger")
   makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
+  f._onPlayerChange = function()
+    refreshHub()
+  end
   refreshHub()
   f.show()
 end
@@ -4347,6 +4381,11 @@ function PES10.openAttributesModal()
   end, "danger")
   makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
+  f._onPlayerChange = function(newP, newName)
+    p = newP; pName = newName
+    f.Caption = PES10.T("Atributos (40-99) - ", "Attributes (40-99) - ") .. pName
+    refreshAttrs(grid.getSelectedIndex())
+  end
   refreshAttrs(1)
   f.show()
 end
@@ -4448,6 +4487,12 @@ function PES10.openSkillsStyleModal()
   end, "gold")
   makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
+  f._onPlayerChange = function(newP, newName)
+    p = newP; pName = newName
+    f.Caption = PES10.T("Estilo & Habilidades - ", "Style & Skills - ") .. pName
+    cbStyle.setIndex(math.max(0, math.min(21, PES10.getBitsInDword(p + 0x1D, 3, 5))))
+    refreshSkills(grid.getSelectedIndex())
+  end
   refreshSkills(1)
   f.show()
 end
@@ -4461,7 +4506,7 @@ function PES10.openContractModal()
   local f, S, W, H, hdrBar = makeStudioModal("contract", PES10.T("Contrato & Multa - ", "Contract & Clause - ") .. pName, 600, 470, M_GOLD, 58)
 
   local c = PES10.getCurrentCurrency()
-  makeModalLabel(hdrBar, S(16), S(10), W - S(32), S(22), pName .. "  (" .. c.symbol .. " " .. c.code .. ")", 11, M_TEXT, true)
+  local hdr = makeModalLabel(hdrBar, S(16), S(10), W - S(32), S(22), pName .. "  (" .. c.symbol .. " " .. c.code .. ")", 11, M_TEXT, true)
   makeModalLabel(hdrBar, S(16), S(34), W - S(32), S(18),
     PES10.T("Aceita 50M, 500k, 1.5B, 1000 (ou 0 na Multa para remover override)",
             "Accepts 50M, 500k, 1.5B, 1000 (or 0 in Clause to clear override)"),
@@ -4559,6 +4604,12 @@ function PES10.openContractModal()
   end, "gold")
   makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
+  f._onPlayerChange = function(newP, newName)
+    p = newP; pName = newName
+    f.Caption = PES10.T("Contrato & Multa - ", "Contract & Clause - ") .. pName
+    hdr.Caption = pName .. "  (" .. c.symbol .. " " .. c.code .. ")"
+    refreshContract(true)
+  end
   refreshContract(true)
   f.show()
 end
@@ -4708,10 +4759,13 @@ function PES10.openBioConditionModal()
   end, "gold")
   makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
+  f._onPlayerChange = function(newP, newName)
+    p = newP; pName = newName
+    f.Caption = PES10.T("Perfil, Físico & Condição - ", "Profile, Physical & Condition - ") .. pName
+    reloadBioFields()
+  end
   f.show()
 end
-
--- MODAL 9: MASTER LEAGUE FINANCES MANAGER (EXACT TRANSFER & WAGE BUDGETS)
 function PES10.openFinancesModal()
   if not createEdit or not createPanel then return end
   local career = PES10.readU64(PES10.symAddr("ptrCareer"))
@@ -5154,6 +5208,12 @@ function PES10.openQuickConditionModal()
   end, "gold")
   makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
 
+  f._onPlayerChange = function(newP, newName)
+    p = newP; pName = newName
+    f.Caption = PES10.T("Fôlego & Forma - ", "Stamina & Form - ") .. pName
+    hdr.Caption = pName
+    refreshCond()
+  end
   refreshCond()
   f.show()
 end
