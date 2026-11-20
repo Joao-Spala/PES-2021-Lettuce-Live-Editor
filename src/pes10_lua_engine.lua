@@ -3384,16 +3384,25 @@ local function createStudioGrid(parent, x, y, w, h, cols, opts)
 
   local api = {}
 
+  local lastClickInBody = false
   local function applySort()
     if not sortKey or #rows <= 1 then return end
+    for i, r in ipairs(rows) do r._sortOrd = i end
+    local allNum = true
+    for _, r in ipairs(rows) do
+      local v = r[sortKey]
+      if v ~= nil and type(v) ~= "number" then allNum = false; break end
+    end
     table.sort(rows, function(a, b)
       local va, vb = a[sortKey], b[sortKey]
-      if va == vb then return false end
-      if type(va) == "number" and type(vb) == "number" then
-        return sortAsc and (va < vb) or (va > vb)
+      if allNum then
+        local na, nb = tonumber(va) or 0, tonumber(vb) or 0
+        if na ~= nb then return sortAsc and (na < nb) or (na > nb) end
+      else
+        local sa, sb = tostring(va or ""):lower(), tostring(vb or ""):lower()
+        if sa ~= sb then return sortAsc and (sa < sb) or (sa > sb) end
       end
-      va, vb = tostring(va or ""):lower(), tostring(vb or ""):lower()
-      return sortAsc and (va < vb) or (va > vb)
+      return (a._sortOrd or 0) < (b._sortOrd or 0)
     end)
   end
 
@@ -3405,6 +3414,7 @@ local function createStudioGrid(parent, x, y, w, h, cols, opts)
   end
 
   pb.OnMouseDown = function(sender, button, mx, my)
+    lastClickInBody = false
     -- Close any open dropdown on hostForm when interacting with grid
     if not opts.isPopup and hostForm and hostForm._activeComboClose then
       pcall(hostForm._activeComboClose)
@@ -3445,6 +3455,7 @@ local function createStudioGrid(parent, x, y, w, h, cols, opts)
     -- Row click
     local rIdx = rowAtY(my)
     if rIdx then
+      lastClickInBody = true
       selIdx = rIdx
       render()
       if api.onSelect then pcall(api.onSelect, rows[selIdx], selIdx) end
@@ -3489,7 +3500,7 @@ local function createStudioGrid(parent, x, y, w, h, cols, opts)
   end
 
   pb.OnDblClick = function()
-    if selIdx and rows[selIdx] and api.onDblClick then
+    if lastClickInBody and selIdx and rows[selIdx] and api.onDblClick then
       pcall(api.onDblClick, rows[selIdx], selIdx)
     end
   end
