@@ -99,7 +99,7 @@ const I18N = {
     btn_age_18: "Idade 18",
     btn_export_json: "Exportar JSON",
     btn_import_json: "Importar JSON",
-    dash_title: "Visão Geral do Studio",
+    dash_title: "Visão Geral do Workbench",
     dash_sub: "Controle em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.",
     dash_active_player: "Atleta em Foco (Ao Vivo)",
     match_idle: "Fora de Partida",
@@ -290,7 +290,7 @@ const I18N = {
     btn_age_18: "Age 18",
     btn_export_json: "Export JSON",
     btn_import_json: "Import JSON",
-    dash_title: "Studio Overview",
+    dash_title: "Workbench Overview",
     dash_sub: "Real-time control of Master League, Become a Legend, and Matches without Cheat Engine.",
     dash_active_player: "Active Player (Live)",
     match_idle: "Not in Match",
@@ -1236,7 +1236,8 @@ function renderSquadTable() {
     const quickBtn = p.injury > 0
       ? `<button class="btn btn-xs btn-green" type="button" data-sq-heal="${p.addr}">${escapeHtml(healLbl)}</button>`
       : (p.stamina < 100 ? `<button class="btn btn-xs btn-green" type="button" data-sq-stam="${p.addr}">100%</button>` : "");
-    return `<tr class="clickable" data-open-player="${p.addr}">
+    const isCur = p.addr === LAST_PLAYER_ADDR ? " row-highlight" : "";
+    return `<tr class="clickable${isCur}" data-open-player="${p.addr}">
       <td class="ctr-col"><span class="ovr-badge ${ovrClass(p.ovr)}">${p.ovr}</span></td>
       <td class="ctr-col"><span class="pos-chip ${posClass(p.pos)}">${escapeHtml(posShort(p.pos))}</span></td>
       <td style="font-weight:600;">${escapeHtml(p.name)}</td>
@@ -1482,23 +1483,7 @@ function openJsonModal(mode, initialText = "", playerName = "") {
   if (mode === "export") ta.select();
 }
 
-async function openFinanceModal(focusField = "transfer") {
-  if (!api()) return;
-  const res = await api().get_finances();
-  if (!res || !res.ok) return toast(fmtCodeMsg(res), "err");
-  LAST_FINANCES = res;
-  const trfInp = document.getElementById("fin-modal-trf");
-  const salInp = document.getElementById("fin-modal-sal");
-  trfInp.value = fmtMoney(res.transfer_raw);
-  salInp.value = fmtMoney(res.salary_avail_raw);
-  document.getElementById("finance-modal").classList.add("open");
-  const target = focusField === "salary" ? salInp : trfInp;
-  target.focus();
-  target.select();
-}
-
 function closeAllModals() {
-  document.getElementById("finance-modal").classList.remove("open");
   document.getElementById("json-modal").classList.remove("open");
   document.getElementById("cmd-modal").classList.remove("open");
 }
@@ -1593,37 +1578,50 @@ async function bootstrap() {
     if (e.button === 3) { e.preventDefault(); goBack(); }
   });
 
-  ["finance-modal", "json-modal", "cmd-modal"].forEach(id => {
+  ["json-modal", "cmd-modal"].forEach(id => {
     document.getElementById(id).addEventListener("click", e => {
       if (e.target.id === id) closeAllModals();
     });
   });
 
-  // Quick Finance Modal handlers
-  const saveFinModal = async () => {
-    if (!api()) return;
-    const r = await api().set_finances(
-      document.getElementById("fin-modal-trf").value,
-      document.getElementById("fin-modal-sal").value
-    );
-    if (r && r.ok) {
-      LAST_FINANCES = r;
-      toast(T("Finanças atualizadas!", "Finances updated!"));
-      closeAllModals();
-      pollStatus();
-      if (CURRENT_VIEW === "finances") renderFinances(r);
-    } else toast(fmtCodeMsg(r), "err");
+  // Inline Dashboard Budget Edit (zero modal, zero screen jump!)
+  const bindInlineBudget = (kind, btnId, actId, editId, inpId, okId, cancelId) => {
+    const closeInline = () => {
+      document.getElementById(editId).style.display = "none";
+      document.getElementById(actId).style.display = "flex";
+    };
+    const saveInline = async () => {
+      if (!api()) return;
+      const val = document.getElementById(inpId).value;
+      const r = kind === "transfer"
+        ? await api().set_finances(val, "")
+        : await api().set_finances("", val);
+      if (r && r.ok) {
+        LAST_FINANCES = r;
+        toast(T("Orçamento atualizado!", "Budget updated!"));
+        closeInline();
+        pollStatus();
+        if (CURRENT_VIEW === "finances") renderFinances(r);
+      } else toast(fmtCodeMsg(r), "err");
+    };
+    document.getElementById(btnId).addEventListener("click", () => {
+      const fin = LAST_STATUS && LAST_STATUS.finances;
+      const inp = document.getElementById(inpId);
+      inp.value = fin ? fmtMoney(kind === "transfer" ? fin.transfer_raw : fin.salary_avail_raw) : "";
+      document.getElementById(actId).style.display = "none";
+      document.getElementById(editId).style.display = "flex";
+      inp.focus();
+      inp.select();
+    });
+    document.getElementById(okId).addEventListener("click", saveInline);
+    document.getElementById(cancelId).addEventListener("click", closeInline);
+    document.getElementById(inpId).addEventListener("keydown", e => {
+      if (e.key === "Enter") saveInline();
+      else if (e.key === "Escape") closeInline();
+    });
   };
-  document.getElementById("btn-fin-modal-close").addEventListener("click", closeAllModals);
-  document.getElementById("btn-fin-modal-cancel").addEventListener("click", closeAllModals);
-  document.getElementById("btn-fin-modal-save").addEventListener("click", saveFinModal);
-  document.getElementById("btn-fin-modal-full").addEventListener("click", () => {
-    closeAllModals();
-    switchView("finances");
-  });
-  ["fin-modal-trf", "fin-modal-sal"].forEach(id => {
-    document.getElementById(id).addEventListener("keydown", e => { if (e.key === "Enter") saveFinModal(); });
-  });
+  bindInlineBudget("transfer", "btn-inline-trf", "dash-trf-actions", "dash-trf-edit", "inp-inline-trf", "btn-inline-trf-ok", "btn-inline-trf-cancel");
+  bindInlineBudget("salary", "btn-inline-sal", "dash-sal-actions", "dash-sal-edit", "inp-inline-sal", "btn-inline-sal-ok", "btn-inline-sal-cancel");
 
   // Command palette full ArrowUp/ArrowDown/Enter navigation
   const cmdInp = document.getElementById("cmd-input");
@@ -1846,7 +1844,7 @@ async function bootstrap() {
     toast(
       st.attached
         ? T(`Conectado a ${st.exe}`, `Connected to ${st.exe}`)
-        : (st.access_denied ? T("Acesso negado: execute o Studio como Administrador.", "Access denied: run Studio as Administrator.") : T("PES 2021 não encontrado.", "PES 2021 not found.")),
+        : (st.access_denied ? T("Acesso negado: execute o Workbench como Administrador.", "Access denied: run Workbench as Administrator.") : T("PES 2021 não encontrado.", "PES 2021 not found.")),
       st.attached ? "ok" : "err"
     );
   });
@@ -1940,6 +1938,9 @@ async function bootstrap() {
     if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Seta de forma aplicada!", "Form arrow updated!")); }
     else toast(fmtCodeMsg(r), "err");
   }));
+  document.querySelectorAll("#ptab-bio .form-grid input").forEach(inp => {
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("btn-save-bio").click(); });
+  });
   document.getElementById("btn-save-bio").addEventListener("click", async () => {
     if (!api()) return;
     const optNum = id => { const v = document.getElementById(id).value.trim(); return v === "" ? undefined : Number(v); };
@@ -2021,8 +2022,23 @@ async function bootstrap() {
     renderScoutTable();
   }));
   document.getElementById("btn-scout-add-cur").addEventListener("click", () => addPlayerToScout(ACTIVE_SCOUT_SLOT));
-  document.getElementById("btn-scout-clear").addEventListener("click", async () => {
+  let clearConfirmTimer = null;
+  const clearBtn = document.getElementById("btn-scout-clear");
+  clearBtn.addEventListener("click", async () => {
     if (!api()) return;
+    if (!clearBtn.dataset.armed) {
+      clearBtn.dataset.armed = "1";
+      clearBtn.textContent = T("Confirmar Limpeza?", "Confirm Clear?");
+      clearTimeout(clearConfirmTimer);
+      clearConfirmTimer = setTimeout(() => {
+        delete clearBtn.dataset.armed;
+        clearBtn.textContent = tKey("btn_clear_list");
+      }, 3000);
+      return;
+    }
+    delete clearBtn.dataset.armed;
+    clearTimeout(clearConfirmTimer);
+    clearBtn.textContent = tKey("btn_clear_list");
     const r = await api().clear_scout_list(ACTIVE_SCOUT_SLOT);
     if (r && r.ok) { toast(T("Lista limpa!", "List cleared!")); loadScouts(); }
     else toast(fmtCodeMsg(r), "err");

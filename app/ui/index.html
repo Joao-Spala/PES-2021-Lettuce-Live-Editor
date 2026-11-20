@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PES 2021 Ultimate Studio</title>
+  <title>PES 2021 Workbench</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -13,7 +13,7 @@
       <div class="brand">
         <div class="brand-icon">21</div>
         <div>
-          <div class="brand-title">PES 2021 Studio</div>
+          <div class="brand-title">PES 2021 Workbench</div>
           <div class="brand-sub">v12.0 Standalone</div>
         </div>
       </div>
@@ -101,7 +101,7 @@
       <section class="view-panel active" id="view-dashboard">
         <div class="page-header">
           <div>
-            <div class="page-title" data-i18n="dash_title">Visão Geral do Studio</div>
+            <div class="page-title" data-i18n="dash_title">Visão Geral do Workbench</div>
             <div class="page-sub" data-i18n="dash_sub">Controle em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.</div>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
@@ -119,19 +119,29 @@
           <div class="card">
             <div class="stat-label" data-i18n="lbl_transfer_budget">Orçamento de Transferências</div>
             <div class="stat-metric num" style="color:var(--green);" id="dash-transfer">€ 0</div>
-            <div style="display:flex; gap:6px; margin-top:4px;">
+            <div id="dash-trf-actions" style="display:flex; gap:6px; margin-top:4px;">
               <button class="btn btn-xs btn-green" type="button" onclick="quickFinance('transfer', 100000)">+10M</button>
               <button class="btn btn-xs btn-green" type="button" onclick="quickFinance('transfer', 500000)">+50M</button>
-              <button class="btn btn-xs" type="button" onclick="openFinanceModal('transfer')" data-i18n="btn_edit">Editar</button>
+              <button class="btn btn-xs" id="btn-inline-trf" type="button" data-i18n="btn_edit">Editar</button>
+            </div>
+            <div id="dash-trf-edit" style="display:none; gap:6px; margin-top:4px; align-items:center;">
+              <input class="input" id="inp-inline-trf" style="flex:1; padding:4px 8px; font-size:12px;" placeholder="ex: 50M" />
+              <button class="btn btn-xs btn-primary" id="btn-inline-trf-ok" type="button">OK</button>
+              <button class="btn btn-xs" id="btn-inline-trf-cancel" type="button">X</button>
             </div>
           </div>
           <div class="card">
             <div class="stat-label" data-i18n="lbl_salary_avail">Salários Disponíveis</div>
             <div class="stat-metric num" style="color:var(--gold);" id="dash-salary">€ 0</div>
-            <div style="display:flex; gap:6px; margin-top:4px;">
+            <div id="dash-sal-actions" style="display:flex; gap:6px; margin-top:4px;">
               <button class="btn btn-xs btn-gold" type="button" onclick="quickFinance('salary', 100000)">+10M</button>
               <button class="btn btn-xs btn-gold" type="button" onclick="quickFinance('salary', 500000)">+50M</button>
-              <button class="btn btn-xs" type="button" onclick="openFinanceModal('salary')" data-i18n="btn_edit">Editar</button>
+              <button class="btn btn-xs" id="btn-inline-sal" type="button" data-i18n="btn_edit">Editar</button>
+            </div>
+            <div id="dash-sal-edit" style="display:none; gap:6px; margin-top:4px; align-items:center;">
+              <input class="input" id="inp-inline-sal" style="flex:1; padding:4px 8px; font-size:12px;" placeholder="ex: 15M" />
+              <button class="btn btn-xs btn-primary" id="btn-inline-sal-ok" type="button">OK</button>
+              <button class="btn btn-xs" id="btn-inline-sal-cancel" type="button">X</button>
             </div>
           </div>
         </div>
@@ -670,31 +680,6 @@
     </main>
   </div>
 
-  <!-- Quick Edit Finances Modal (opens over Dashboard without leaving the tab) -->
-  <div class="modal-overlay" id="finance-modal">
-    <div class="modal-box" style="width:460px;">
-      <div class="card-title">
-        <span data-i18n="card_edit_budgets">Editar Orçamentos</span>
-        <button class="btn btn-xs" id="btn-fin-modal-close" type="button">X</button>
-      </div>
-      <div class="field">
-        <label data-i18n="lbl_trf_input">Orçamento de Transferências (ex: 50M, 500k)</label>
-        <input class="input" id="fin-modal-trf" />
-      </div>
-      <div class="field">
-        <label data-i18n="lbl_sal_input">Salários Disponíveis (ex: 15M, 2.5M)</label>
-        <input class="input" id="fin-modal-sal" />
-      </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:4px;">
-        <button class="btn btn-sm" id="btn-fin-modal-full" type="button" data-i18n="btn_open_finances">Ver Finanças Completas</button>
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-sm" id="btn-fin-modal-cancel" type="button" data-i18n="btn_cancel">Cancelar</button>
-          <button class="btn btn-sm btn-primary" id="btn-fin-modal-save" type="button" data-i18n="btn_apply_values">Aplicar Valores</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Dark JSON Backup Modal -->
   <div class="modal-overlay" id="json-modal">
     <div class="modal-box">
@@ -717,7 +702,7 @@
       <div class="cmd-list" id="cmd-list"></div>
       <div class="cmd-footer">
         <span data-i18n="cmd_nav_hint">↑↓ Navegar • ↵ Executar • Esc Fechar</span>
-        <span>PES 2021 Studio</span>
+        <span>PES 2021 Workbench</span>
       </div>
     </div>
   </div>

@@ -23,7 +23,7 @@ class StudioAPI:
 
     def get_metadata(self) -> Dict[str, Any]:
         return {
-            "version": "12.0 Ultimate Studio",
+            "version": "12.0 Workbench",
             "positions": POSITIONS,
             "team_roles": TEAM_ROLES,
             "stats": STAT_DEFS,

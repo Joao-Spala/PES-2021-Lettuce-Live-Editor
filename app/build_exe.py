@@ -29,7 +29,7 @@ def main() -> None:
         "--onefile",
         "--noconsole",
         "--name",
-        "PES 2021 Ultimate Studio",
+        "PES 2021 Workbench",
         "--distpath",
         str(DIST_DIR),
         "--workpath",
@@ -49,7 +49,7 @@ def main() -> None:
     if res.returncode != 0:
         sys.exit(res.returncode)
 
-    exe_path = DIST_DIR / "PES 2021 Ultimate Studio.exe"
+    exe_path = DIST_DIR / "PES 2021 Workbench.exe"
     size_mb = exe_path.stat().st_size / (1024 * 1024)
     print(f"SUCCESS: {exe_path} ({size_mb:.2f} MB)")
 

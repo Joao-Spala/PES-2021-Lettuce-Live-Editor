@@ -33,7 +33,7 @@ def main() -> None:
     atexit.register(engine.shutdown)
 
     window = webview.create_window(
-        title="PES 2021 Ultimate Studio v12.0",
+        title="PES 2021 Workbench v12.0",
         url=get_ui_path(),
         js_api=api,
         width=1180,
