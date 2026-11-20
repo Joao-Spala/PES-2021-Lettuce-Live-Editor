@@ -3553,15 +3553,24 @@ function PES10.openContractModal()
     return ed
   end
 
-  local edSal  = addField(S(68),  "Salário Anual Ativo:",         "Active Annual Salary:",          PES10.formatMoneyFromRaw(PES10.readI32(p + 0x15C)))
-  local edMkt  = addField(S(104), "Valor de Mercado Base:",       "Base Market Value:",             PES10.formatMoneyFromRaw(PES10.readI32(p + 0x174)))
-  local curRf  = PES10.readI32(PES10.symAddr("valComputedReleaseFee"))
-  local edRfee = addField(S(140), "Multa Rescisória Exata:",      "Exact Custom Release Clause:",   (curRf > 0) and PES10.formatMoneyFromRaw(curRf) or "0")
-  local edExpY = addField(S(176), "Ano Término do Contrato:",     "Contract Expiry Year:",          tostring(PES10.readU16(p + 0x138)))
-  local edAff  = addField(S(212), "Afeição pelo Clube (0-100%):", "Club Affection (0-100%):",       tostring(PES10.getBitsInDword(p + 0x13C, 18, 7)))
+  local edSal  = addField(S(68),  "Salário Anual Ativo:",         "Active Annual Salary:",          "")
+  local edMkt  = addField(S(104), "Valor de Mercado Base:",       "Base Market Value:",             "")
+  local edRfee = addField(S(140), "Multa Rescisória Exata:",      "Exact Custom Release Clause:",   "")
+  local edExpY = addField(S(176), "Ano Término do Contrato:",     "Contract Expiry Year:",          "")
+  local edAff  = addField(S(212), "Afeição pelo Clube (0-100%):", "Club Affection (0-100%):",       "")
+  local initRfeeText = ""
 
   local lblFlags = makeModalLabel(f, S(16), S(252), W - S(32), S(20), "", 9, 0xF8BD38, true)
-  local function refreshFlags()
+  local function refreshContract(reloadInputs)
+    if reloadInputs then
+      edSal.Text  = PES10.formatMoneyFromRaw(PES10.readI32(p + 0x15C))
+      edMkt.Text  = PES10.formatMoneyFromRaw(PES10.readI32(p + 0x174))
+      local curRf = PES10.readI32(PES10.symAddr("valComputedReleaseFee"))
+      edRfee.Text = (curRf > 0) and PES10.formatMoneyFromRaw(curRf) or "0"
+      initRfeeText = edRfee.Text
+      edExpY.Text = tostring(PES10.readU16(p + 0x138))
+      edAff.Text  = tostring(PES10.getBitsInDword(p + 0x13C, 18, 7))
+    end
     local hasRf = PES10.getBitsInDword(p + 0x144, 30, 1) == 1
     local tList = PES10.getBitsInDword(p + 0x14A, 1, 1) == 1
     local lList = PES10.getBitsInDword(p + 0x14A, 2, 1) == 1
@@ -3580,10 +3589,12 @@ function PES10.openContractModal()
     if sRaw then writeInteger(p + 0x15C, sRaw) end
     local mRaw = PES10.parseHumanMoneyToRaw(edMkt.Text)
     if mRaw then writeInteger(p + 0x174, mRaw) end
-    local rRaw = PES10.parseHumanMoneyToRaw(edRfee.Text)
-    if rRaw ~= nil then
-      if rRaw <= 0 then PES10.clearOverrideReleaseFeeForPlayer(p)
-      else PES10.setOverrideReleaseFeeForPlayer(p, rRaw) end
+    if edRfee.Text ~= initRfeeText then
+      local rRaw = PES10.parseHumanMoneyToRaw(edRfee.Text)
+      if rRaw ~= nil then
+        if rRaw <= 0 then PES10.clearOverrideReleaseFeeForPlayer(p)
+        else PES10.setOverrideReleaseFeeForPlayer(p, rRaw) end
+      end
     end
     local ey = tonumber(edExpY.Text)
     if ey and ey >= 2019 and ey <= 2150 then writeSmallInteger(p + 0x138, ey) end
@@ -3591,40 +3602,40 @@ function PES10.openContractModal()
     if af then PES10.setBitsInDword(p + 0x13C, 18, 7, math.max(0, math.min(100, math.floor(af)))) end
     PES10.syncAllDynamicPointers()
     PES10.toast(PES10.T("Contrato e valores financeiros atualizados para ", "Contract & finances updated for ") .. pName .. "!")
-    refreshFlags()
+    refreshContract(true)
   end)
   makeModalBtn(f, S(198), y1, S(180), S(34), PES10.T("Alternar Multa (S/N)", "Toggle Release Clause"), function()
     PES10.pushPlayerUndo(p, "Toggle Clause")
     local v = PES10.getBitsInDword(p + 0x144, 30, 1)
     PES10.setBitsInDword(p + 0x144, 30, 1, v == 1 and 0 or 1)
-    PES10.syncAllDynamicPointers(); refreshFlags()
+    PES10.syncAllDynamicPointers(); refreshContract(false)
   end)
   makeModalBtn(f, S(384), y1, S(176), S(34), PES10.T("Alternar Lista Transf.", "Toggle Transfer List"), function()
     PES10.pushPlayerUndo(p, "Toggle Transfer List")
     local v = PES10.getBitsInDword(p + 0x14A, 1, 1)
     PES10.setBitsInDword(p + 0x14A, 1, 1, v == 1 and 0 or 1)
-    refreshFlags()
+    refreshContract(false)
   end)
 
   makeModalBtn(f, S(16),  y2, S(180), S(34), PES10.T("Destravar Renegociação", "Unlock Renegotiation"), function()
-    PES10.runPlayerMacro("unlock_renegotiation"); refreshFlags()
+    PES10.runPlayerMacro("unlock_renegotiation"); refreshContract(false)
   end)
   makeModalBtn(f, S(202), y2, S(180), S(34), PES10.T("Negociação 100% (€ 1k)", "Irresistible Deal (€ 1k)"), function()
-    PES10.makeDealIrresistible(); edRfee.Text = "1000"; edAff.Text = "100"; refreshFlags()
+    PES10.makeDealIrresistible(); refreshContract(true)
   end)
   makeModalBtn(f, S(388), y2, S(172), S(34), PES10.T("Alternar Empréstimo", "Toggle Loan List"), function()
     PES10.pushPlayerUndo(p, "Toggle Loan")
     local v = PES10.getBitsInDword(p + 0x14A, 2, 1)
     PES10.setBitsInDword(p + 0x14A, 2, 1, v == 1 and 0 or 1)
-    refreshFlags()
+    refreshContract(false)
   end)
 
   makeModalBtn(f, S(16),  y3, S(268), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
-    PES10.undoLastPlayerEdit(p); refreshFlags()
+    PES10.undoLastPlayerEdit(p); refreshContract(true)
   end)
   makeModalBtn(f, S(292), y3, S(268), S(34), PES10.T("Fechar", "Close"), function() f.close() end)
 
-  refreshFlags()
+  refreshContract(true)
   f.show()
 end
 
@@ -3695,19 +3706,36 @@ function PES10.openBioConditionModal()
     PES10.applyPlayerEternalPeak(p)
   end)
 
+  local function reloadBioFields()
+    edAge.Text  = tostring(PES10.readU8(p + 0x1C) & 0x3F)
+    edHgt.Text  = tostring(PES10.readU8(p + 0x00))
+    edWgt.Text  = tostring(PES10.readU8(p + 0x01))
+    edStam.Text = tostring(PES10.getBitsInDword(p + 0x146, 0, 7))
+    edWfu.Text  = tostring(PES10.getBitsInDword(p + 0x23, 0, 2) + 1)
+    edWfa.Text  = tostring(PES10.getBitsInDword(p + 0x22, 4, 2) + 1)
+    edFrm.Text  = tostring(PES10.getBitsInDword(p + 0x17, 4, 3) + 1)
+    edInjR.Text = tostring(PES10.getBitsInDword(p + 0x22, 6, 2) + 1)
+    edInjD.Text = tostring(PES10.readU8(p + 0x148))
+    cbFoot.ItemIndex = PES10.getBitsInDword(p + 0x03, 7, 1)
+    cbArr.ItemIndex  = math.max(0, math.min(4, PES10.getBitsInDword(p + 0x147, 0, 3)))
+    if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
+  end
+
   makeModalBtn(f, S(16),  y2, S(182), S(34), PES10.T("Rejuvenescer (-2 Anos)", "Rejuvenate (-2 Yrs)"), function()
     PES10.rejuvenateAndSyncMarket(-2)
-    edAge.Text = tostring(PES10.readU8(p + 0x1C) & 0x3F)
+    reloadBioFields()
   end)
   makeModalBtn(f, S(204), y2, S(186), S(34), PES10.T("Exportar Backup (.json)", "Export Backup (.json)"), function()
     PES10.exportPlayerBackupJson()
   end)
   makeModalBtn(f, S(396), y2, S(184), S(34), PES10.T("Importar Backup (.json)", "Import Backup (.json)"), function()
     PES10.importPlayerBackupJson()
+    reloadBioFields()
   end)
 
   makeModalBtn(f, S(16),  y3, S(276), S(34), PES10.T("Desfazer (Undo)", "Undo Edit"), function()
     PES10.undoLastPlayerEdit(p)
+    reloadBioFields()
   end)
   makeModalBtn(f, S(300), y3, S(280), S(34), PES10.T("Fechar", "Close"), function() f.close() end)
 
