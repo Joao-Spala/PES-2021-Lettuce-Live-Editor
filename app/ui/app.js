@@ -19,6 +19,7 @@ let CUR_IDX = (function () {
 const TACTICAL_ORDER = [12, 11, 9, 10, 8, 6, 5, 7, 4, 2, 1, 3, 0];
 
 let CURRENT_VIEW = "dashboard";
+let NAV_HISTORY = [];
 let CURRENT_PTAB = "bio";
 let LAST_STATUS = null;
 let LAST_CAREER = 0;
@@ -76,9 +77,12 @@ const I18N = {
     no_player: "Nenhum atleta selecionado",
     no_player_sub: "Destaque um jogador no jogo ou selecione em Meu Elenco / Buscar Jogador.",
     tip_open_player: "Abrir editor do jogador atual",
+    tip_back: "Voltar para a tela anterior (Alt+←)",
     tip_undo: "Desfazer última edição do atleta (Ctrl+Z)",
     tip_currency: "Alternar moeda de exibição",
     tip_reconnect: "Clique para reconectar ao PES 2021 / Football Life",
+    btn_back: "Voltar",
+    btn_open_finances: "Ver Finanças Completas",
     btn_undo: "Desfazer",
     btn_refresh: "Atualizar",
     btn_edit: "Editar",
@@ -264,9 +268,12 @@ const I18N = {
     no_player: "No player selected",
     no_player_sub: "Highlight a player in-game or pick one from My Squad / Search.",
     tip_open_player: "Open Current Player editor",
+    tip_back: "Go back to previous view (Alt+←)",
     tip_undo: "Undo last edit on this player (Ctrl+Z)",
     tip_currency: "Cycle display currency",
     tip_reconnect: "Click to reconnect to PES 2021 / Football Life",
+    btn_back: "Back",
+    btn_open_finances: "Full Finances View",
     btn_undo: "Undo",
     btn_refresh: "Refresh",
     btn_edit: "Edit",
@@ -579,6 +586,7 @@ function applyLanguage() {
   });
 
   populateLocalizedSelects();
+  updateBackButton();
   if (LAST_STATUS) renderStatus(LAST_STATUS);
   if (CURRENT_PLAYER) renderPlayerDetails(CURRENT_PLAYER);
   renderSquadTable();
@@ -588,10 +596,39 @@ function applyLanguage() {
 }
 
 // -------------------------------------------------------------------
-// NAVIGATION
+// NAVIGATION (with real Back History Stack + Alt+Left / Mouse Back)
 // -------------------------------------------------------------------
-function switchView(viewName, skipAutoLoad = false) {
+const VIEW_KEY_MAP = {
+  dashboard: "nav_overview",
+  squad: "nav_squad",
+  finances: "nav_finances",
+  player: "nav_player",
+  search: "nav_search",
+  scouts: "nav_scouts",
+  match: "nav_match_live",
+  training: "nav_training_bal",
+};
+
+function updateBackButton() {
+  const btn = document.getElementById("btn-nav-back");
+  const lbl = document.getElementById("nav-back-label");
+  if (!btn || !lbl) return;
+  if (NAV_HISTORY.length > 0) {
+    const prev = NAV_HISTORY[NAV_HISTORY.length - 1];
+    lbl.textContent = tKey(VIEW_KEY_MAP[prev] || "btn_back");
+    btn.style.display = "inline-flex";
+  } else {
+    btn.style.display = "none";
+  }
+}
+
+function switchView(viewName, skipAutoLoad = false, fromBack = false) {
+  if (!fromBack && viewName !== CURRENT_VIEW) {
+    NAV_HISTORY.push(CURRENT_VIEW);
+    if (NAV_HISTORY.length > 20) NAV_HISTORY.shift();
+  }
   CURRENT_VIEW = viewName;
+  updateBackButton();
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === viewName));
   document.querySelectorAll(".view-panel").forEach(p => p.classList.toggle("active", p.id === `view-${viewName}`));
   if (skipAutoLoad) return;
@@ -599,6 +636,12 @@ function switchView(viewName, skipAutoLoad = false) {
   if (viewName === "player") loadPlayerDetails();
   if (viewName === "scouts") loadScouts();
   if (viewName === "finances") loadFinances();
+}
+
+function goBack() {
+  if (!NAV_HISTORY.length) return;
+  const prev = NAV_HISTORY.pop();
+  switchView(prev, false, true);
 }
 
 function switchPlayerTab(tabName) {
@@ -1439,7 +1482,23 @@ function openJsonModal(mode, initialText = "", playerName = "") {
   if (mode === "export") ta.select();
 }
 
+async function openFinanceModal(focusField = "transfer") {
+  if (!api()) return;
+  const res = await api().get_finances();
+  if (!res || !res.ok) return toast(fmtCodeMsg(res), "err");
+  LAST_FINANCES = res;
+  const trfInp = document.getElementById("fin-modal-trf");
+  const salInp = document.getElementById("fin-modal-sal");
+  trfInp.value = fmtMoney(res.transfer_raw);
+  salInp.value = fmtMoney(res.salary_avail_raw);
+  document.getElementById("finance-modal").classList.add("open");
+  const target = focusField === "salary" ? salInp : trfInp;
+  target.focus();
+  target.select();
+}
+
 function closeAllModals() {
+  document.getElementById("finance-modal").classList.remove("open");
   document.getElementById("json-modal").classList.remove("open");
   document.getElementById("cmd-modal").classList.remove("open");
 }
@@ -1507,17 +1566,21 @@ async function bootstrap() {
 
   applyLanguage();
 
-  // Sidebar & tabs
+  // Sidebar, Back button & tabs
   document.querySelectorAll(".nav-btn").forEach(b => b.addEventListener("click", () => switchView(b.dataset.view)));
+  document.getElementById("btn-nav-back").addEventListener("click", goBack);
   document.getElementById("top-player-pill").addEventListener("click", () => switchView("player"));
   document.querySelectorAll("#player-subtabs .tab-btn").forEach(b => b.addEventListener("click", () => switchPlayerTab(b.dataset.ptab)));
   document.getElementById("btn-open-cmd").addEventListener("click", openCmdPalette);
 
-  // Global keyboard shortcuts (Ctrl+K, Ctrl+Z, Escape)
+  // Global keyboard & mouse shortcuts (Ctrl+K, Ctrl+Z, Alt+Left, Mouse Back, Escape)
   document.addEventListener("keydown", e => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
       openCmdPalette();
+    } else if (e.altKey && e.key === "ArrowLeft") {
+      e.preventDefault();
+      goBack();
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
       e.preventDefault();
       const uBtn = document.getElementById("btn-undo");
@@ -1526,11 +1589,40 @@ async function bootstrap() {
       closeAllModals();
     }
   });
+  document.addEventListener("mouseup", e => {
+    if (e.button === 3) { e.preventDefault(); goBack(); }
+  });
 
-  ["json-modal", "cmd-modal"].forEach(id => {
+  ["finance-modal", "json-modal", "cmd-modal"].forEach(id => {
     document.getElementById(id).addEventListener("click", e => {
       if (e.target.id === id) closeAllModals();
     });
+  });
+
+  // Quick Finance Modal handlers
+  const saveFinModal = async () => {
+    if (!api()) return;
+    const r = await api().set_finances(
+      document.getElementById("fin-modal-trf").value,
+      document.getElementById("fin-modal-sal").value
+    );
+    if (r && r.ok) {
+      LAST_FINANCES = r;
+      toast(T("Finanças atualizadas!", "Finances updated!"));
+      closeAllModals();
+      pollStatus();
+      if (CURRENT_VIEW === "finances") renderFinances(r);
+    } else toast(fmtCodeMsg(r), "err");
+  };
+  document.getElementById("btn-fin-modal-close").addEventListener("click", closeAllModals);
+  document.getElementById("btn-fin-modal-cancel").addEventListener("click", closeAllModals);
+  document.getElementById("btn-fin-modal-save").addEventListener("click", saveFinModal);
+  document.getElementById("btn-fin-modal-full").addEventListener("click", () => {
+    closeAllModals();
+    switchView("finances");
+  });
+  ["fin-modal-trf", "fin-modal-sal"].forEach(id => {
+    document.getElementById(id).addEventListener("keydown", e => { if (e.key === "Enter") saveFinModal(); });
   });
 
   // Command palette full ArrowUp/ArrowDown/Enter navigation
