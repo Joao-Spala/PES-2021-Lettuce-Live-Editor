@@ -220,6 +220,7 @@ class PESEngine:
         self._last_pid: int = 0
         self._manual_player_addr: int = 0
         self._last_hook_player: int = 0
+        self._club_name_cache: Dict[Tuple[int, int], Tuple[int, str]] = {}
 
     # ------------------------------------------------------------------
     # ATTACH, INIT & LIFECYCLE
@@ -249,6 +250,7 @@ class PESEngine:
         self._wage_cache_time = 0.0
         self._manual_player_addr = 0
         self._last_hook_player = 0
+        self._club_name_cache.clear()
         self.undo_stack.clear()
 
     def shutdown(self) -> None:
@@ -365,10 +367,15 @@ class PESEngine:
     # ------------------------------------------------------------------
     def decode_club_handle(self, raw_u32: int, career: int = 0) -> Tuple[int, str]:
         if raw_u32 == 0 or raw_u32 == 0xFFFFFFFF:
-            return 0, "Sem Clube / Livre"
+            return 0, ""
+        c = career or self.mem.read_u64(self.hooks.sym_addr("ptrCareer"))
+        key = (c, raw_u32)
+        cached = self._club_name_cache.get(key)
+        if cached is not None:
+            return cached
         slot = raw_u32 % 16384
         team_id = raw_u32 // 16384
-        c = career or self.mem.read_u64(self.hooks.sym_addr("ptrCareer"))
+        res: Tuple[int, str]
         if c > 0x10000 and slot < 1200:
             club_entry = c + 0xADF4BC + (slot * 0x690)
             entry_h = self.mem.read_u32(club_entry)
@@ -376,9 +383,13 @@ class PESEngine:
                 live_name = self.mem.read_str(club_entry + 0x04, 64)
                 abbr = self.mem.read_str(club_entry + 0x4A, 6)
                 if live_name:
-                    return team_id, (f"{live_name} [{abbr}]" if abbr else live_name)
+                    res = (team_id, f"{live_name} [{abbr}]" if abbr else live_name)
+                    self._club_name_cache[key] = res
+                    return res
         name = BMPES_TEAMS.get(team_id) or f"Club #{team_id}"
-        return team_id, name
+        res = (team_id, name)
+        self._club_name_cache[key] = res
+        return res
 
     def get_user_club_handle(self, career: int) -> int:
         if not career:
@@ -540,6 +551,7 @@ class PESEngine:
                     "attached": False,
                     "exe": "",
                     "pid": 0,
+                    "mode_code": "offline",
                     "mode": "Aguardando jogo",
                     "club": "",
                     "career": 0,
@@ -552,6 +564,7 @@ class PESEngine:
                     "bal_lock": False,
                 }
             career, p_addr, match_state = self.sync_pointers()
+            mode_code = "menu"
             mode = "Menu / Exibição"
             club_name = ""
             finances = None
@@ -559,12 +572,14 @@ class PESEngine:
             if career > 0x10000:
                 bal_h = self.mem.read_u64(career + 0x01819540)
                 if (bal_h >> 32) != 0:
+                    mode_code = "bal"
                     mode = "Rumo ao Estrelato (BAL)"
                 else:
+                    mode_code = "ml"
                     mode = "Master League"
                 uc = self.get_user_club_handle(career)
                 if uc:
-                    _, club_name = self.decode_club_handle(uc)
+                    _, club_name = self.decode_club_handle(uc, career)
                 trf = self.mem.read_i32(career + 0x016ECBF4)
                 avail, _, wages = self.get_available_salary_budget(career, force_refresh=False)
                 finances = {
@@ -603,6 +618,7 @@ class PESEngine:
                 "attached": True,
                 "exe": self.mem.exe_name,
                 "pid": self.mem.pid,
+                "mode_code": mode_code,
                 "mode": mode,
                 "club": club_name,
                 "career": career,
@@ -1156,7 +1172,7 @@ class PESEngine:
                 ovr, _ = calc_ovr_from_buf(rec)
                 if ovr < min_ovr:
                     continue
-                _, club_name = self.decode_club_handle(club_h)
+                _, club_name = self.decode_club_handle(club_h, career)
                 sal_raw = struct.unpack_from("<i", raw, off + 0x15C)[0]
                 exp_y = struct.unpack_from("<H", raw, off + 0x138)[0]
                 results.append(

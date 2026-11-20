@@ -89,6 +89,30 @@ class CodeBuf:
         return bytes(self.buf)
 
 
+# Exact v1.7.2.0 hook RVAs + original bytes for automatic recovery if a previous session left stale JMPs
+HOOK_ORIG_BYTES = {
+    1: [
+        (0xC6ED40, -19, 0xCB, bytes([0x0F, 0x10, 0x02, 0x0F, 0x11, 0x01]), None),
+        (0x8E24D7, -7, 0x48, bytes([0x48, 0x8B, 0x40, 0x2C, 0x48, 0x89, 0x02]), None),
+        (0xDDCA5C, 7, 0x89, bytes([0x0F, 0xB6, 0x80, 0x50, 0x01, 0x00, 0x00]), None),
+        (0xF27462, 7, 0x89, bytes([0x0F, 0xB6, 0x80, 0x50, 0x01, 0x00, 0x00]), None),
+    ],
+    3: [
+        (0x12E14A0, 6, 0x0F, bytes([0x45, 0x8B, 0xC8, 0x83, 0xFA, 0x6C]), None),
+    ],
+    4: [
+        (0xBBFE79, -8, 0x0F, bytes([0x15]), 0x7F),
+    ],
+    5: [
+        (0x20F9FD6, 7, 0x88, bytes([0x49, 0x8B, 0xF8, 0x44, 0x0F, 0xB6, 0xE2]), None),
+        (0xA3C787, 8, 0xF3, bytes([0x8B, 0x44, 0x24, 0x40, 0x89, 0x44, 0x24, 0x40]), None),
+    ],
+    6: [
+        (0xA58EAC, -2, None, bytes([0x6B, 0x45, 0x10, 0x64, 0x48, 0x8B, 0x5C, 0x24, 0x50]), None),
+    ],
+}
+
+
 class HookManager:
     """Manages state page allocation and all native x64 hooks with clean teardown."""
 
@@ -147,6 +171,21 @@ class HookManager:
         b = self.mem.module_base
         return self.mem.aob_scan_region(b + rva_start, b + rva_end, pattern)
 
+    def restore_stale_hook_bytes(self, hook_num: int) -> None:
+        """Restore original bytes if a previous CE/Studio run left stale JMPs at verified v1.7.2.0 RVAs."""
+        entries = HOOK_ORIG_BYTES.get(hook_num)
+        if not entries or not self.mem.attached or not self.mem.module_base:
+            return
+        base = self.mem.module_base
+        for rva, check_off, check_byte, orig, stale_byte in entries:
+            addr = base + rva
+            b0 = self.mem.read_u8(addr)
+            is_stale = (b0 == stale_byte) if stale_byte is not None else (b0 == 0xE9)
+            if is_stale:
+                ok_neighbor = (check_byte is None) or (self.mem.read_u8(addr + check_off) == check_byte)
+                if ok_neighbor:
+                    self.mem.write_code_bytes(addr, orig)
+
     # ------------------------------------------------------------------
     # HOOK 1: Automatic Player Capture (4 sites)
     # ------------------------------------------------------------------
@@ -155,6 +194,7 @@ class HookManager:
             return True
         if not self.init_state():
             return False
+        self.restore_stale_hook_bytes(1)
         ptr_player = self.sym_addr("ptrPlayer")
         installed = 0
 
@@ -231,6 +271,7 @@ class HookManager:
             return True
         if not self.init_state():
             return False
+        self.restore_stale_hook_bytes(3)
         s = self._scan(0x12E0400, 0x12E2500, "45 8B C8 83 FA 6C 0F 8D 1E 01 00 00")
         if not s:
             return False
@@ -290,6 +331,7 @@ class HookManager:
             return True
         if not self.init_state():
             return False
+        self.restore_stale_hook_bytes(4)
         s = self._scan(0xBBEE00, 0xBC0F00, "0F BE 41 0A 2B C2 83 F8 15 77 09 48 63 C3")
         if not s:
             return False
@@ -311,6 +353,7 @@ class HookManager:
             return True
         if not self.init_state():
             return False
+        self.restore_stale_hook_bytes(5)
         ok_any = False
 
         s_hud = self._scan(0x20F8F00, 0x20FB000, "49 8B F8 44 0F B6 E2 88 55 B7")
@@ -369,6 +412,7 @@ class HookManager:
             return True
         if not self.init_state():
             return False
+        self.restore_stale_hook_bytes(6)
         s = self._scan(0xA57E00, 0xA59F00, "6B 45 10 64 48 8B 5C 24 50")
         if not s:
             return False
