@@ -4470,6 +4470,7 @@ end
 PES10 = PES10 or {}
 PES10.VERSION = "11.2 Ultimate Studio"
 PES10.PROCESS_NAME = "PES2021.exe"
+PES10.SUPPORTED_EXES = { "PES2021.exe", "FL_2026.exe", "FL_2025.exe", "FL_2024.exe", "FL_2023.exe", "FL_2025_U.exe", "FL_2024_U.exe" }
 PES10.openModals = {}
 PES10.lang = "en"
 if PES10.lang ~= "en" and PES10.lang ~= "pt" then
@@ -5720,6 +5721,9 @@ function PES10.initProcessState()
   local okRun, resRun = pcall(function()
     local exeBase = getAddressSafe(PES10.PROCESS_NAME)
     if not exeBase or exeBase == 0 then return false end
+    if PES10.PROCESS_NAME ~= "PES2021.exe" then
+      PES10.safeRegisterSymbol("PES2021.exe", exeBase)
+    end
 
     local existing = getAddressSafe("pes10State")
     if existing and existing &gt; 0 then
@@ -9517,6 +9521,61 @@ function PES10.openMatchStaminaModal()
   f.show()
 end
 
+-- MODAL 13: EXACT BAL FOCUS POINTS &amp; CAP UNLOCK (0-99 OR MAX 10 BARS)
+function PES10.openBALFocusModal()
+  if not createEdit or not createPanel then return end
+  local career = PES10.readU64(PES10.symAddr("ptrCareer"))
+  if career == 0 then
+    PES10.toast(PES10.T("Carregue um save de Rumo ao Estrelato (BAL) primeiro!", "Load a Become a Legend (BAL) save first!"))
+    return
+  end
+  local f, S, W, H, hdrBar = makeStudioModal("balfocus", PES10.T("BAL - Focus Points &amp; Barras", "BAL - Focus Points &amp; Sliders"), 480, 276, M_GOLD, 58)
+  makeModalLabel(hdrBar, S(16), S(10), W - S(32), S(22), PES10.T("Focus Points do Rumo ao Estrelato (BAL)", "Become a Legend (BAL) Focus Points"), 11, M_TEXT, true)
+  makeModalLabel(hdrBar, S(16), S(34), W - S(32), S(18), PES10.T("Defina qualquer valor exato (0-99) ou maximize 10 barras:", "Set any exact amount (0-99) or max all 10 sliders:"), 8, M_SUBTEXT, false)
+
+  local curFp = PES10.readU8(career + 0x016ECBEA)
+  local edFp = nil
+  local function applyExactFp()
+    local v = tonumber(edFp and edFp.Text or "")
+    if not v then return end
+    v = math.max(0, math.min(99, math.floor(v + 0.5)))
+    if v &gt; 21 then PES10.ensureHookActive(4) end
+    writeBytes(career + 0x016ECBEA, v)
+    PES10.toast(string.format(PES10.T("BAL Focus Points definido para %d!", "BAL Focus Points set to %d!"), v))
+    if PES10.dashboardState and PES10.dashboardState.render then PES10.dashboardState.render(true) end
+  end
+
+  makeModalLabel(f, S(16), S(82), S(190), S(20), PES10.T("Focus Points Exatos (0-99):", "Exact Focus Points (0-99):"), 9, M_SUBTEXT, false)
+  edFp = makeDarkEdit(f, S(212), S(76), S(90), S(32), tostring(curFp), applyExactFp, true)
+  makeModalBtn(f, S(310), S(76), S(154), S(32), PES10.T("Aplicar Valor", "Apply Value"), applyExactFp, "primary")
+
+  local yQ = S(130)
+  makeModalBtn(f, S(16),  yQ, S(220), S(36), PES10.T("Max 99 Pts + 10 Barras", "Max 99 Pts + 10 Sliders"), function()
+    PES10.runPlayerMacro("bal_max_sliders")
+    edFp.Text = "99"
+  end, "gold")
+  local lockBtn = nil
+  local function syncLockBtn()
+    local isL = (PES10.readU32(PES10.symAddr("cfgLockBALFocusPoints")) == 1)
+    lockBtn.setCaption(isL and PES10.T("Trava 99 Pts: ATIVA", "Lock 99 Pts: ON") or PES10.T("Travar em 99 Pts", "Lock at 99 Pts"))
+    lockBtn.setActive(isL)
+  end
+  lockBtn = makeModalBtn(f, S(244), yQ, S(220), S(36), PES10.T("Travar em 99 Pts", "Lock at 99 Pts"), function()
+    local a = PES10.symAddr("cfgLockBALFocusPoints")
+    if a ~= 0 then
+      local nv = (PES10.readU32(a) == 1) and 0 or 1
+      writeInteger(a, nv)
+      if nv == 1 then PES10.ensureHookActive(4); writeBytes(career + 0x016ECBEA, 99); edFp.Text = "99" end
+      syncLockBtn()
+    end
+  end, "default")
+  syncLockBtn()
+
+  local ftr, yF = makeDarkFooter(f, W, H, S(58))
+  makeModalBtn(ftr, W - S(116), yF, S(100), S(34), PES10.T("Fechar", "Close"), function() f.close() end, "subtle")
+  f.show()
+end
+
 -- ============================================================================
 -- PES 2021 v11.2 ULTIMATE STUDIO - DOUBLE-BUFFERED OFFSCREEN CANVAS GUI (PT / EN)
 -- Pixel-exact symmetric layout, DPI-aware, stateful active glow &amp; zero clipping
@@ -9809,10 +9868,10 @@ function PES10.openDashboard()
         sub_pt="Carrega seu atleta do Estrelato", sub_en="Loads your BAL player",
         fn=function() PES10.pointToBALMyPlayer() end },
       { col=2, row=3, accent=C_GOLD,
-        tag_pt="99 PTS", tag_en="99 PTS",
-        title_pt="BAL: 10 Barras + 99 Pts", title_en="BAL: Max Sliders + 99 Pts",
-        sub_pt="Libera trava de 21 Focus Points", sub_en="Unlocks 21-pt cap &amp; maxes bars",
-        fn=function() PES10.runPlayerMacro("bal_max_sliders") end },
+        tag_pt="FOCUS", tag_en="FOCUS",
+        title_pt="BAL: Focus Points (0-99)", title_en="BAL: Focus Points (0-99)",
+        sub_pt="Valor exato, trava ou 10 barras max", sub_en="Exact value, lock or max 10 sliders",
+        fn=function() PES10.openBALFocusModal() end },
       { col=1, row=4, accent=C_GREEN,
         tag_pt="SKILL", tag_en="SKILL",
         title_pt="BAL: Concluir Skill", title_en="BAL: Finish Skill",
@@ -10447,10 +10506,14 @@ function PES10.startBackgroundEngine()
   PES10.bgTimer.OnTimer = function()
     if PES10.isInitializing then return end
     if not PES10.isAttached() then
-      local pid = getProcessIDFromProcessName(PES10.PROCESS_NAME)
-      if pid and pid &gt; 0 then
-        openProcess(pid)
-        PES10.initProcessState()
+      for _, exeName in ipairs(PES10.SUPPORTED_EXES or { PES10.PROCESS_NAME }) do
+        local pid = getProcessIDFromProcessName(exeName)
+        if pid and pid &gt; 0 then
+          PES10.PROCESS_NAME = exeName
+          openProcess(pid)
+          PES10.initProcessState()
+          break
+        end
       end
       return
     end
