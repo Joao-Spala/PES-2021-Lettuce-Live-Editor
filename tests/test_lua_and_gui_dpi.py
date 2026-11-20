@@ -886,11 +886,17 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     local _, restoredRegPos = PES10.calcPlayerOVR(p)
     assert(restoredRegPos == origRegPos, "Undo did not restore original Registered Position")
 
-    -- 4. Real-RAM Scout Observation List 1 (add, verify, remove, clear)
+    -- 4. Real-RAM Scout Observation List 1 (pure native insert, zero contract/flag side effects)
     PES10.clearScoutSlots(1)
     local u0 = PES10.getScoutListSummary(1)
     assert(u0 == 0, "Scout 1 should be empty after clear")
+    local origFlags = PES10.readU32(p + 0x14A)
+    local origAff   = PES10.getBitsInDword(p + 0x13C, 18, 7)
+    local origFeeEn = PES10.readU32(PES10.symAddr("cfgReleaseFeeOverrideEn"))
     assert(PES10.addPlayerToScoutList(1) == true, "addPlayerToScoutList(1) failed")
+    assert(PES10.readU32(p + 0x14A) == origFlags, "addPlayerToScoutList must not alter transfer/loan flags")
+    assert(PES10.getBitsInDword(p + 0x13C, 18, 7) == origAff, "addPlayerToScoutList must not alter club affection")
+    assert(PES10.readU32(PES10.symAddr("cfgReleaseFeeOverrideEn")) == origFeeEn, "addPlayerToScoutList must not override release fee")
     local u1 = PES10.getScoutListSummary(1)
     assert(u1 == 1, "Scout 1 should have 1 player in RAM, got " .. tostring(u1))
     -- Duplicate prevention check

@@ -7033,18 +7033,23 @@ function PES10.addPlayerToScoutList(slotIdx)
     writeQword(career + def.base + freeSlot * 8, pHandle)
   end
 
-  -- Apply negotiation boosts (Transfer Listed + Affection 100% + Unlock + € 1k Clause)
-  PES10.applyEasyNegotiationFlags(p)
   PES10.syncAllDynamicPointers()
 
   local listLabel = PES10.T(def.pt, def.en)
-  PES10.toast(string.format(
-    PES10.T(
-      "%s (%d %s) inserido na RAM em %s | Lista Transf. + Multa € 1k + 100%% Sucesso!",
-      "%s (%d %s) written to %s in RAM | Transfer Listed + € 1k Clause + 100%% Deal!"
-    ),
-    pName, curOVR, PES10.posShort(regPos), listLabel
-  ))
+  if alreadyIn then
+    PES10.toast(string.format(
+      PES10.T("%s (%d %s) já está em %s.", "%s (%d %s) is already in %s."),
+      pName, curOVR, PES10.posShort(regPos), listLabel
+    ))
+  else
+    PES10.toast(string.format(
+      PES10.T(
+        "%s (%d %s) adicionado em %s na RAM (valores e contrato preservados).",
+        "%s (%d %s) added to %s in RAM (values and contract preserved)."
+      ),
+      pName, curOVR, PES10.posShort(regPos), listLabel
+    ))
+  end
   return true
 end
 
