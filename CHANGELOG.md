@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## [12.0.0] - 2026-11-20 - Full Canvas Data Grid UI/UX Overhaul
+
+### Added / Adicionado
+- **Custom Double-Buffered Dark Canvas Data Grid (`createStudioGrid`)**: Completely replaced every plain-text Win32 `TListBox` and white Windows scrollbar across all 8 table modals (*My Squad*, *25 Attributes*, *Position Lab*, *Playing Style & Skills*, *Scouts & Shortlist*, *Global Player Search*, *Team Roles*, *13-Pos X-Ray*) and all custom dropdown popups with a custom GDI double-buffered data grid featuring:
+  - Dedicated uppercase **Column Headers** with click-to-sort (`▲ / ▼`)
+  - **Color-coded OVR Shield Badges** and **Position Chips** (Attack / Midfield / Defense / GK)
+  - **Real Graphical Progress Bars** for all 25 Attributes (`40-99`) and Squad Stamina (`0-100%`)
+  - **Status & Category Pills** (`● ON / ○ OFF`, `OK / 4d`, `Grade A / B / C`, `SKILL / COM AI`, `PRIMARY`)
+  - **Custom Sleek Dark Scrollbar** with thumb dragging, Mouse Wheel, and Up/Down/PageUp/PageDown navigation
+- **Zero-Jargon Focused UX**: Renamed confusing labels (*Radar 30K* -> *Buscar Jogador*, removed misplaced cheat buttons from Scout & Search footers) so every screen has one crystal-clear purpose.
+
+### Fixed / Corrigido
+- **Exact Konami Available Salary Budget (`0x14156D170`)**: Replicated Konami's live Available Salary Budget calculation (`Gross 0x016ECC08 - Squad Wages - 34-slot pending overrides at 0x016F0764`) and fixed User Club Handle offset (`career + 0x01642A2C`).
+- **Unclipped Currency Columns**: Widened Salary/Value columns in *My Squad* and *Find Player* so full amounts like `€ 3.188.300` never truncate.
+
+---
+
 ## [11.2.0] - 2026-11-20 - Full Dark Studio UI & Complete Control
 
 ### Added / Adicionado

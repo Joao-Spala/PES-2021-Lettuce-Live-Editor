@@ -12,8 +12,8 @@ import zlib
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 LUA_DLL = os.environ.get("CE_LUA_DLL", r"C:\Program Files\Cheat Engine 7.2\lua53-64.dll")
-CT_PT = REPO_ROOT / "dist" / "PES 2021 - v11.2 Ultimate Studio (PT-BR).CT"
-CT_EN = REPO_ROOT / "dist" / "PES 2021 - v11.2 Ultimate Studio (EN).CT"
+CT_PT = REPO_ROOT / "dist" / "PES 2021 - v12.0 Ultimate Studio (PT-BR).CT"
+CT_EN = REPO_ROOT / "dist" / "PES 2021 - v12.0 Ultimate Studio (EN).CT"
 
 # ============================================================================
 # WIN32 GDI DIB SECTION + CLEARTYPE SEGOE UI CANVAS BACKEND
@@ -863,7 +863,7 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
         clicked_n = int(run_lua_chunk(L, click_test, f"click_all_{expected_lang}_{dpi}"))
         assert clicked_n >= 52, f"Expected >= 52 hitbox clicks across 4 tabs, got {clicked_n}"
 
-    # v11.2 Behavioral QA: Undo Stack, Secondary Position +1 OVR, Team Role & Real-RAM Scout Lists
+    # v12.0 Behavioral QA: Undo Stack, Secondary Position +1 OVR, Team Role & Real-RAM Scout Lists
     v11_test = """
     local p = PES10.readU64(PES10.symAddr("ptrPlayer"))
     assert(p ~= 0, "Mock player must be selected")
@@ -972,15 +972,15 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
       end
     end
     assert(rawBtnCount == 0, "Raw Win32 gray TButton detected in modals: " .. tostring(rawBtnCount))
+    assert(listCount == 0, "Legacy plain-text Win32 TListBox detected in modals: " .. tostring(listCount))
     assert(editCount >= 18, "Expected >=18 dark Edit controls across modals, got " .. tostring(editCount))
-    assert(listCount >= 6, "Expected >=6 dark ListBox controls across modals, got " .. tostring(listCount))
     return "V11_OK"
     """
     assert run_lua_chunk(L, v11_test, f"v11_behavioral_{expected_lang}") == "V11_OK"
 
     print(
         f"EDITION QA PASSED [{expected_lang.upper()}]: {ct_path.name} | "
-        f"{btn_count} Lua buttons | 96/120/144 DPI GDI pixel-verified | 0 overlaps | 0 truncations | v11.2 Behavioral OK!"
+        f"{btn_count} Lua buttons | 96/120/144 DPI GDI pixel-verified | 0 overlaps | 0 truncations | v12.0 Behavioral OK!"
     )
     lua.lua_close(L)
 

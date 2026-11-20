@@ -9,8 +9,8 @@ REPO_ROOT = SRC_DIR.parent
 DATA_DIR = SRC_DIR / "data"
 DIST_DIR = REPO_ROOT / "dist"
 
-OUTPUT_PT = DIST_DIR / "PES 2021 - v11.2 Ultimate Studio (PT-BR).CT"
-OUTPUT_EN = DIST_DIR / "PES 2021 - v11.2 Ultimate Studio (EN).CT"
+OUTPUT_PT = DIST_DIR / "PES 2021 - v12.0 Ultimate Studio (PT-BR).CT"
+OUTPUT_EN = DIST_DIR / "PES 2021 - v12.0 Ultimate Studio (EN).CT"
 
 with open(DATA_DIR / "player_schema.json", "r", encoding="utf-8") as f:
     legacy = json.load(f)
@@ -155,7 +155,7 @@ EN_PLAYER_LABELS = {
 # ============================================================================
 # VERIFIED x64 AUTO ASSEMBLER SCRIPTS (PES2021.exe v1.7.2.0 + Sider 7.3.3)
 # ============================================================================
-ASM_HOOK_1_PLAYER = """{ PES 2021 v11.2 - Hook 1: Automatic Player Capture (Game Plan / Edit / Squad / Transfer) }
+ASM_HOOK_1_PLAYER = """{ PES 2021 v12.0 - Hook 1: Automatic Player Capture (Game Plan / Edit / Squad / Transfer) }
 [ENABLE]
 aobscanregion(INJECT_ptrPlayer,PES2021.exe+C6DC00,PES2021.exe+C6FE00,CB B8 02 00 00 00 0F 1F 40 00 66 0F 1F 84 00 00 00 00 00 0F 10 02 0F 11 01)
 alloc(newmem_p1,$1000,INJECT_ptrPlayer)
@@ -270,7 +270,7 @@ unregistersymbol(INJECT_ptrPlayerListUI)
 dealloc(newmem_p4)
 """
 
-ASM_HOOK_2_RELEASE_FEE = """{ PES 2021 v11.2 - Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
+ASM_HOOK_2_RELEASE_FEE = """{ PES 2021 v12.0 - Hook 2: Exact Release Fee Override Engine (VA 0x14156BE0C) }
 [ENABLE]
 aobscanregion(INJECT_ReleaseFeeGetter,PES2021.exe+156AD00,PES2021.exe+156CF00,0F 29 74 24 40 48 8B DA 48 8B F1 0F 29 7C 24 30 48 8B 09)
 alloc(newmem_rfee,$1000,INJECT_ReleaseFeeGetter)
@@ -337,7 +337,7 @@ unregistersymbol(INJECT_ReleaseFeeGetter)
 dealloc(newmem_rfee)
 """
 
-ASM_HOOK_3_TRAINING_MULT = """{ PES 2021 v11.2 Pro - Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
+ASM_HOOK_3_TRAINING_MULT = """{ PES 2021 v12.0 Pro - Hook 3: Universal Sub-XP Multiplier (User Club / Youth / BAL Only) }
 [ENABLE]
 aobscanregion(INJECT_TrainingXpAdder,PES2021.exe+12E0400,PES2021.exe+12E2500,45 8B C8 83 FA 6C 0F 8D 1E 01 00 00)
 alloc(newmem_txp,$1000,INJECT_TrainingXpAdder)
@@ -398,7 +398,7 @@ unregistersymbol(INJECT_TrainingXpAdder)
 dealloc(newmem_txp)
 """
 
-ASM_HOOK_4_BAL_CAP = """{ PES 2021 v11.2 Pro - Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
+ASM_HOOK_4_BAL_CAP = """{ PES 2021 v12.0 Pro - Hook 4: Unlock 21 Focus Points Slider Cap in BAL (Up to 127) }
 [ENABLE]
 aobscanregion(INJECT_BALFocusCap,PES2021.exe+BBEE00,PES2021.exe+BC0F00,0F BE 41 0A 2B C2 83 F8 15 77 09 48 63 C3)
 INJECT_BALFocusCap+08:
@@ -411,7 +411,7 @@ INJECT_BALFocusCap+08:
 unregistersymbol(INJECT_BALFocusCap)
 """
 
-ASM_HOOK_5_MATCH_HUD_CLOCK = """{ PES 2021 v11.2 Pro - Hook 5: Sider-Safe Match HUD, Live Score, Penalties & FNV-Safe Clock }
+ASM_HOOK_5_MATCH_HUD_CLOCK = """{ PES 2021 v12.0 Pro - Hook 5: Sider-Safe Match HUD, Live Score, Penalties & FNV-Safe Clock }
 [ENABLE]
 aobscanregion(INJECT_MatchHud,PES2021.exe+20F8F00,PES2021.exe+20FB000,49 8B F8 44 0F B6 E2 88 55 B7)
 alloc(newmem_mhud,$1000,INJECT_MatchHud)
@@ -484,7 +484,7 @@ unregistersymbol(INJECT_MatchClockTap)
 dealloc(newmem_mclk)
 """
 
-ASM_HOOK_6_STAMINA = """{ PES 2021 v11.2 Pro - Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
+ASM_HOOK_6_STAMINA = """{ PES 2021 v12.0 Pro - Hook 6: Selective Match Stamina (Home / Away / Both / Total Press) }
 [ENABLE]
 aobscanregion(INJECT_SelectiveStamina,PES2021.exe+A57E00,PES2021.exe+A59F00,6B 45 10 64 48 8B 5C 24 50)
 alloc(newmem_stam,$1000,INJECT_SelectiveStamina)
@@ -884,18 +884,18 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     COL_CRIMSON = "2828C6"
 
     # =========================================================================
-    # SECTION 1: [ 1. CENTRAL STUDIO v11.2 ] (Expanded by default!)
+    # SECTION 1: [ 1. CENTRAL STUDIO v12.0 ] (Expanded by default!)
     # =========================================================================
     sec_central = builder.group(
         top_entries,
-        L("[ 1. CENTRAL STUDIO v11.2 ] Painel Gráfico, Telemetria & Moeda", "[ 1. CENTRAL STUDIO v11.2 ] Studio GUI, Telemetry & Currency"),
+        L("[ 1. CENTRAL STUDIO v12.0 ] Painel Gráfico, Telemetria & Moeda", "[ 1. CENTRAL STUDIO v12.0 ] Studio GUI, Telemetry & Currency"),
         COL_AMBER,
         hide_children=False,
     )
 
     builder.add_script(
         sec_central,
-        L("[ ★ ABRIR PAINEL STUDIO ] Interface Gráfica Pro v11.2 (PT-BR / EN)", "[ ★ OPEN PRO STUDIO GUI ] Graphical Dashboard v11.2 (EN / PT-BR)"),
+        L("[ ★ ABRIR PAINEL STUDIO ] Interface Gráfica Pro v12.0 (PT-BR / EN)", "[ ★ OPEN PRO STUDIO GUI ] Graphical Dashboard v12.0 (EN / PT-BR)"),
         make_lua_button_script("PES10.openDashboard()"),
         color=COL_BLUE,
     )
@@ -1001,7 +1001,7 @@ def build_edition(lang: str, output_ct: pathlib.Path) -> dict:
     # =========================================================================
     sec_player = builder.group(
         top_entries,
-        L("[ 3. JOGADOR, OVERALL DNA & CONTRATOS ] Edit Player v11.2 Pro (150+ Campos)", "[ 3. PLAYER, OVERALL DNA & CONTRACTS ] Edit Player v11.2 Pro (150+ Fields)"),
+        L("[ 3. JOGADOR, OVERALL DNA & CONTRATOS ] Edit Player v12.0 Pro (150+ Campos)", "[ 3. PLAYER, OVERALL DNA & CONTRACTS ] Edit Player v12.0 Pro (150+ Fields)"),
         COL_TEAL,
     )
 

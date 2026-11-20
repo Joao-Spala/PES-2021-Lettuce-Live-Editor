@@ -1,6 +1,6 @@
-# PES 2021 - Cheat Table v11.2 Ultimate Studio (PT-BR & EN)
+# PES 2021 - Cheat Table v12.0 Ultimate Studio (PT-BR & EN)
 
-![Version](https://img.shields.io/badge/Version-v11.2_Ultimate_Studio-38BDF8?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-v12.0_Ultimate_Studio-38BDF8?style=for-the-badge)
 ![PES 2021](https://img.shields.io/badge/eFootball_PES_2021-v1.7.2.0_(DP_7.0)-0095D9?style=for-the-badge)
 ![Editions](https://img.shields.io/badge/Editions-PT--BR_%7C_English-2EA043?style=for-the-badge)
 ![Sider Compatible](https://img.shields.io/badge/Sider_7.3_%2F_BMPES_16.0-100%25_Compatible-F59E0B?style=for-the-badge)
@@ -17,8 +17,8 @@ Cheat Table bilíngue (**PT-BR** e **EN**) para **eFootball PES 2021 (`v1.7.2.0`
 ### Como usar
 
 1. Baixe a versão no seu idioma em [`dist/`](dist):
-   - **PT-BR**: [`PES 2021 - v11.2 Ultimate Studio (PT-BR).CT`](dist/PES%202021%20-%20v11.2%20Ultimate%20Studio%20(PT-BR).CT)
-   - **EN**: [`PES 2021 - v11.2 Ultimate Studio (EN).CT`](dist/PES%202021%20-%20v11.2%20Ultimate%20Studio%20(EN).CT)
+   - **PT-BR**: [`PES 2021 - v12.0 Ultimate Studio (PT-BR).CT`](dist/PES%202021%20-%20v12.0%20Ultimate%20Studio%20(PT-BR).CT)
+   - **EN**: [`PES 2021 - v12.0 Ultimate Studio (EN).CT`](dist/PES%202021%20-%20v12.0%20Ultimate%20Studio%20(EN).CT)
 2. Abra o **PES 2021** e abra o `.CT` no **Cheat Engine 7.2+ (64-bit)** (aceite executar o script Lua).
 3. O anexo ao `PES2021.exe` e a ativação dos **6 Hooks Mestres** acontecem automaticamente (moeda padrão: `€`).
 4. Clique em **`[ ★ ABRIR PAINEL STUDIO ]`** para abrir a interface gráfica (troca de idioma `PT | EN` e moeda `€ / R$ / $ / £` no topo).
@@ -41,8 +41,8 @@ Bilingual (**EN** & **PT-BR**) Cheat Table for **eFootball PES 2021 (`v1.7.2.0`)
 ### Quick Start
 
 1. Download your edition from [`dist/`](dist):
-   - **EN**: [`PES 2021 - v11.2 Ultimate Studio (EN).CT`](dist/PES%202021%20-%20v11.2%20Ultimate%20Studio%20(EN).CT)
-   - **PT-BR**: [`PES 2021 - v11.2 Ultimate Studio (PT-BR).CT`](dist/PES%202021%20-%20v11.2%20Ultimate%20Studio%20(PT-BR).CT)
+   - **EN**: [`PES 2021 - v12.0 Ultimate Studio (EN).CT`](dist/PES%202021%20-%20v12.0%20Ultimate%20Studio%20(EN).CT)
+   - **PT-BR**: [`PES 2021 - v12.0 Ultimate Studio (PT-BR).CT`](dist/PES%202021%20-%20v12.0%20Ultimate%20Studio%20(PT-BR).CT)
 2. Launch **PES 2021** and open the `.CT` file in **Cheat Engine 7.2+ (64-bit)** (click **Yes** to run the Lua script).
 3. Auto-attaches to `PES2021.exe` and arms all **6 Master Hooks** automatically (default currency: `€`).
 4. Click **`[ ★ OPEN PRO STUDIO GUI ]`** to launch the Studio Dashboard (`PT | EN` and `€ / R$ / $ / £` toggles in the header).
