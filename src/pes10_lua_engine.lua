@@ -2437,8 +2437,26 @@ function PES10.getUserSquadPlayerAddresses()
   local career = PES10.readU64(PES10.symAddr("ptrCareer"))
   if career == 0 then return {}, 0 end
 
+  local count = PES10.readU32(career + 0x00D0BCE8)
+  if count == 0 or count > 30001 then count = 30000 end
+
+  local list = {}
+  local userClub = PES10.getUserClubHandle(career)
+  if userClub ~= 0 and userClub ~= 0xFFFFFFFF then
+    for i = 0, count - 1 do
+      local p = career + (i * 0x17C)
+      if PES10.readU32(p + 0x12C) == userClub then
+        local pid = PES10.readU32(p + 0x30)
+        if pid ~= 0 and pid ~= 0xFFFFFFFF then
+          list[#list + 1] = p
+        end
+      end
+    end
+    if #list > 0 then return list, career end
+  end
+
+  -- Fallback: squad training/bonus slot list at career + 0x016EE854
   local handles = {}
-  local userClubHandle = nil
   for slot = 0, 39 do
     local entry = career + 0x016EE854 + (slot * 0x34)
     local h = PES10.readU64(entry)
@@ -2446,29 +2464,10 @@ function PES10.getUserSquadPlayerAddresses()
       handles[h] = true
     end
   end
-
-  local count = PES10.readU32(career + 0x00D0BCE8)
-  if count == 0 or count > 30001 then count = 30000 end
-
-  local list = {}
   for i = 0, count - 1 do
     local p = career + (i * 0x17C)
-    local h = PES10.readU64(p + 0x2C)
-    if handles[h] then
+    if handles[PES10.readU64(p + 0x2C)] then
       list[#list + 1] = p
-      if not userClubHandle then
-        local ch = PES10.readU32(p + 0x12C)
-        if ch ~= 0 and ch ~= 0xFFFFFFFF then userClubHandle = ch end
-      end
-    end
-  end
-
-  if #list == 0 and userClubHandle then
-    for i = 0, count - 1 do
-      local p = career + (i * 0x17C)
-      if PES10.readU32(p + 0x12C) == userClubHandle then
-        list[#list + 1] = p
-      end
     end
   end
   return list, career
