@@ -1549,7 +1549,10 @@ function PES10.getPositionIsolationProfile(regPos, targetPos)
   return list
 end
 
--- Adjusts targetPos UP or DOWN to any targetOVR (40-99) while isolating attributes so primary OVR does not drift.
+-- Adjusts targetPos UP or DOWN to targetOVR (40-99) using ONLY stats that do not move the primary position.
+-- STRICT: the primary registered-position OVR is NEVER changed, and the position GRADE (C/B/A) is NEVER changed
+-- silently (the displayed OVR already includes the grade bonus; use the explicit Grade buttons to change it).
+-- If the target cannot be reached without touching the primary, it stops at the closest reachable value.
 -- Returns: ok, oldTgtOVR, newTgtOVR, oldPriOVR, newPriOVR, diffSummary
 function PES10.boostSecondaryPositionIsolated(playerAddr, targetPos, targetOVR, skipUndo)
   if not playerAddr or playerAddr <= 0x10000 or not PES10.isAttached() then
@@ -1565,76 +1568,64 @@ function PES10.boostSecondaryPositionIsolated(playerAddr, targetPos, targetOVR, 
     return ok, o1, o2, o1, o2, ""
   end
 
-  local curApt = PES10.getPosAptitude(playerAddr, targetPos)
-  local useAptA = (targetOVR > PES10.calcPlayerOVRFromBuf(origBuf, targetPos, false)) or (curApt >= 2)
-  local curTgtOVR = PES10.calcPlayerOVRFromBuf(origBuf, targetPos, useAptA)
+  -- OVR exactly as the game shows it: stats + the position's CURRENT grade bonus
+  local curTgtOVR = PES10.calcPlayerOVRFromBuf(origBuf, targetPos, false)
   if curTgtOVR == targetOVR then
-    if useAptA and curApt < 2 then
-      if not skipUndo then PES10.pushPlayerUndo(playerAddr, PES10.T("Grau A " .. PES10.posShort(targetPos), "Grade A " .. PES10.posShort(targetPos))) end
-      PES10.setPosAptitude(playerAddr, targetPos, 2, true)
-    end
     return true, curTgtOVR, curTgtOVR, origPriOVR, origPriOVR, ""
   end
 
   local dir = (targetOVR > curTgtOVR) and 1 or -1
-  if not skipUndo then
-    PES10.pushPlayerUndo(playerAddr, string.format("Iso %s->%d", PES10.posShort(targetPos), targetOVR))
-  end
-
   local profile = PES10.getPositionIsolationProfile(regPos, targetPos)
   if #profile == 0 then
-    local ok, o1, o2 = PES10.scalePlayerToTargetOVR(playerAddr, targetOVR, targetPos, true)
-    local newPri = PES10.calcPlayerOVR(playerAddr)
-    return ok, o1, o2, origPriOVR, newPri, ""
+    return true, curTgtOVR, curTgtOVR, origPriOVR, origPriOVR, ""
   end
 
   local cand = copyByteBuf(origBuf)
-  if useAptA then bufSetPosAptitude(cand, targetPos, 2) end
   local changed = {}
   for _, item in ipairs(profile) do changed[item.fid] = 0 end
 
-  local function reachedGoal()
-    local cur = PES10.calcPlayerOVRFromBuf(cand, targetPos, useAptA)
-    return (dir == 1 and cur >= targetOVR) or (dir == -1 and cur <= targetOVR)
-  end
-
-  -- Progressive relaxation: Phase 0 = STRICT zero primary OVR drift (0), then 1, 2, 99 if saturated
-  local maxPriDrifts = { 0, 1, 2, 99 }
-  for _, drift in ipairs(maxPriDrifts) do
-    local safety = 0
-    while not reachedGoal() and safety < 320 do
-      safety = safety + 1
-      local bestFid, bestScore = nil, -1
-      for _, item in ipairs(profile) do
-        local cv = bufGetStat(cand, item.fid)
-        local canStep = (dir == 1 and cv < 99) or (dir == -1 and cv > 40)
-        if canStep then
-          local sc = item.isoScore / (1.0 + 0.35 * (changed[item.fid] or 0))
-          if sc > bestScore then
-            bufSetStat(cand, item.fid, cv + dir)
-            local testPri = PES10.calcPlayerOVRFromBuf(cand, regPos)
-            bufSetStat(cand, item.fid, cv)
-            local priOk = (dir == 1 and testPri <= origPriOVR + drift) or (dir == -1 and testPri >= origPriOVR - drift)
-            if priOk then
-              bestScore = sc
-              bestFid = item.fid
-            end
+  local safety = 0
+  while safety < 500 do
+    local cur = PES10.calcPlayerOVRFromBuf(cand, targetPos, false)
+    if cur == targetOVR or (dir == 1 and cur > targetOVR) or (dir == -1 and cur < targetOVR) then break end
+    safety = safety + 1
+    local bestFid, bestScore = nil, -1
+    for _, item in ipairs(profile) do
+      local cv = bufGetStat(cand, item.fid)
+      local canStep = (dir == 1 and cv < 99) or (dir == -1 and cv > 40)
+      if canStep then
+        local sc = item.isoScore / (1.0 + 0.35 * (changed[item.fid] or 0))
+        if sc > bestScore then
+          bufSetStat(cand, item.fid, cv + dir)
+          local testPri = PES10.calcPlayerOVRFromBuf(cand, regPos)
+          local testTgt = PES10.calcPlayerOVRFromBuf(cand, targetPos, false)
+          bufSetStat(cand, item.fid, cv)
+          local overshoot = (dir == 1 and testTgt > targetOVR) or (dir == -1 and testTgt < targetOVR)
+          if testPri == origPriOVR and not overshoot then
+            bestScore = sc
+            bestFid = item.fid
           end
         end
       end
-      if not bestFid then break end
-      bufSetStat(cand, bestFid, bufGetStat(cand, bestFid) + dir)
-      changed[bestFid] = (changed[bestFid] or 0) + 1
     end
-    if reachedGoal() then break end
+    if not bestFid then break end
+    bufSetStat(cand, bestFid, bufGetStat(cand, bestFid) + dir)
+    changed[bestFid] = (changed[bestFid] or 0) + 1
   end
 
+  local newTgtOVR = PES10.calcPlayerOVRFromBuf(cand, targetPos, false)
+  local newPriOVR = PES10.calcPlayerOVRFromBuf(cand, regPos)
+  if newTgtOVR == curTgtOVR then
+    -- Nothing reachable without touching the primary position: leave the player untouched
+    return true, curTgtOVR, curTgtOVR, origPriOVR, origPriOVR, ""
+  end
+
+  if not skipUndo then
+    PES10.pushPlayerUndo(playerAddr, string.format("Iso %s->%d", PES10.posShort(targetPos), newTgtOVR))
+  end
   writeBytes(playerAddr, cand)
-  if useAptA then PES10.setPosAptitude(playerAddr, targetPos, 2, true) end
   PES10.syncAllDynamicPointers()
 
-  local newTgtOVR = PES10.calcPlayerOVRFromBuf(cand, targetPos, useAptA)
-  local newPriOVR = PES10.calcPlayerOVRFromBuf(cand, regPos)
   local diffList = {}
   for _, item in ipairs(profile) do
     local d = changed[item.fid] or 0
@@ -1649,24 +1640,31 @@ function PES10.boostSecondaryPositionIsolated(playerAddr, targetPos, targetOVR, 
   return true, curTgtOVR, newTgtOVR, origPriOVR, newPriOVR, table.concat(parts, ", ")
 end
 
+-- Human note when the exact requested OVR could not be reached without touching the primary position
+local function isoLimitNote(requested, reached, curGradeIsA)
+  if reached == requested then return "" end
+  if curGradeIsA then
+    return PES10.T(" | limite: " .. reached .. " sem mexer na principal", " | limit: " .. reached .. " without touching the primary")
+  end
+  return PES10.T(" | limite: " .. reached .. " sem mexer na principal (suba o Grau p/ ganhar bÃ´nus)", " | limit: " .. reached .. " without touching the primary (raise the Grade for a bonus)")
+end
+
 function PES10.matchSecondaryToPrimaryOVR(playerAddr, targetPos)
   local p = playerAddr or PES10.getSelectedPlayerOrWarn()
   if not p or p == 0 then return false end
   local origPri, regPos = PES10.calcPlayerOVR(p)
   if targetPos == regPos then
-    PES10.toast(PES10.T("Escolha uma posição secundária diferente da principal!", "Pick a secondary position different from primary!"))
+    PES10.toast(PES10.T("Escolha uma posiÃ§Ã£o secundÃ¡ria diferente da principal!", "Pick a secondary position different from primary!"))
     return false
   end
   local pName = readString(p + 0x38, 34, false) or PES10.T("Atleta", "Player")
   local ok, oT, nT, oP, nP, diffStr = PES10.boostSecondaryPositionIsolated(p, targetPos, origPri, false)
   if ok then
-    local priDelta = nP - oP
-    local priNote = (priDelta == 0)
-      and string.format(PES10.T("%s mantido em %d (+0)", "%s kept at %d (+0)"), PES10.posShort(regPos), nP)
-      or string.format("%s %d→%d (+%d)", PES10.posShort(regPos), oP, nP, priDelta)
+    local note = isoLimitNote(origPri, nT, PES10.getPosAptitude(p, targetPos) >= 2)
+    local priNote = string.format(PES10.T("%s mantido em %d", "%s kept at %d"), PES10.posShort(regPos), nP)
     PES10.toast(string.format(
-      "%s: %s %d→%d | %s%s",
-      pName, PES10.posShort(targetPos), oT, nT, priNote, (diffStr ~= "" and (" [" .. diffStr .. "]") or "")
+      "%s: %s %dâ†’%d | %s%s%s",
+      pName, PES10.posShort(targetPos), oT, nT, priNote, (diffStr ~= "" and (" [" .. diffStr .. "]") or ""), note
     ))
   end
   return ok, oT, nT, oP, nP, diffStr
@@ -1698,7 +1696,7 @@ function PES10.applyPlayerEternalPeak(playerAddr)
   return true
 end
 
--- Step +1 or -1 OVR (or exact target OVR) in any target position with isolated primary protection!
+-- Set the OVR of ANY position to an exact value (primary OVR is never touched when editing a secondary position)
 function PES10.setTargetPositionExactOVR(targetPos, desiredOVR)
   local p = PES10.getSelectedPlayerOrWarn()
   if p == 0 then return false end
@@ -1713,14 +1711,11 @@ function PES10.setTargetPositionExactOVR(targetPos, desiredOVR)
   if targetPos ~= regPos then
     local ok, oT, nT, oP, nP, diffStr = PES10.boostSecondaryPositionIsolated(p, targetPos, tgt, false)
     if ok then
-      local priDelta = nP - oP
-      local priSign = (priDelta > 0) and "+" or ""
-      local priNote = (priDelta == 0)
-        and string.format(PES10.T("%s mantido em %d (0)", "%s kept at %d (0)"), PES10.posShort(regPos), nP)
-        or string.format("%s %d->%d (%s%d)", PES10.posShort(regPos), oP, nP, priSign, priDelta)
+      local note = isoLimitNote(tgt, nT, PES10.getPosAptitude(p, targetPos) >= 2)
+      local priNote = string.format(PES10.T("%s mantido em %d", "%s kept at %d"), PES10.posShort(regPos), nP)
       PES10.toast(string.format(
-        "%s: %s %d->%d | %s%s",
-        pName, posCodeLbl, oT, nT, priNote, (diffStr ~= "" and (" [" .. diffStr .. "]") or "")
+        "%s: %s %d->%d | %s%s%s",
+        pName, posCodeLbl, oT, nT, priNote, (diffStr ~= "" and (" [" .. diffStr .. "]") or ""), note
       ))
     end
     return ok, oT, nT, oP, nP, diffStr
@@ -1741,14 +1736,13 @@ function PES10.stepTargetPositionOVR(targetPos, delta)
   if p == 0 then return false end
   local origBuf = readBytes(p, 0x28, true)
   if not origBuf or #origBuf < 0x28 then return false end
-  local _, regPos = PES10.calcPlayerOVRFromBuf(origBuf)
   local d = delta or 1
-  local useAptA = (d > 0) or (PES10.getPosAptitude(p, targetPos) >= 2)
-  local curPosOVR = PES10.calcPlayerOVRFromBuf(origBuf, targetPos, (targetPos ~= regPos) and useAptA or false)
+  -- Step is always relative to the OVR the game currently shows for that position (grade bonus included)
+  local curPosOVR = PES10.calcPlayerOVRFromBuf(origBuf, targetPos, false)
   local newTargetOVR = math.max(40, math.min(99, curPosOVR + d))
   if newTargetOVR == curPosOVR then
     PES10.toast(string.format(
-      PES10.T("Já está no limite (%d OVR em %s).", "Already at limit (%d OVR in %s)."),
+      PES10.T("JÃ¡ estÃ¡ no limite (%d OVR em %s).", "Already at limit (%d OVR in %s)."),
       curPosOVR, PES10.posShort(targetPos)
     ))
     return false
@@ -3752,8 +3746,8 @@ function PES10.openPositionLabModal()
 
   local hdr = makeModalLabel(hdrBar, S(16), S(10), W - S(32), S(22), "", 11, M_TEXT, true)
   local sub = makeModalLabel(hdrBar, S(16), S(34), W - S(32), S(18),
-    PES10.T("Clique nas colunas para ordenar  •  Duplo-clique aplica +1 OVR isolado na posição",
-            "Click headers to sort  •  Double-click applies +1 isolated OVR on that position"),
+    PES10.T("OVR já inclui o bônus do Grau. A posição principal nunca é alterada ao editar outra.",
+            "OVR includes the Grade bonus. The primary position is never altered when editing another."),
     8, M_SUBTEXT, false)
 
   local grid = createStudioGrid(f, S(16), S(70), W - S(32), S(300), {
@@ -3767,8 +3761,8 @@ function PES10.openPositionLabModal()
 
   local lblIso = makeModalLabel(f, S(16), S(378), W - S(32), S(18), "", 8, M_BLUE, true)
   local lblLog = makeModalLabel(f, S(16), S(398), W - S(32), S(18),
-    PES10.T("Selecione qualquer posição para editar -1 / +1 / OVR exato ou Grau A/B/C.",
-            "Select any position to adjust -1 / +1 / exact OVR or Grade A/B/C."),
+    PES10.T("Duplo-clique = +1 OVR isolado. Use Grau A/B/C abaixo para mudar o bônus da posição.",
+            "Double-click = +1 isolated OVR. Use Grade A/B/C below to change the position bonus."),
     8, M_GREEN, false)
 
   local posOrder = {12, 11, 9, 10, 8, 6, 7, 5, 4, 2, 3, 1, 0}
