@@ -1,5 +1,5 @@
 """
-PES 2021 Ultimate Studio - Standalone Windows Desktop App (EXE).
+PES 2021 Workbench - Standalone Windows Desktop App (EXE).
 Launches a native Microsoft Edge WebView2 window backed by our pure Win32Memory
 and x64 HookManager engine. Restores all game hooks cleanly on exit.
 """

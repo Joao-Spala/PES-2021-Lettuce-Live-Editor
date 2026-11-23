@@ -1,6 +1,6 @@
 """
 Builds the standalone Windows executable:
-  dist/PES 2021 Ultimate Studio.exe
+  dist/PES 2021 Workbench.exe
 Requires app/.venv with pywebview + pyinstaller installed.
 """
 

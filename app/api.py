@@ -1,5 +1,5 @@
 """
-pywebview JS <-> Python API Bridge for PES 2021 Ultimate Studio.
+pywebview JS <-> Python API Bridge for PES 2021 Workbench.
 All inputs are safely coerced so malformed JS arguments never raise uncaught exceptions.
 """
 
@@ -67,6 +67,9 @@ class StudioAPI:
 
     def step_player_ovr(self, delta: Any) -> Dict[str, Any]:
         return self.engine.step_player_ovr(_safe_int(delta, 0) or 0)
+
+    def set_player_ovr(self, target_ovr: Any) -> Dict[str, Any]:
+        return self.engine.set_player_ovr(_safe_int(target_ovr, 40) or 40)
 
     def update_player_bio(self, payload: Any) -> Dict[str, Any]:
         return self.engine.update_player_bio(payload if isinstance(payload, dict) else {})
@@ -151,7 +154,8 @@ class StudioAPI:
         return self.engine.set_stamina_mode(_safe_int(mode, 0) or 0)
 
     def set_bal_focus(self, points: Any, lock_enabled: Any) -> Dict[str, Any]:
-        return self.engine.set_bal_focus(_safe_int(points, 21) or 0, bool(lock_enabled))
+        pts = _safe_int(points)
+        return self.engine.set_bal_focus(21 if pts is None else pts, bool(lock_enabled))
 
     def set_freeze_clock(self, freeze: Any) -> Dict[str, Any]:
         return self.engine.set_freeze_clock(bool(freeze))

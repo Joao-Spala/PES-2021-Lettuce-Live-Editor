@@ -1,4 +1,4 @@
-/* PES 2021 Ultimate Studio - Round 2 Senior Frontend (AAA Studio + 100% PT-BR / EN) */
+/* PES 2021 Workbench - Standalone Frontend (WebView2 + 100% PT-BR / EN) */
 
 let META = null;
 let LANG = (function () {
@@ -55,11 +55,19 @@ let JSON_MODAL_MODE = "export";
 let IS_POLLING = false;
 let IS_SEARCHING = false;
 let IS_SQUAD_BUSY = false;
+let IS_OVR_BUSY = false;
 let BAL_DIRTY = false;
 let CMD_SELECTED = 0;
 
 const api = () => (window.pywebview && window.pywebview.api) || null;
 const T = (pt, en) => (LANG === "en" ? en : pt);
+
+function normText(str) {
+  return String(str ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 
 function escapeHtml(str) {
   return String(str ?? "")
@@ -94,8 +102,58 @@ const I18N = {
     tip_back: "Voltar para a tela anterior (Alt+←)",
     tip_undo: "Desfazer última edição do atleta (Ctrl+Z)",
     tip_font: "Escolher fonte da interface",
-    tip_currency: "Alternar moeda de exibição",
+    tip_currency: "Alternar moeda de exibição (€, R$, $, £)",
+    tip_lang: "Alternar idioma entre Português e Inglês",
     tip_reconnect: "Clique para reconectar ao PES 2021 / Football Life",
+    tip_salary_avail: "Valor real livre para novos contratos (Teto Bruto menos folha ativa e pendentes)",
+    tip_wage_bill: "Soma dos salários anuais de todos os atletas atualmente no seu clube",
+    tip_gross_cap: "Orçamento salarial bruto interno da Master League antes de descontar a folha",
+    tip_hooks_status: "Os recursos x64 são ligados automaticamente só quando ativados e restaurados ao fechar",
+    tip_arrow_blue: "Aplica seta azul (forma máxima) elevando o rendimento em partida",
+    tip_sq_stam: "Restaura o fôlego de todos os atletas do seu clube para 100%",
+    tip_sq_arrow: "Coloca seta azul (forma máxima) em todo o elenco",
+    tip_sq_heal: "Zera os dias de lesão de todos os atletas lesionados do elenco",
+    tip_sq_contract: "Estende em +5 anos os contratos mais curtos sem encurtar quem já tem vínculo longo",
+    tip_sq_ovr1: "Sobe +1 OVR em cada jogador do elenco preservando a proporção natural de atributos",
+    tip_ovr_m1: "Desce 1 ponto de Overall geral mantendo a proporção natural dos atributos (DNA)",
+    tip_ovr_p1: "Sobe 1 ponto de Overall geral mantendo a proporção natural dos atributos (DNA)",
+    tip_ovr_dna: "Usa a fórmula exata da Konami com distribuição proporcional de Hamilton para evoluir o OVR sem distorcer o estilo do atleta",
+    tip_target_ovr: "Digite o Overall desejado (40 a 99) e pressione Enter para ajustar mantendo o DNA",
+    tip_all_99: "Define todos os atributos ativos para 99 (descaracteriza o perfil original do atleta)",
+    tip_add_fav: "Adiciona o atleta à lista nativa de Favoritos (Shortlist) sem alterar contrato ou cláusulas",
+    tip_export_json: "Exporta todos os atributos, bio e habilidades deste jogador em formato JSON",
+    tip_import_json: "Restaura os dados de um jogador a partir de um backup JSON",
+    tip_stam_input: "Digite o fôlego exato (0 a 100) ou arraste a barra ao lado",
+    tip_form_arrow: "Define a condição pré-jogo do atleta. Afeta temporariamente os atributos durante a partida",
+    tip_arr_4: "Forma máxima: bônus alto nos atributos em campo",
+    tip_arr_3: "Boa forma: leve aumento nos atributos em campo",
+    tip_arr_2: "Forma normal: atributos padrão sem bônus ou penalidade",
+    tip_arr_1: "Forma baixa: leve queda de rendimento em campo",
+    tip_arr_0: "Péssima forma: queda acentuada nos atributos em campo",
+    tip_rejuv_3: "Reduz a idade atual em 3 anos",
+    tip_age_18: "Define a idade para 18 anos para maximizar o ciclo de evolução",
+    tip_wfu: "Frequência com que o atleta escolhe usar o pé não dominante (1 = raro, 4 = frequente)",
+    tip_wfa: "Qualidade de passes e chutes feitos com o pé não dominante (1 = baixa, 4 = quase igual ao pé bom)",
+    tip_form_cons: "Estabilidade de 1 a 8. Quanto maior, maior a chance de vir com seta verde ou azul nas partidas",
+    tip_injres: "Resistência física contra lesões durante partidas e treinos (1 = frágil, 3 = muito resistente)",
+    tip_tlist: "Marca o atleta na lista de transferências da Master League",
+    tip_llist: "Marca o atleta como disponível para empréstimo na Master League",
+    tip_grade_a: "Grau A (Total): libera o bônus completo de OVR na posição secundária (+4 a +5 OVR)",
+    tip_grade_b: "Grau B (Parcial): libera bônus intermediário de OVR na posição secundária (+2 a +3 OVR)",
+    tip_grade_c: "Grau C (Sem familiaridade): sem bônus de Grau na posição secundária (+0 OVR)",
+    tip_pos_grade: "Familiaridade na posição (C, B ou A). Subir para A libera bônus direto no OVR da posição",
+    tip_pos_iso: "Sobe ou desce 1 OVR na posição secundária usando contrapeso exato sem alterar o OVR principal",
+    tip_playing_style: "Define a inteligência de movimentação sem bola nas posições compatíveis",
+    tip_player_skills: "Passe o mouse em qualquer habilidade para ver o efeito exato em campo. O limite nativo do jogo é 10",
+    tip_com_ai: "Define tendências de decisão quando o jogador está sob controle da IA (CPU ou modo SIM)",
+    tip_team_role: "Papel do atleta no elenco da Master League. Gera bônus de XP em treino, Espírito de Equipe e receitas",
+    tip_role_lvl: "Níveis mais altos amplificam os bônus de treino, moral e receita da função escolhida",
+    tip_match_stam: "Controla o desgaste de fôlego em tempo real durante a partida",
+    tip_press_home: "Mantém o time da casa em 100% e reduz o visitante para 5% de fôlego",
+    tip_press_away: "Mantém o visitante em 100% e reduz o time da casa para 5% de fôlego",
+    tip_sub_xp: "Multiplica o ganho de experiência interna (Sub-XP) nos treinos do seu clube, base e BAL",
+    tip_bal_focus: "Desbloqueia o teto de 21 Pontos de Foco no Rumo ao Estrelato, permitindo até 99 pontos",
+    tip_bal_lock: "Mantém os Pontos de Foco travados no valor definido enquanto você distribui as barras",
     btn_back: "Voltar",
     btn_open_finances: "Ver Finanças Completas",
     btn_undo: "Desfazer",
@@ -127,7 +185,7 @@ const I18N = {
     cmd_arrow_squad: "Seta Azul (Elenco)",
     cmd_heal_squad: "Curar Todas Lesões",
     cmd_contract_squad: "Renovar Contratos +5 Anos",
-    cmd_ovr1_squad: "+1 OVR no Elenco",
+    cmd_ovr1_squad: "+1 OVR no Elenco (DNA)",
     dash_active_hooks: "Status dos Recursos x64",
     short_squad: "Abrir Meu Elenco",
     short_search: "Buscar nos 30.000+ Atletas",
@@ -192,16 +250,16 @@ const I18N = {
     lbl_injres: "Resistência a Lesões (1-3)",
     lbl_transfer_listed: "Listado para Transferência",
     lbl_loan_listed: "Listado para Empréstimo",
-    stats_hint: "Ajuste qualquer atributo em tempo real. O OVR e o radar recalculam instantaneamente.",
+    dna_bar_title: "Evolução de OVR Geral (Mantendo DNA)",
+    dna_bar_sub: "Sobe ou desce o Overall distribuindo pontos na proporção exata dos atributos do atleta.",
+    lbl_target_ovr: "Alvo:",
+    stats_hint: "Clique no número para digitar (40-99), arraste com precisão ou segure Shift para ajuste fino.",
     radar_title: "Perfil Técnico (6 Eixos)",
     pitch_title: "Mapa Tático (13 Posições)",
     grade_a: "Grau A",
     grade_b: "Grau B",
     grade_c: "Grau C",
     btn_all_99: "Tudo 99",
-    btn_all_90: "Tudo 90",
-    btn_all_80: "Tudo 80",
-    btn_plus5_all: "+5 em Todos",
     poslab_title: "Lab de Posições (Precisão Cirúrgica)",
     poslab_hint: "OVR já inclui bônus do Grau. +1/-1 move 1 por vez e a posição principal nunca é alterada.",
     card_playing_style: "Estilo de Jogo (Playing Style)",
@@ -286,8 +344,58 @@ const I18N = {
     tip_back: "Go back to previous view (Alt+←)",
     tip_undo: "Undo last edit on this player (Ctrl+Z)",
     tip_font: "Choose UI font family",
-    tip_currency: "Cycle display currency",
+    tip_currency: "Cycle display currency (€, R$, $, £)",
+    tip_lang: "Toggle language between Portuguese and English",
     tip_reconnect: "Click to reconnect to PES 2021 / Football Life",
+    tip_salary_avail: "Actual budget available for new contracts (Gross Cap minus active wages and pending overrides)",
+    tip_wage_bill: "Sum of annual salaries for all players currently in your club",
+    tip_gross_cap: "Internal Master League gross salary cap before deducting squad wages",
+    tip_hooks_status: "Native x64 features arm automatically only when enabled and restore cleanly on exit",
+    tip_arrow_blue: "Applies top form arrow (Blue) for maximum in-match boost",
+    tip_sq_stam: "Restores stamina to 100% for every player in your club",
+    tip_sq_arrow: "Sets top Blue form arrow for your entire squad",
+    tip_sq_heal: "Clears injury days for every injured player in your squad",
+    tip_sq_contract: "Extends shorter contracts by +5 years without reducing longer deals",
+    tip_sq_ovr1: "Raises every squad player by +1 OVR while preserving each player's stat proportions",
+    tip_ovr_m1: "Lowers Overall rating by 1 while keeping the player's natural stat proportions (DNA)",
+    tip_ovr_p1: "Raises Overall rating by 1 while keeping the player's natural stat proportions (DNA)",
+    tip_ovr_dna: "Uses Konami's exact formula with Hamilton proportional scaling to raise or lower OVR without breaking player identity",
+    tip_target_ovr: "Type any target Overall (40 to 99) and press Enter to scale while preserving DNA",
+    tip_all_99: "Sets all active attributes to 99 (replaces the player's original profile)",
+    tip_add_fav: "Adds this player to the native Master League Shortlist without altering contracts or clauses",
+    tip_export_json: "Exports this player's bio, attributes, and skills as JSON",
+    tip_import_json: "Restores a player from a saved JSON backup",
+    tip_stam_input: "Type exact stamina (0 to 100) or drag the bar",
+    tip_form_arrow: "Sets pre-match condition arrow. Temporarily boosts or lowers match stats",
+    tip_arr_4: "Top form: strong temporary boost to match attributes",
+    tip_arr_3: "Good form: slight boost to match attributes",
+    tip_arr_2: "Normal form: base attributes with no modifier",
+    tip_arr_1: "Poor form: slight drop in match attributes",
+    tip_arr_0: "Worst form: significant drop in match attributes",
+    tip_rejuv_3: "Lowers current age by 3 years",
+    tip_age_18: "Sets age to 18 to maximize the development cycle",
+    tip_wfu: "How often the player chooses to use his weaker foot (1 = rarely, 4 = frequently)",
+    tip_wfa: "Quality of passes and shots with the weaker foot (1 = low, 4 = near strong foot)",
+    tip_form_cons: "Consistency from 1 to 8. Higher values increase the chance of green or blue match arrows",
+    tip_injres: "Resistance to injuries in matches and training (1 = fragile, 3 = highly resistant)",
+    tip_tlist: "Places the player on the Master League transfer list",
+    tip_llist: "Makes the player available for loan in Master League",
+    tip_grade_a: "Grade A (Full): unlocks the full secondary position OVR bonus (+4 to +5 OVR)",
+    tip_grade_b: "Grade B (Partial): unlocks intermediate secondary position OVR bonus (+2 to +3 OVR)",
+    tip_grade_c: "Grade C (Unfamiliar): zero Grade bonus in this secondary position (+0 OVR)",
+    tip_pos_grade: "Position familiarity (C, B, or A). Raising to A adds a direct OVR bonus in that position",
+    tip_pos_iso: "Steps secondary position OVR 1 by 1 using exact counterbalance while locking primary OVR",
+    tip_playing_style: "Controls off-the-ball movement intelligence when playing in compatible positions",
+    tip_player_skills: "Hover any skill to see its exact on-pitch effect. Default game cap is 10 skills",
+    tip_com_ai: "Controls decision tendencies when the player is managed by AI (CPU or SIM mode)",
+    tip_team_role: "Master League squad role. Grants training EXP boosts, Team Spirit, and club revenue perks",
+    tip_role_lvl: "Higher levels amplify the training, morale, and financial perks of the selected role",
+    tip_match_stam: "Controls real-time stamina drain during live matches",
+    tip_press_home: "Locks Home team at 100% stamina and drains Away team to 5%",
+    tip_press_away: "Locks Away team at 100% stamina and drains Home team to 5%",
+    tip_sub_xp: "Multiplies internal training experience (Sub-XP) for your club, youth team, and BAL",
+    tip_bal_focus: "Unlocks the 21 Focus Points cap in Become a Legend, allowing up to 99 points",
+    tip_bal_lock: "Keeps Focus Points locked at the target value while allocating training bars",
     btn_back: "Back",
     btn_open_finances: "Full Finances View",
     btn_undo: "Undo",
@@ -319,7 +427,7 @@ const I18N = {
     cmd_arrow_squad: "Blue Arrow (Squad)",
     cmd_heal_squad: "Heal All Injuries",
     cmd_contract_squad: "Extend Contracts +5 Years",
-    cmd_ovr1_squad: "+1 OVR to Squad",
+    cmd_ovr1_squad: "+1 OVR to Squad (DNA)",
     dash_active_hooks: "Native x64 Features Status",
     short_squad: "Open My Squad",
     short_search: "Search 30,000+ Players",
@@ -384,16 +492,16 @@ const I18N = {
     lbl_injres: "Injury Resistance (1-3)",
     lbl_transfer_listed: "Transfer Listed",
     lbl_loan_listed: "Loan Listed",
-    stats_hint: "Adjust any attribute in real time. Overall and radar recalculate immediately.",
+    dna_bar_title: "Overall Evolution (DNA Preserving)",
+    dna_bar_sub: "Raises or lowers Overall by scaling stats in the exact natural proportion of the player.",
+    lbl_target_ovr: "Target:",
+    stats_hint: "Click any number to type (40-99), drag smoothly, or hold Shift for ultra-fine control.",
     radar_title: "Technical Profile (6 Axes)",
     pitch_title: "Tactical Pitch (13 Positions)",
     grade_a: "Grade A",
     grade_b: "Grade B",
     grade_c: "Grade C",
     btn_all_99: "All 99",
-    btn_all_90: "All 90",
-    btn_all_80: "All 80",
-    btn_plus5_all: "+5 All Stats",
     poslab_title: "Position Lab (Surgical Precision)",
     poslab_hint: "Displayed OVR includes Grade bonus. +1/-1 steps 1 by 1 and primary position is never altered.",
     card_playing_style: "Playing Style",
@@ -469,6 +577,7 @@ function fmtCodeMsg(res) {
     case "no_player": return tKey("no_player");
     case "nothing_to_undo": return T("Nenhuma alteração para desfazer.", "Nothing to undo.");
     case "invalid_money": return T("Valor monetário inválido (use ex: 25M, 500k ou 1.5B).", "Invalid money amount (use e.g. 25M, 500k or 1.5B).");
+    case "not_in_match": return T("Entre em uma partida para congelar o relógio.", "Start a match first to freeze the clock.");
     case "hook_failed": return T("Não foi possível ativar o hook x64 neste executável.", "Could not activate x64 hook on this executable.");
     case "already_at_ovr": return T(`Já está em ${res.ovr} OVR.`, `Already at ${res.ovr} OVR.`);
     case "pri_updated": return T(`OVR Principal: ${res.orig} -> ${res.final}`, `Primary OVR: ${res.orig} -> ${res.final}`);
@@ -552,8 +661,108 @@ const ARROW_ICONS = [
 ];
 
 // -------------------------------------------------------------------
+// CUSTOM FLOATING DARK TOOLTIP ENGINE
+// -------------------------------------------------------------------
+let TIP_TIMER = null;
+let TIP_TARGET = null;
+
+function hideTooltip() {
+  clearTimeout(TIP_TIMER);
+  TIP_TIMER = null;
+  TIP_TARGET = null;
+  const box = document.getElementById("wb-tooltip");
+  if (box) box.classList.remove("show");
+}
+
+function showTooltipFor(el) {
+  const box = document.getElementById("wb-tooltip");
+  if (!box || !el || !document.body.contains(el)) return;
+  const i18nKey = el.getAttribute("data-i18n-tip");
+  const body = i18nKey ? tKey(i18nKey) : (el.getAttribute("data-tip") || "");
+  const title = el.getAttribute("data-tip-title") || "";
+  if (!body && !title) return;
+
+  box.innerHTML =
+    (title ? `<div class="wb-tip-title">${escapeHtml(title)}</div>` : "") +
+    (body ? `<div class="wb-tip-body">${escapeHtml(body)}</div>` : "");
+
+  box.style.left = "-9999px";
+  box.style.top = "-9999px";
+  box.classList.add("show");
+
+  const r = el.getBoundingClientRect();
+  const bw = box.offsetWidth;
+  const bh = box.offsetHeight;
+  const pad = 10;
+
+  let x = r.left + (r.width - bw) / 2;
+  x = Math.max(pad, Math.min(window.innerWidth - bw - pad, x));
+
+  let y = r.top - bh - 8;
+  if (y < pad) y = r.bottom + 8;
+  if (y + bh > window.innerHeight - pad) {
+    y = Math.max(pad, window.innerHeight - bh - pad);
+  }
+
+  box.style.left = `${Math.round(x)}px`;
+  box.style.top = `${Math.round(y)}px`;
+}
+
+function initTooltips() {
+  document.addEventListener("mouseover", e => {
+    const t = e.target && e.target.closest ? e.target.closest("[data-tip], [data-i18n-tip]") : null;
+    if (!t) {
+      if (TIP_TARGET) hideTooltip();
+      return;
+    }
+    if (t === TIP_TARGET) return;
+    hideTooltip();
+    TIP_TARGET = t;
+    TIP_TIMER = setTimeout(() => showTooltipFor(t), 120);
+  });
+  document.addEventListener("mouseout", e => {
+    if (!TIP_TARGET) return;
+    const rel = e.relatedTarget;
+    if (!rel || !TIP_TARGET.contains(rel)) hideTooltip();
+  });
+  document.addEventListener("mousedown", hideTooltip);
+  document.addEventListener("scroll", hideTooltip, true);
+  window.addEventListener("blur", hideTooltip);
+}
+
+// -------------------------------------------------------------------
 // LANGUAGE & CURRENCY
 // -------------------------------------------------------------------
+function updatePlayingStyleInfo() {
+  if (!META) return;
+  const sel = document.getElementById("p-playing-style");
+  const descEl = document.getElementById("p-style-desc");
+  const posEl = document.getElementById("p-style-pos");
+  if (!sel || !descEl) return;
+  const sid = Number(sel.value || 0);
+  const st = META.playing_styles.find(x => x.id === sid);
+  if (!st) {
+    descEl.textContent = "";
+    if (posEl) posEl.textContent = "";
+    return;
+  }
+  descEl.textContent = LANG === "en" ? st.desc_en : st.desc_pt;
+  if (posEl) {
+    const posTxt = LANG === "en" ? st.pos_en : st.pos_pt;
+    posEl.textContent = `${T("Ativa em", "Active at")}: ${posTxt}`;
+  }
+}
+
+function updateTeamRoleInfo() {
+  if (!META) return;
+  const sel = document.getElementById("p-team-role");
+  const descEl = document.getElementById("p-role-desc");
+  if (!sel || !descEl) return;
+  const rid = Number(sel.value || 0);
+  const role = META.team_roles.find(x => x.id === rid);
+  descEl.textContent = role ? (LANG === "en" ? role.desc_en : role.desc_pt) : "";
+}
+
 function populateLocalizedSelects() {
   if (!META) return;
   const footEl = document.getElementById("bio-foot");
@@ -561,10 +770,17 @@ function populateLocalizedSelects() {
   footEl.innerHTML = `<option value="0">${escapeHtml(T("Direito", "Right"))}</option><option value="1">${escapeHtml(T("Esquerdo", "Left"))}</option>`;
   footEl.value = curFoot;
 
+  const styleEl = document.getElementById("p-playing-style");
+  const curStyle = styleEl.value || "0";
+  styleEl.innerHTML = META.playing_styles.map(s => `<option value="${s.id}">${escapeHtml(LANG === "en" ? s.en : s.pt)}</option>`).join("");
+  styleEl.value = curStyle;
+  updatePlayingStyleInfo();
+
   const roleEl = document.getElementById("p-team-role");
   const curRole = roleEl.value || "0";
   roleEl.innerHTML = META.team_roles.map(r => `<option value="${r.id}">${escapeHtml(LANG === "en" ? r.en : r.pt)}</option>`).join("");
   roleEl.value = curRole;
+  updateTeamRoleInfo();
 
   const lvlEl = document.getElementById("p-team-role-lvl");
   const curLvl = lvlEl.value || "0";
@@ -873,10 +1089,29 @@ function pulseOvrShield() {
   el.classList.add("pulse");
 }
 
+function setRangeVisual(rangeEl, val) {
+  if (!rangeEl) return;
+  const min = Number(rangeEl.min || 0);
+  const max = Number(rangeEl.max || 100);
+  const pct = max > min ? Math.max(0, Math.min(100, ((Number(val) - min) / (max - min)) * 100)) : 0;
+  rangeEl.value = String(val);
+  rangeEl.style.setProperty("--pct", `${pct.toFixed(1)}%`);
+}
+
 function updateHeroHeader(d) {
   const heroOvr = document.getElementById("p-hero-ovr");
   heroOvr.innerHTML = `${d.ovr}<small>OVR</small>`;
   heroOvr.className = `hero-shield ${ovrClass(d.ovr)}`;
+
+  const statsOvr = document.getElementById("stats-ovr-now");
+  if (statsOvr) {
+    statsOvr.textContent = String(d.ovr);
+    statsOvr.className = `ovr-badge ${ovrClass(d.ovr)}`;
+  }
+  const tgtInp = document.getElementById("inp-stats-target-ovr");
+  if (tgtInp && document.activeElement !== tgtInp) {
+    tgtInp.placeholder = String(Math.min(99, d.ovr + 1));
+  }
 
   const heroPos = document.getElementById("p-hero-pos");
   heroPos.textContent = posShort(d.reg_pos);
@@ -901,8 +1136,13 @@ function renderPlayerDetails(d) {
   updateHeroHeader(d);
 
   // Quick Condition & Injury pill
-  document.getElementById("inp-p-stam").value = d.stamina;
-  document.getElementById("lbl-p-stam").textContent = `${d.stamina}%`;
+  const stamRange = document.getElementById("inp-p-stam");
+  setRangeVisual(stamRange, d.stamina);
+  const stamNum = document.getElementById("inp-p-stam-num");
+  if (stamNum && document.activeElement !== stamNum) {
+    stamNum.value = String(d.stamina);
+    stamNum.className = `stat-num-inp ${ovrClass(d.stamina)}`;
+  }
   const injPill = document.getElementById("p-inj-pill");
   if (d.injury > 0) {
     injPill.className = "pill-inj";
@@ -943,6 +1183,7 @@ function renderPlayerDetails(d) {
   renderSkillsAndStyle(d);
   document.getElementById("p-team-role").value = String(d.team_role);
   document.getElementById("p-team-role-lvl").value = String(d.team_role_lvl);
+  updateTeamRoleInfo();
 
   if (scroller) scroller.scrollTop = prevScroll;
 }
@@ -1002,23 +1243,33 @@ function renderStatsRadar(stats) {
 
 function renderStatsGroups(d) {
   if (!META) return;
-  const groups = [
-    { id: "attack", title: T("Ataque", "Attack") },
-    { id: "tech", title: T("Técnica & Passe", "Technique & Passing") },
-    { id: "phys", title: T("Físico", "Physical") },
-    { id: "def", title: T("Defesa", "Defense") },
-    { id: "gk", title: T("Goleiro", "Goalkeeper") },
-  ];
+  const groups = d.reg_pos === 0
+    ? [
+        { id: "gk", title: T("Goleiro", "Goalkeeper") },
+        { id: "phys", title: T("Físico", "Physical") },
+        { id: "tech", title: T("Técnica & Passe", "Technique & Passing") },
+        { id: "def", title: T("Defesa", "Defense") },
+        { id: "attack", title: T("Ataque", "Attack") },
+      ]
+    : [
+        { id: "attack", title: T("Ataque", "Attack") },
+        { id: "tech", title: T("Técnica & Passe", "Technique & Passing") },
+        { id: "phys", title: T("Físico", "Physical") },
+        { id: "def", title: T("Defesa", "Defense") },
+        { id: "gk", title: T("Goleiro", "Goalkeeper") },
+      ];
   const container = document.getElementById("stats-groups-container");
   container.innerHTML = groups.map(g => {
     const defs = META.stats.filter(s => s.group === g.id);
     const rows = defs.map(s => {
       const val = d.stats[String(s.fid)] || 40;
+      const pct = (((val - 40) / 59) * 100).toFixed(1);
       const lbl = LANG === "en" ? s.en : s.pt;
+      const desc = LANG === "en" ? (s.desc_en || "") : (s.desc_pt || "");
       return `<div class="stat-row" data-stat-row="${s.fid}">
-        <span style="font-size:12px; color:var(--subtext);">${escapeHtml(lbl)}</span>
-        <input type="range" min="40" max="99" value="${val}" data-stat-fid="${s.fid}" />
-        <span class="ovr-badge ${ovrClass(val)}" data-stat-badge="${s.fid}" style="min-width:36px; height:22px; font-size:11.5px;">${val}</span>
+        <span class="stat-name" data-tip-title="${escapeHtml(lbl)}" data-tip="${escapeHtml(desc)}">${escapeHtml(lbl)}</span>
+        <input type="range" class="studio-range" min="40" max="99" value="${val}" style="--pct:${pct}%;" data-stat-fid="${s.fid}" />
+        <input type="number" class="stat-num-inp ${ovrClass(val)}" min="40" max="99" value="${val}" data-stat-num="${s.fid}" />
         <div style="display:flex; gap:3px;">
           <button class="btn btn-xs" type="button" data-stat-dec="${s.fid}">-</button>
           <button class="btn btn-xs" type="button" data-stat-inc="${s.fid}">+</button>
@@ -1029,19 +1280,38 @@ function renderStatsGroups(d) {
   }).join("");
 }
 
-// In-place stat update: preserves slider/button keyboard focus & zero DOM flicker!
+function previewStatUI(fid, val) {
+  const clamped = Math.max(40, Math.min(99, Math.round(Number(val) || 40)));
+  const range = document.querySelector(`input[data-stat-fid="${fid}"]`);
+  setRangeVisual(range, clamped);
+  const numInp = document.querySelector(`input[data-stat-num="${fid}"]`);
+  if (numInp) {
+    if (document.activeElement !== numInp) numInp.value = String(clamped);
+    numInp.className = `stat-num-inp ${ovrClass(clamped)}`;
+  }
+  if (CURRENT_PLAYER && CURRENT_PLAYER.stats) {
+    CURRENT_PLAYER.stats[String(fid)] = clamped;
+    renderStatsRadar(CURRENT_PLAYER.stats);
+  }
+  return clamped;
+}
+
+// In-place stat update: preserves slider/input/button keyboard focus & zero DOM flicker!
 async function onStatChange(fid, val) {
   if (!api()) return;
-  const clamped = Math.max(40, Math.min(99, Number(val)));
+  const clamped = Math.max(40, Math.min(99, Math.round(Number(val) || 40)));
   const res = await api().set_player_stat(Number(fid), clamped);
   if (res && res.ok) {
     const ovrChanged = CURRENT_PLAYER && res.ovr !== CURRENT_PLAYER.ovr;
     CURRENT_PLAYER = res;
     const newVal = res.stats[String(fid)] || clamped;
-    const inp = document.querySelector(`input[data-stat-fid="${fid}"]`);
-    if (inp) inp.value = String(newVal);
-    const badge = document.querySelector(`[data-stat-badge="${fid}"]`);
-    if (badge) { badge.textContent = String(newVal); badge.className = `ovr-badge ${ovrClass(newVal)}`; }
+    const range = document.querySelector(`input[data-stat-fid="${fid}"]`);
+    setRangeVisual(range, newVal);
+    const numInp = document.querySelector(`input[data-stat-num="${fid}"]`);
+    if (numInp) {
+      numInp.value = String(newVal);
+      numInp.className = `stat-num-inp ${ovrClass(newVal)}`;
+    }
     updateHeroHeader(res);
     renderStatsRadar(res.stats);
     renderPositionPitch(res);
@@ -1049,6 +1319,52 @@ async function onStatChange(fid, val) {
     if (ovrChanged) pulseOvrShield();
   } else {
     toast(fmtCodeMsg(res), "err");
+  }
+}
+
+async function stepPlayerOvrDNA(delta) {
+  if (!api() || IS_OVR_BUSY) return;
+  IS_OVR_BUSY = true;
+  try {
+    const r = await api().step_player_ovr(delta);
+    if (r && r.ok) {
+      CURRENT_PLAYER = r;
+      renderPlayerDetails(r);
+      pulseOvrShield();
+      toast(fmtCodeMsg(r));
+    } else {
+      toast(fmtCodeMsg(r), "err");
+    }
+  } finally {
+    IS_OVR_BUSY = false;
+  }
+}
+
+async function setTargetOvrDNA() {
+  if (!api() || IS_OVR_BUSY) return;
+  if (!CURRENT_PLAYER) return toast(tKey("no_player"), "err");
+  const inp = document.getElementById("inp-stats-target-ovr");
+  const raw = inp ? inp.value.trim() : "";
+  const val = Number(raw);
+  if (!raw || Number.isNaN(val) || val < 40 || val > 99) {
+    toast(T("Digite um OVR alvo entre 40 e 99.", "Enter a target OVR between 40 and 99."), "err");
+    if (inp) inp.focus();
+    return;
+  }
+  IS_OVR_BUSY = true;
+  try {
+    const r = await api().set_player_ovr(Math.round(val));
+    if (r && r.ok) {
+      CURRENT_PLAYER = r;
+      renderPlayerDetails(r);
+      pulseOvrShield();
+      if (inp) inp.value = "";
+      toast(fmtCodeMsg(r));
+    } else {
+      toast(fmtCodeMsg(r), "err");
+    }
+  } finally {
+    IS_OVR_BUSY = false;
   }
 }
 
@@ -1063,25 +1379,6 @@ async function presetStats(val) {
     renderPlayerDetails(res);
     pulseOvrShield();
     toast(T(`Atributos definidos para ${val}`, `Attributes set to ${val}`));
-  } else toast(fmtCodeMsg(res), "err");
-}
-
-async function shiftAllStats(delta) {
-  if (!api() || !META || !CURRENT_PLAYER) return toast(tKey("no_player"), "err");
-  const map = {};
-  const isGK = CURRENT_PLAYER.reg_pos === 0;
-  META.stats.forEach(s => {
-    if (isGK || s.group !== "gk") {
-      const cur = CURRENT_PLAYER.stats[String(s.fid)] || 40;
-      map[String(s.fid)] = Math.max(40, Math.min(99, cur + delta));
-    }
-  });
-  const res = await api().set_player_stats_batch(map);
-  if (res && res.ok) {
-    CURRENT_PLAYER = res;
-    renderPlayerDetails(res);
-    pulseOvrShield();
-    toast(T(`+${delta} aplicado em todos os atributos`, `+${delta} applied to all attributes`));
   } else toast(fmtCodeMsg(res), "err");
 }
 
@@ -1128,6 +1425,9 @@ function renderPositionLab(d) {
   const priTag = T("PRINCIPAL", "PRIMARY");
   const matchBtn = T("Igualar Principal", "Match Primary");
   const setPriBtn = T("Tornar Principal", "Set Primary");
+  const tipMatch = T("Sobe esta posição até igualar o OVR da posição principal sem alterá-la", "Raises this position to match the primary OVR without changing primary OVR");
+  const tipSetPri = T("Define esta como a nova posição registrada do atleta (com Grau A)", "Sets this as the player's new registered primary position (with Grade A)");
+  const tipStepPos = T("Ajuste isolado de 1 em 1 sem alterar a posição principal", "Isolated 1-by-1 step without changing primary position OVR");
   tbody.innerHTML = ordered.map(pos => {
     const pMeta = META.positions[pos.id];
     const fullName = LANG === "en" ? pMeta.name_en : pMeta.name_pt;
@@ -1141,21 +1441,21 @@ function renderPositionLab(d) {
       <td class="ctr-col"><span class="ovr-badge ${ovrClass(pos.ovr)}">${pos.ovr}</span></td>
       <td class="ctr-col">
         <div class="seg">
-          <button type="button" class="${pos.apt === 0 ? "active" : ""}" data-pos-apt="${pos.id}" data-grade="0">C</button>
-          <button type="button" class="${pos.apt === 1 ? "active g-b" : ""}" data-pos-apt="${pos.id}" data-grade="1">B</button>
-          <button type="button" class="${pos.apt === 2 ? "active g-a" : ""}" data-pos-apt="${pos.id}" data-grade="2">A</button>
+          <button type="button" class="${pos.apt === 0 ? "active" : ""}" data-pos-apt="${pos.id}" data-grade="0" data-i18n-tip="tip_grade_c">C</button>
+          <button type="button" class="${pos.apt === 1 ? "active g-b" : ""}" data-pos-apt="${pos.id}" data-grade="1" data-i18n-tip="tip_grade_b">B</button>
+          <button type="button" class="${pos.apt === 2 ? "active g-a" : ""}" data-pos-apt="${pos.id}" data-grade="2" data-i18n-tip="tip_grade_a">A</button>
         </div>
       </td>
       <td>
         <div style="display:flex; gap:6px;">
-          <button class="btn btn-xs" type="button" data-pos-step="${pos.id}" data-delta="-1">-1 OVR</button>
-          <button class="btn btn-xs btn-primary" type="button" data-pos-step="${pos.id}" data-delta="1">+1 OVR</button>
+          <button class="btn btn-xs" type="button" data-pos-step="${pos.id}" data-delta="-1" data-tip="${escapeHtml(pos.is_reg ? tKey("tip_ovr_m1") : tipStepPos)}">-1 OVR</button>
+          <button class="btn btn-xs btn-primary" type="button" data-pos-step="${pos.id}" data-delta="1" data-tip="${escapeHtml(pos.is_reg ? tKey("tip_ovr_p1") : tipStepPos)}">+1 OVR</button>
         </div>
       </td>
       <td class="act-col">
         <div style="display:flex; gap:6px; justify-content:flex-end;">
-          ${pos.is_reg ? "" : `<button class="btn btn-xs btn-gold" type="button" data-pos-match="${pos.id}">${escapeHtml(matchBtn)}</button>`}
-          ${pos.is_reg ? "" : `<button class="btn btn-xs" type="button" data-pos-reg="${pos.id}">${escapeHtml(setPriBtn)}</button>`}
+          ${pos.is_reg ? "" : `<button class="btn btn-xs btn-gold" type="button" data-pos-match="${pos.id}" data-tip="${escapeHtml(tipMatch)}">${escapeHtml(matchBtn)}</button>`}
+          ${pos.is_reg ? "" : `<button class="btn btn-xs" type="button" data-pos-reg="${pos.id}" data-tip="${escapeHtml(tipSetPri)}">${escapeHtml(setPriBtn)}</button>`}
         </div>
       </td>
     </tr>`;
@@ -1164,12 +1464,30 @@ function renderPositionLab(d) {
 
 function renderSkillsAndStyle(d) {
   document.getElementById("p-playing-style").value = String(d.playing_style);
+  updatePlayingStyleInfo();
+
+  const skillCats = [
+    { id: "dribble", title: T("Drible & Controle", "Dribbling & Control") },
+    { id: "shoot", title: T("Finalização & Chutes", "Shooting & Finishing") },
+    { id: "pass", title: T("Passe & Cruzamento", "Passing & Crossing") },
+    { id: "def", title: T("Defesa & Físico", "Defending & Physical") },
+    { id: "gk_mental", title: T("Goleiro, Bola Parada & Mental", "Goalkeeping, Set Pieces & Mental") },
+  ];
+
   let skCount = 0;
-  document.getElementById("p-skills-grid").innerHTML = META.skills.map(s => {
-    const on = !!d.skills[s.key];
-    if (on) skCount++;
-    return `<button class="skill-chip ${on ? "on" : ""}" type="button" data-skill-key="${escapeHtml(s.key)}" data-skill-next="${on ? "0" : "1"}">${escapeHtml(LANG === "en" ? s.en : s.pt)}</button>`;
+  document.getElementById("p-skills-grid").innerHTML = skillCats.map(cat => {
+    const items = META.skills.filter(s => (s.cat || "gk_mental") === cat.id);
+    if (!items.length) return "";
+    const chips = items.map(s => {
+      const on = !!d.skills[s.key];
+      if (on) skCount++;
+      const name = LANG === "en" ? s.en : s.pt;
+      const tip = LANG === "en" ? (s.desc_en || "") : (s.desc_pt || "");
+      return `<button class="skill-chip ${on ? "on" : ""}" type="button" data-skill-key="${escapeHtml(s.key)}" data-skill-next="${on ? "0" : "1"}" data-tip-title="${escapeHtml(name)}" data-tip="${escapeHtml(tip)}">${escapeHtml(name)}</button>`;
+    }).join("");
+    return `<div class="skill-cat-block"><div class="skill-cat-title">${escapeHtml(cat.title)}</div><div class="chip-grid">${chips}</div></div>`;
   }).join("");
+
   const skEl = document.getElementById("skills-count");
   skEl.textContent = skCount > 10
     ? `${skCount} / 10 (${T("acima do limite padrão", "above default cap")})`
@@ -1180,7 +1498,9 @@ function renderSkillsAndStyle(d) {
   document.getElementById("p-comai-grid").innerHTML = META.com_ai.map(s => {
     const on = !!d.com_ai[s.key];
     if (on) aiCount++;
-    return `<button class="skill-chip ${on ? "on" : ""}" type="button" data-skill-key="${escapeHtml(s.key)}" data-skill-next="${on ? "0" : "1"}">${escapeHtml(LANG === "en" ? s.en : s.pt)}</button>`;
+    const name = LANG === "en" ? s.en : s.pt;
+    const tip = LANG === "en" ? (s.desc_en || "") : (s.desc_pt || "");
+    return `<button class="skill-chip ${on ? "on" : ""}" type="button" data-skill-key="${escapeHtml(s.key)}" data-skill-next="${on ? "0" : "1"}" data-tip-title="${escapeHtml(name)}" data-tip="${escapeHtml(tip)}">${escapeHtml(name)}</button>`;
   }).join("");
   document.getElementById("comai-count").textContent = `${aiCount} ${T("ativos", "active")}`;
 }
@@ -1253,12 +1573,12 @@ function renderSquadTable() {
 
   updateSortIndicators("squad-table", "data-sort", SQUAD_SORT);
 
-  const q = (document.getElementById("squad-search").value || "").toLowerCase().trim();
+  const q = normText(document.getElementById("squad-search").value).trim();
   let rows = SQUAD_DATA.filter(p => {
     if (SQUAD_FILTER === "exp" && !p.is_expiring) return false;
     if (SQUAD_FILTER === "inj" && p.injury <= 0) return false;
     if (SQUAD_FILTER === "u23" && p.age > 23) return false;
-    if (q && !p.name.toLowerCase().includes(q)) return false;
+    if (q && !normText(p.name).includes(q)) return false;
     return true;
   });
   rows.sort((a, b) => safeCompare(a, b, SQUAD_SORT.col, SQUAD_SORT.asc ? 1 : -1));
@@ -1531,6 +1851,7 @@ function closeAllModals() {
 function getCommands() {
   const cView = T("TELA", "VIEW");
   const cSquad = T("ELENCO", "SQUAD");
+  const cPlayer = T("ATLETA", "PLAYER");
   const cAct = T("AÇÃO", "ACTION");
   return [
     { label: tKey("nav_overview"), cat: cView, run: () => switchView("dashboard") },
@@ -1541,6 +1862,8 @@ function getCommands() {
     { label: tKey("nav_finances"), cat: cView, run: () => switchView("finances") },
     { label: tKey("nav_match_live"), cat: cView, run: () => switchView("match") },
     { label: tKey("nav_training_bal"), cat: cView, run: () => switchView("training") },
+    { label: T("+1 OVR Geral (Mantendo DNA)", "+1 Overall (Keep DNA)"), cat: cPlayer, run: () => stepPlayerOvrDNA(1) },
+    { label: T("-1 OVR Geral (Mantendo DNA)", "-1 Overall (Keep DNA)"), cat: cPlayer, run: () => stepPlayerOvrDNA(-1) },
     { label: tKey("cmd_stam_squad"), cat: cSquad, run: () => runSquadCmd("stamina") },
     { label: tKey("cmd_arrow_squad"), cat: cSquad, run: () => runSquadCmd("arrow") },
     { label: tKey("cmd_heal_squad"), cat: cSquad, run: () => runSquadCmd("heal") },
@@ -1563,8 +1886,8 @@ function openCmdPalette() {
 }
 
 function renderCmdList(query) {
-  const q = (query || "").toLowerCase().trim();
-  const list = getCommands().filter(c => !q || c.label.toLowerCase().includes(q) || c.cat.toLowerCase().includes(q));
+  const q = normText(query).trim();
+  const list = getCommands().filter(c => !q || normText(c.label).includes(q) || normText(c.cat).includes(q));
   if (CMD_SELECTED >= list.length) CMD_SELECTED = Math.max(0, list.length - 1);
   const box = document.getElementById("cmd-list");
   if (!list.length) {
@@ -1587,10 +1910,10 @@ async function bootstrap() {
   META = await api().get_metadata();
 
   document.getElementById("bio-nat").innerHTML = META.nationalities.map(n => `<option value="${n.id}">${escapeHtml(n.name)}</option>`).join("");
-  document.getElementById("p-playing-style").innerHTML = META.playing_styles.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
 
   applyFont(CUR_FONT);
   applyLanguage();
+  initTooltips();
 
   // Sidebar, Back button & tabs
   document.querySelectorAll(".nav-btn").forEach(b => b.addEventListener("click", () => switchView(b.dataset.view)));
@@ -1756,18 +2079,35 @@ async function bootstrap() {
     }
   });
 
-  // Player Hero quick buttons (-1 OVR, +1 OVR, + Favoritos)
-  document.getElementById("btn-hero-ovr-m1").addEventListener("click", async () => {
-    if (!api()) return;
-    const r = await api().step_player_ovr(-1);
-    if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); pulseOvrShield(); toast(fmtCodeMsg(r)); }
-    else toast(fmtCodeMsg(r), "err");
+  // Player Hero & Attributes DNA OVR controls (-1 OVR, +1 OVR, Target OVR, + Favoritos, All 99 2-click confirm)
+  document.getElementById("btn-hero-ovr-m1").addEventListener("click", () => stepPlayerOvrDNA(-1));
+  document.getElementById("btn-hero-ovr-p1").addEventListener("click", () => stepPlayerOvrDNA(1));
+  document.getElementById("btn-stats-ovr-m1").addEventListener("click", () => stepPlayerOvrDNA(-1));
+  document.getElementById("btn-stats-ovr-p1").addEventListener("click", () => stepPlayerOvrDNA(1));
+  document.getElementById("btn-stats-target-ovr").addEventListener("click", setTargetOvrDNA);
+  document.getElementById("inp-stats-target-ovr").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); setTargetOvrDNA(); }
   });
-  document.getElementById("btn-hero-ovr-p1").addEventListener("click", async () => {
-    if (!api()) return;
-    const r = await api().step_player_ovr(1);
-    if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); pulseOvrShield(); toast(fmtCodeMsg(r)); }
-    else toast(fmtCodeMsg(r), "err");
+  let all99Timer = null;
+  const all99Btn = document.getElementById("btn-stats-all99");
+  all99Btn.addEventListener("click", async () => {
+    if (!all99Btn.dataset.armed) {
+      all99Btn.dataset.armed = "1";
+      all99Btn.textContent = T("Confirmar Tudo 99?", "Confirm All 99?");
+      all99Btn.classList.add("btn-red");
+      clearTimeout(all99Timer);
+      all99Timer = setTimeout(() => {
+        delete all99Btn.dataset.armed;
+        all99Btn.textContent = tKey("btn_all_99");
+        all99Btn.classList.remove("btn-red");
+      }, 3000);
+      return;
+    }
+    delete all99Btn.dataset.armed;
+    clearTimeout(all99Timer);
+    all99Btn.textContent = tKey("btn_all_99");
+    all99Btn.classList.remove("btn-red");
+    await presetStats(99);
   });
   document.getElementById("btn-hero-fav").addEventListener("click", () => addPlayerToScout(4));
 
@@ -1786,34 +2126,187 @@ async function bootstrap() {
     else toast(fmtCodeMsg(r), "err");
   });
 
-  // Attributes delegated in-place slider & +/- handlers
+  // High-Precision Damped Drag for all .studio-range sliders (9px/step normal, 18px/step with Shift)
+  document.addEventListener("pointerdown", e => {
+    const range = e.target && e.target.closest ? e.target.closest("input[type='range'].studio-range") : null;
+    if (!range || e.button !== 0) return;
+    e.preventDefault();
+    hideTooltip();
+
+    const min = Number(range.min || 0);
+    const max = Number(range.max || 100);
+    const rect = range.getBoundingClientRect();
+    const origVal = Number(range.value || min);
+    const curFrac = max > min ? (origVal - min) / (max - min) : 0;
+    const thumbX = rect.left + curFrac * rect.width;
+
+    // Clicking far from the thumb jumps softly near the click; grabbing near the thumb keeps exact value for fine drag
+    let baseVal = origVal;
+    if (Math.abs(e.clientX - thumbX) > 22 && rect.width > 0) {
+      const clickFrac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      baseVal = Math.round(min + clickFrac * (max - min));
+    }
+
+    const startX = e.clientX;
+    let curVal = baseVal;
+    const isStat = !!range.dataset.statFid;
+    const isStam = range.id === "inp-p-stam";
+    const fid = isStat ? Number(range.dataset.statFid) : -1;
+
+    const applyPreview = v => {
+      if (isStat) {
+        previewStatUI(fid, v);
+      } else if (isStam) {
+        setRangeVisual(range, v);
+        const sNum = document.getElementById("inp-p-stam-num");
+        if (sNum) {
+          sNum.value = String(v);
+          sNum.className = `stat-num-inp ${ovrClass(v)}`;
+        }
+      } else {
+        setRangeVisual(range, v);
+      }
+    };
+
+    range.classList.add("dragging");
+    range.focus();
+    applyPreview(curVal);
+
+    const onMove = ev => {
+      const pxPerUnit = ev.shiftKey ? 18 : 9;
+      const steps = Math.round((ev.clientX - startX) / pxPerUnit);
+      const next = Math.max(min, Math.min(max, baseVal + steps));
+      if (next !== curVal) {
+        curVal = next;
+        applyPreview(curVal);
+      }
+    };
+
+    const onUp = async () => {
+      range.classList.remove("dragging");
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      if (curVal !== origVal) {
+        if (isStat) {
+          await onStatChange(fid, curVal);
+        } else if (isStam && api()) {
+          const r = await api().set_quick_condition(curVal, null, false, null);
+          if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); }
+          else toast(fmtCodeMsg(r), "err");
+        }
+      }
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  });
+
+  // Attributes keyboard/direct-input & press-and-hold +/- handlers
   const statsBox = document.getElementById("stats-groups-container");
   statsBox.addEventListener("input", e => {
-    const inp = e.target.closest("input[data-stat-fid]");
-    if (!inp) return;
-    const v = Number(inp.value);
-    const badge = document.querySelector(`[data-stat-badge="${inp.dataset.statFid}"]`);
-    if (badge) { badge.textContent = v; badge.className = `ovr-badge ${ovrClass(v)}`; }
-    if (CURRENT_PLAYER && CURRENT_PLAYER.stats) {
-      CURRENT_PLAYER.stats[String(inp.dataset.statFid)] = v;
-      renderStatsRadar(CURRENT_PLAYER.stats);
+    const range = e.target.closest("input[data-stat-fid]");
+    if (range) {
+      previewStatUI(Number(range.dataset.statFid), Number(range.value));
+      return;
+    }
+    const num = e.target.closest("input[data-stat-num]");
+    if (num) {
+      delete num.dataset.enterHandled;
+      const v = Number(num.value);
+      if (!Number.isNaN(v) && v >= 40 && v <= 99) {
+        previewStatUI(Number(num.dataset.statNum), v);
+      }
     }
   });
   statsBox.addEventListener("change", e => {
-    const inp = e.target.closest("input[data-stat-fid]");
-    if (inp) onStatChange(Number(inp.dataset.statFid), Number(inp.value));
+    const range = e.target.closest("input[data-stat-fid]");
+    if (range) return onStatChange(Number(range.dataset.statFid), Number(range.value));
+    const num = e.target.closest("input[data-stat-num]");
+    if (num) {
+      if (num.dataset.enterHandled === "1") {
+        delete num.dataset.enterHandled;
+        return;
+      }
+      const fid = Number(num.dataset.statNum);
+      const raw = num.value.trim();
+      const fallback = Number(num.dataset.origVal || 40);
+      const v = raw === "" ? fallback : Number(raw);
+      num.dataset.origVal = String(Math.max(40, Math.min(99, Math.round(v || fallback))));
+      onStatChange(fid, v);
+    }
   });
-  statsBox.addEventListener("click", e => {
-    const dec = e.target.closest("button[data-stat-dec]");
-    if (dec && CURRENT_PLAYER) {
-      const fid = Number(dec.dataset.statDec);
-      return onStatChange(fid, (CURRENT_PLAYER.stats[String(fid)] || 40) - 1);
+  statsBox.addEventListener("focusin", e => {
+    const num = e.target.closest("input[data-stat-num]");
+    if (num) {
+      num.dataset.origVal = num.value;
+      delete num.dataset.enterHandled;
+      num.select();
     }
-    const inc = e.target.closest("button[data-stat-inc]");
-    if (inc && CURRENT_PLAYER) {
-      const fid = Number(inc.dataset.statInc);
-      return onStatChange(fid, (CURRENT_PLAYER.stats[String(fid)] || 40) + 1);
+  });
+  statsBox.addEventListener("keydown", e => {
+    const num = e.target.closest("input[data-stat-num]");
+    if (!num) return;
+    const fid = Number(num.dataset.statNum);
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const raw = num.value.trim();
+      const v = raw === "" ? Number(num.dataset.origVal || 40) : Number(raw);
+      num.dataset.enterHandled = "1";
+      num.dataset.origVal = String(Math.max(40, Math.min(99, Math.round(v || 40))));
+      onStatChange(fid, v);
+      num.blur();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      const orig = Number(num.dataset.origVal || 40);
+      num.dataset.enterHandled = "1";
+      previewStatUI(fid, orig);
+      num.value = String(orig);
+      num.blur();
+    } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && e.shiftKey) {
+      e.preventDefault();
+      const step = e.key === "ArrowUp" ? 5 : -5;
+      const nv = Math.max(40, Math.min(99, (Number(num.value) || 40) + step));
+      num.value = String(nv);
+      num.dataset.origVal = String(nv);
+      onStatChange(fid, nv);
     }
+  });
+
+  // Press-and-hold +/- buttons (single click = 1 step, hold = smooth repeat with 1 undo commit on release)
+  statsBox.addEventListener("pointerdown", e => {
+    const btn = e.target.closest("button[data-stat-dec], button[data-stat-inc]");
+    if (!btn || !CURRENT_PLAYER || e.button !== 0) return;
+    e.preventDefault();
+    const isDec = btn.hasAttribute("data-stat-dec");
+    const fid = Number(isDec ? btn.dataset.statDec : btn.dataset.statInc);
+    const delta = isDec ? -1 : 1;
+    let cur = Number(CURRENT_PLAYER.stats[String(fid)] || 40);
+    const startVal = cur;
+
+    const tick = () => {
+      const next = Math.max(40, Math.min(99, cur + delta));
+      if (next !== cur) {
+        cur = next;
+        previewStatUI(fid, cur);
+      }
+    };
+    tick();
+
+    let holdTimer = setTimeout(() => {
+      holdTimer = setInterval(tick, 85);
+    }, 360);
+
+    const finish = () => {
+      clearTimeout(holdTimer);
+      clearInterval(holdTimer);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      if (cur !== startVal) onStatChange(fid, cur);
+    };
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
   });
 
   // Tactical Pitch click -> highlight & scroll ONLY inner table container
@@ -1894,8 +2387,9 @@ async function bootstrap() {
     const res = await api().undo_last();
     if (res && res.ok) {
       toast(T("Alteração desfeita!", "Edit undone!"));
-      if (CURRENT_VIEW === "player") loadPlayerDetails();
+      if (CURRENT_VIEW === "player") { await loadPlayerDetails(); pulseOvrShield(); }
       if (CURRENT_VIEW === "squad") loadSquad();
+      if (CURRENT_VIEW === "finances") loadFinances();
       pollStatus();
     } else toast(fmtCodeMsg(res), "err");
   });
@@ -1925,7 +2419,15 @@ async function bootstrap() {
     document.querySelectorAll("#squad-filters .pill-tab").forEach(x => x.classList.toggle("active", x === b));
     renderSquadTable();
   }));
-  document.getElementById("squad-search").addEventListener("input", renderSquadTable);
+  const sqSearch = document.getElementById("squad-search");
+  sqSearch.addEventListener("input", renderSquadTable);
+  sqSearch.addEventListener("keydown", e => {
+    if (e.key === "Escape" && sqSearch.value) {
+      e.preventDefault();
+      sqSearch.value = "";
+      renderSquadTable();
+    }
+  });
   document.getElementById("btn-squad-refresh").addEventListener("click", loadSquad);
   document.querySelectorAll("#squad-table thead th[data-sort]").forEach(th => th.addEventListener("click", () => {
     const col = th.dataset.sort;
@@ -1970,13 +2472,28 @@ async function bootstrap() {
     else toast(fmtCodeMsg(r), "err");
   });
   document.getElementById("inp-p-stam").addEventListener("input", e => {
-    document.getElementById("lbl-p-stam").textContent = `${e.target.value}%`;
+    const v = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+    setRangeVisual(e.target, v);
+    const sNum = document.getElementById("inp-p-stam-num");
+    if (sNum) { sNum.value = String(v); sNum.className = `stat-num-inp ${ovrClass(v)}`; }
   });
   document.getElementById("inp-p-stam").addEventListener("change", async e => {
     if (!api()) return;
     const r = await api().set_quick_condition(Number(e.target.value), null, false, null);
     if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); }
     else toast(fmtCodeMsg(r), "err");
+  });
+  const stamNumInp = document.getElementById("inp-p-stam-num");
+  stamNumInp.addEventListener("focus", () => stamNumInp.select());
+  stamNumInp.addEventListener("change", async () => {
+    if (!api()) return;
+    const v = Math.max(0, Math.min(100, Math.round(Number(stamNumInp.value) || 0)));
+    const r = await api().set_quick_condition(v, null, false, null);
+    if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); }
+    else toast(fmtCodeMsg(r), "err");
+  });
+  stamNumInp.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); stamNumInp.blur(); }
   });
   document.querySelectorAll("#p-arrow-group .arrow-btn").forEach(b => b.addEventListener("click", async () => {
     if (!api()) return;
@@ -2013,11 +2530,13 @@ async function bootstrap() {
     else toast(fmtCodeMsg(r), "err");
   });
   document.getElementById("p-playing-style").addEventListener("change", async e => {
+    updatePlayingStyleInfo();
     if (!api()) return;
     const r = await api().set_playing_style(Number(e.target.value));
     if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Estilo de jogo atualizado!", "Playing style updated!")); }
     else toast(fmtCodeMsg(r), "err");
   });
+  document.getElementById("p-team-role").addEventListener("change", updateTeamRoleInfo);
   document.getElementById("btn-save-role").addEventListener("click", async () => {
     if (!api()) return;
     const r = await api().set_team_role(
@@ -2092,6 +2611,11 @@ async function bootstrap() {
 
   // Finances
   document.getElementById("btn-fin-refresh").addEventListener("click", loadFinances);
+  ["fin-transfer-inp", "fin-salary-inp"].forEach(id => {
+    document.getElementById(id).addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); document.getElementById("btn-fin-save").click(); }
+    });
+  });
   document.getElementById("btn-fin-save").addEventListener("click", async () => {
     if (!api()) return;
     const r = await api().set_finances(
@@ -2106,6 +2630,9 @@ async function bootstrap() {
   document.getElementById("bal-focus-inp").addEventListener("input", () => {
     BAL_DIRTY = true;
     document.getElementById("bal-unsaved").style.display = "inline";
+  });
+  document.getElementById("bal-focus-inp").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); document.getElementById("btn-bal-apply").click(); }
   });
   document.getElementById("bal-lock-chk").addEventListener("change", () => {
     BAL_DIRTY = true;
@@ -2131,7 +2658,8 @@ async function bootstrap() {
   });
   document.getElementById("btn-bal-apply").addEventListener("click", async () => {
     if (!api()) return;
-    const pts = Number(document.getElementById("bal-focus-inp").value || 21);
+    const rawPts = document.getElementById("bal-focus-inp").value.trim();
+    const pts = rawPts === "" ? 21 : Number(rawPts);
     const lck = document.getElementById("bal-lock-chk").checked;
     const r = await api().set_bal_focus(pts, lck);
     if (r && r.ok) {

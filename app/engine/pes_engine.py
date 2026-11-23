@@ -1,5 +1,5 @@
 """
-PES 2021 Ultimate Studio - Standalone Game Engine (Master League / BAL / Match / Player).
+PES 2021 Workbench - Standalone Game Engine (Master League / BAL / Match / Player).
 100% pure Python + Win32Memory + native x64 HookManager. Zero Cheat Engine required.
 Returns structured status codes so UI handles 100% PT-BR / EN localization cleanly.
 """
@@ -36,10 +36,21 @@ BufLike = Union[bytes, bytearray, memoryview]
 def _safe_int(val: Any, default: Optional[int] = None) -> Optional[int]:
     if val is None or val == "":
         return default
+    if isinstance(val, bool):
+        return int(val)
+    if isinstance(val, int):
+        return val
     try:
-        return int(float(val))
-    except (ValueError, TypeError):
-        return default
+        s = str(val).strip()
+        if not s:
+            return default
+        # Preserve exact 64-bit integer precision (avoids float 53-bit truncation on player handles/pointers)
+        return int(s, 0)
+    except ValueError:
+        try:
+            return int(float(val))
+        except (ValueError, TypeError):
+            return default
 
 
 def _norm_text(s: str) -> str:
@@ -228,6 +239,7 @@ class PESEngine:
         self._wage_cache_sum: int = 0
         self._last_pid: int = 0
         self._last_career: int = 0
+        self._last_in_match: bool = False
         self._manual_player_addr: int = 0
         self._last_hook_player: int = 0
         self._bal_lock_target: int = 99
@@ -335,6 +347,14 @@ class PESEngine:
         self.mem.write_u64(self.hooks.sym_addr("ptrMatchMgr"), match_mgr)
         self.mem.write_u64(self.hooks.sym_addr("ptrMatchState"), match_state)
 
+        # Auto-release clock freeze when leaving a match so the next match never freezes at stale ticks
+        in_match = match_state > 0x10000
+        if self._last_in_match and not in_match:
+            self.mem.write_u32(self.hooks.sym_addr("cfgFreezeClock"), 0)
+            self.mem.write_f32(self.hooks.sym_addr("valFrozenTotalTicks"), 0.0)
+            self.mem.write_f32(self.hooks.sym_addr("valProtectedMatchTicks"), 0.0)
+        self._last_in_match = in_match
+
         # BAL Focus lock respects the user's chosen target value
         if career > 0x10000:
             if self.mem.read_u32(self.hooks.sym_addr("cfgLockBALFocusPoints")) == 1:
@@ -382,6 +402,7 @@ class PESEngine:
                 return {"ok": False, "code": "nothing_to_undo"}
             entry = st.pop()
             self.mem.write_bytes(p, entry["bytes"])
+            self._wage_cache_time = 0.0
             return {"ok": True, "action": entry["action"], "remaining": len(st)}
 
     # ------------------------------------------------------------------
@@ -787,6 +808,18 @@ class PESEngine:
             _, p, _ = self.sync_pointers()
             if not p or not isinstance(payload, dict):
                 return {"ok": False, "code": "no_player"}
+            # Validate money strings BEFORE pushing undo or writing any bytes to RAM (atomic validation)
+            sr = None
+            if payload.get("salary_str") is not None and str(payload["salary_str"]).strip() != "":
+                sr = parse_human_money_to_raw(str(payload["salary_str"]))
+                if sr is None:
+                    return {"ok": False, "code": "invalid_money"}
+            mr = None
+            if payload.get("market_str") is not None and str(payload["market_str"]).strip() != "":
+                mr = parse_human_money_to_raw(str(payload["market_str"]))
+                if mr is None:
+                    return {"ok": False, "code": "invalid_money"}
+
             self.push_undo(p, "bio")
             if payload.get("name") is not None and str(payload["name"]).strip() != "":
                 self.mem.write_str(p + 0x38, str(payload["name"]).strip(), 46)
@@ -811,18 +844,9 @@ class PESEngine:
             cyr = _safe_int(payload.get("contract_yr"))
             if cyr is not None:
                 self.mem.write_u16(p + 0x138, max(2019, min(2150, cyr)))
-            sr = None
-            if payload.get("salary_str") is not None and str(payload["salary_str"]).strip() != "":
-                sr = parse_human_money_to_raw(str(payload["salary_str"]))
-                if sr is None:
-                    return {"ok": False, "code": "invalid_money"}
-            mr = None
-            if payload.get("market_str") is not None and str(payload["market_str"]).strip() != "":
-                mr = parse_human_money_to_raw(str(payload["market_str"]))
-                if mr is None:
-                    return {"ok": False, "code": "invalid_money"}
             if sr is not None:
                 self.mem.write_i32(p + 0x15C, sr)
+                self._wage_cache_time = 0.0
             if mr is not None:
                 self.mem.write_i32(p + 0x174, mr)
             if "transfer_listed" in payload and payload["transfer_listed"] is not None:
@@ -990,39 +1014,99 @@ class PESEngine:
         return out
 
     def _scale_primary_ovr(self, p: int, target_ovr: int) -> Dict[str, Any]:
+        """Proportional DNA-Preserving Overall Solver (Hamilton Largest-Remainder + Core DNA Refinement)."""
         buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
         if not buf:
             return {"action_ok": False, "code": "read_failed"}
         cur_ovr, reg_pos = calc_ovr_from_buf(buf)
-        target = max(40, min(99, int(target_ovr)))
+        target = max(40, min(109, int(target_ovr)))
         if cur_ovr == target:
             return {"action_ok": True, "code": "already_at_ovr", "ovr": cur_ovr}
-        self.push_undo(p, "pos_ovr")
-        ba = bytearray(buf)
-        step = 1 if target > cur_ovr else -1
-        fids = GK_FIDS if reg_pos == 0 else OUTFIELD_FIDS
-        w_map = self._get_pos_weights(reg_pos)
-        ranked = sorted(fids, key=lambda f: w_map.get(f, 0.0), reverse=True)
 
-        for _ in range(800):
-            now_ovr, _ = calc_ovr_from_buf(ba, reg_pos, False)
-            if (step > 0 and now_ovr >= target) or (step < 0 and now_ovr <= target):
-                break
-            changed = False
-            for fid in ranked:
-                cur_v = get_fid_from_buf(ba, fid)
-                nv = cur_v + step
-                if 40 <= nv <= 99:
-                    set_fid_in_buf(ba, fid, nv)
-                    changed = True
-                    now_ovr, _ = calc_ovr_from_buf(ba, reg_pos, False)
-                    if (step > 0 and now_ovr >= target) or (step < 0 and now_ovr <= target):
-                        break
-            if not changed:
-                break
-        self.mem.write_bytes(p, bytes(ba[:0x28]))
-        final_ovr, _ = calc_ovr_from_buf(ba, reg_pos, False)
-        return {"action_ok": True, "code": "pri_updated", "orig": cur_ovr, "final": final_ovr}
+        self.push_undo(p, "ovr_dna")
+
+        active_fids: List[int] = []
+        if reg_pos == 0:
+            active_fids.extend(GK_FIDS)
+            for f in OUTFIELD_FIDS:
+                if get_fid_from_buf(buf, f) > 43:
+                    active_fids.append(f)
+        else:
+            active_fids.extend(OUTFIELD_FIDS)
+
+        base_stats = {f: get_fid_from_buf(buf, f) for f in active_fids}
+        weights = {f: max(4, base_stats[f] - 30) for f in active_fids}
+        total_w = float(sum(weights.values())) or 1.0
+
+        direction = 1 if target > cur_ovr else -1
+        history: List[bytearray] = [bytearray(buf[:0x28])]
+        best_ba = bytearray(buf[:0x28])
+        best_ovr = cur_ovr
+
+        def _commit(final_ba: bytearray) -> Dict[str, Any]:
+            self.mem.write_bytes(p, bytes(final_ba[:0x28]))
+            fin_ovr, _ = calc_ovr_from_buf(final_ba, reg_pos, False)
+            return {"action_ok": True, "code": "pri_updated", "orig": cur_ovr, "final": fin_ovr}
+
+        for k in range(1, len(active_fids) * 60 + 1):
+            cand = bytearray(buf[:0x28])
+            floors: Dict[int, int] = {}
+            rems = []
+            sum_fl = 0
+            for f in active_fids:
+                q = (k * weights[f]) / total_w
+                fl = int(q)
+                floors[f] = fl
+                sum_fl += fl
+                rems.append((q - fl, weights[f], f))
+            rems.sort(key=lambda x: (x[0], x[1]), reverse=True)
+            rem_need = k - sum_fl
+            for idx in range(min(rem_need, len(rems))):
+                floors[rems[idx][2]] += 1
+
+            for f in active_fids:
+                set_fid_in_buf(cand, f, base_stats[f] + direction * floors[f])
+
+            new_ovr, _ = calc_ovr_from_buf(cand, reg_pos, False)
+            best_ba, best_ovr = cand, new_ovr
+            if new_ovr == target:
+                return _commit(cand)
+
+            if (direction == 1 and new_ovr > target) or (direction == -1 and new_ovr < target):
+                # Try trimming 1 point from the lowest-remainder stat to hit exact target
+                for idx in range(len(rems) - 1, -1, -1):
+                    tf = rems[idx][2]
+                    if get_fid_from_buf(cand, tf) != base_stats[tf]:
+                        alt = bytearray(cand)
+                        set_fid_in_buf(alt, tf, get_fid_from_buf(alt, tf) - direction)
+                        if calc_ovr_from_buf(alt, reg_pos, False)[0] == target:
+                            return _commit(alt)
+
+                # Core DNA refinement from recent history steps
+                w_pos = self._get_pos_weights(reg_pos)
+                dna_ranked = sorted(
+                    active_fids,
+                    key=lambda f: (w_pos.get(f, 0.0) + 4.0) * weights[f],
+                    reverse=True,
+                )
+                for prev in reversed(history[-10:]):
+                    trial = bytearray(prev)
+                    for f in dna_ranked:
+                        cv = get_fid_from_buf(trial, f)
+                        nv = max(40, min(99, cv + direction))
+                        if nv != cv:
+                            set_fid_in_buf(trial, f, nv)
+                            to = calc_ovr_from_buf(trial, reg_pos, False)[0]
+                            if to == target:
+                                return _commit(trial)
+                            if (direction == 1 and to > target) or (direction == -1 and to < target):
+                                set_fid_in_buf(trial, f, cv)
+
+                return _commit(cand)
+
+            history.append(cand)
+
+        return _commit(best_ba)
 
     def _boost_secondary_isolated(self, p: int, target_pos: int, target_ovr: int) -> Dict[str, Any]:
         buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
@@ -1195,7 +1279,25 @@ class PESEngine:
                 return {"ok": False, "code": "read_failed"}
             cur_ovr, _ = calc_ovr_from_buf(buf)
             dl = _safe_int(delta, 0) or 0
-            info = self._scale_primary_ovr(p, cur_ovr + dl)
+            if dl > 0 and cur_ovr >= 99:
+                info = {"action_ok": True, "code": "already_at_ovr", "ovr": cur_ovr}
+            else:
+                info = self._scale_primary_ovr(p, max(40, cur_ovr + dl))
+            res = self.get_player_details(p)
+            res.update(info)
+            return res
+
+    def set_player_ovr(self, target_ovr: int) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "code": "not_connected"}
+            _, p, _ = self.sync_pointers()
+            if not p:
+                return {"ok": False, "code": "no_player"}
+            tgt = _safe_int(target_ovr)
+            if tgt is None:
+                return {"ok": False, "code": "invalid_arg"}
+            info = self._scale_primary_ovr(p, max(40, min(99, tgt)))
             res = self.get_player_details(p)
             res.update(info)
             return res
@@ -1315,7 +1417,8 @@ class PESEngine:
                     buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
                     if buf:
                         cur_ovr, _ = calc_ovr_from_buf(buf)
-                        self._scale_primary_ovr(p, min(99, cur_ovr + 1))
+                        if cur_ovr < 99:
+                            self._scale_primary_ovr(p, min(99, cur_ovr + 1))
             return {"ok": True, "count": len(addrs)}
 
     # ------------------------------------------------------------------
@@ -1556,20 +1659,21 @@ class PESEngine:
             if not self.ensure_attached():
                 return {"ok": False, "code": "not_connected"}
             if freeze:
+                _, _, ms = self.sync_pointers()
+                if ms <= 0x10000:
+                    return {"ok": False, "code": "not_in_match"}
                 if not self.hooks.enable_hook_5_match():
                     return {"ok": False, "code": "hook_failed"}
-                _, _, ms = self.sync_pointers()
-                if ms > 0x10000:
-                    # Wait briefly for newly installed clock tap to capture live ticks before latching
-                    prot = self.mem.read_f32(self.hooks.sym_addr("valProtectedMatchTicks"))
-                    if prot == 0.0:
-                        for _ in range(15):
-                            time.sleep(0.01)
-                            prot = self.mem.read_f32(self.hooks.sym_addr("valProtectedMatchTicks"))
-                            if prot != 0.0:
-                                break
-                    off_t = self.mem.read_f32(ms + 0x1168 + 0x0C)
-                    self.mem.write_f32(self.hooks.sym_addr("valFrozenTotalTicks"), prot + off_t)
+                # Wait briefly for newly installed clock tap to capture live ticks before latching
+                prot = self.mem.read_f32(self.hooks.sym_addr("valProtectedMatchTicks"))
+                if prot == 0.0:
+                    for _ in range(15):
+                        time.sleep(0.01)
+                        prot = self.mem.read_f32(self.hooks.sym_addr("valProtectedMatchTicks"))
+                        if prot != 0.0:
+                            break
+                off_t = self.mem.read_f32(ms + 0x1168 + 0x0C)
+                self.mem.write_f32(self.hooks.sym_addr("valFrozenTotalTicks"), prot + off_t)
             self.mem.write_u32(self.hooks.sym_addr("cfgFreezeClock"), 1 if freeze else 0)
             return {"ok": True, "freeze": bool(freeze)}
 
@@ -1616,6 +1720,7 @@ class PESEngine:
                 merged[0x12C:0x134] = cur[0x12C:0x134]
                 merged[0x160:0x168] = cur[0x160:0x168]
                 self.mem.write_bytes(p, bytes(merged))
+                self._wage_cache_time = 0.0
                 return self.get_player_details(p)
             except Exception:
                 return {"ok": False, "code": "invalid_json"}

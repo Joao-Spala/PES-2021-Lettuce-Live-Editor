@@ -151,6 +151,10 @@ class HookManager:
             return 0
         if not self.mem.write_bytes(addr, code):
             return 0
+        # Ensure CPU instruction cache sees newly written executable cave bytes
+        from .win32_mem import kernel32
+        import ctypes
+        kernel32.FlushInstructionCache(self.mem.handle, ctypes.c_void_p(addr), len(code))
         self.cave_cursor = addr + len(code)
         return addr
 
