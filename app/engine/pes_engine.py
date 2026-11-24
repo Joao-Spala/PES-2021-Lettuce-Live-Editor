@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .win32_mem import Win32Memory
 from .hooks import HookManager
+from . import econ_model
 from .pes_data import (
     OVR_DATA,
     BMPES_TEAMS,
@@ -244,6 +245,8 @@ class PESEngine:
         self._last_hook_player: int = 0
         self._bal_lock_target: int = 99
         self._club_name_cache: Dict[Tuple[int, int], Tuple[int, str]] = {}
+        self.econ_sync_mode: int = econ_model.ECON_MODE_ALL
+        self._econ_anchors: Dict[int, Dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # ATTACH, INIT & LIFECYCLE
@@ -281,6 +284,7 @@ class PESEngine:
         self._last_hook_player = 0
         self._club_name_cache.clear()
         self.undo_stack.clear()
+        self._econ_anchors.clear()
 
     def shutdown(self) -> None:
         with self.lock:
@@ -387,7 +391,8 @@ class PESEngine:
         if not snap or len(snap) < PLAYER_RECORD_SIZE:
             return
         st = self.undo_stack.setdefault(p_addr, [])
-        st.append({"bytes": snap, "action": action_code, "time": time.strftime("%H:%M:%S")})
+        prev_anc = dict(self._econ_anchors[p_addr]) if p_addr in self._econ_anchors else None
+        st.append({"bytes": snap, "action": action_code, "time": time.strftime("%H:%M:%S"), "prev_anchor": prev_anc})
         if len(st) > UNDO_MAX_DEPTH:
             st.pop(0)
 
@@ -402,6 +407,11 @@ class PESEngine:
                 return {"ok": False, "code": "nothing_to_undo"}
             entry = st.pop()
             self.mem.write_bytes(p, entry["bytes"])
+            prev_anc = entry.get("prev_anchor")
+            if prev_anc is not None:
+                self._econ_anchors[p] = prev_anc
+            else:
+                self._econ_anchors.pop(p, None)
             self._wage_cache_time = 0.0
             return {"ok": True, "action": entry["action"], "remaining": len(st)}
 
@@ -714,6 +724,13 @@ class PESEngine:
             contract_yr = struct.unpack_from("<H", buf, 0x138)[0]
             salary_raw = struct.unpack_from("<i", buf, 0x15C)[0]
             market_raw = struct.unpack_from("<i", buf, 0x174)[0]
+            has_release_fee = _get_bits_buf(buf, 0x147, 6, 1) == 1
+            affection = (struct.unpack_from("<I", buf, 0x13C)[0] >> 18) & 0x7F
+            snap_age = buf[0x178]
+            snap_ovr = buf[0x179]
+            release_fee_raw = econ_model.calc_konami_release_fee_raw(
+                market_raw, has_release_fee, age, affection, ovr
+            )
             team_role = _get_bits_buf(buf, 0x150, 0, 5)
             team_role_lvl = _get_bits_buf(buf, 0x143, 6, 2)
             transfer_listed = _get_bits_buf(buf, 0x14A, 1, 1) == 1
@@ -763,6 +780,11 @@ class PESEngine:
                 "contract_yr": contract_yr,
                 "salary_raw": salary_raw,
                 "market_raw": market_raw,
+                "has_release_fee": has_release_fee,
+                "release_fee_raw": release_fee_raw,
+                "affection": affection,
+                "snap_age": snap_age,
+                "snap_ovr": snap_ovr,
                 "team_role": team_role,
                 "team_role_lvl": team_role_lvl,
                 "transfer_listed": transfer_listed,
@@ -849,6 +871,17 @@ class PESEngine:
                 self._wage_cache_time = 0.0
             if mr is not None:
                 self.mem.write_i32(p + 0x174, mr)
+                cur_buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+                if cur_buf:
+                    cur_ovr, _ = calc_ovr_from_buf(cur_buf)
+                    self.mem.write_bytes(
+                        p + 0x178,
+                        bytes([cur_buf[0x1C] & 0x3F, max(40, min(99, cur_ovr))]),
+                    )
+            if "has_release_fee" in payload and payload["has_release_fee"] is not None:
+                self.mem.set_bits(p + 0x147, 6, 1, 1 if payload["has_release_fee"] else 0)
+            if sr is not None or mr is not None or age is not None or nat is not None:
+                self._econ_anchors.pop(p, None)
             if "transfer_listed" in payload and payload["transfer_listed"] is not None:
                 self.mem.set_bits(p + 0x14A, 1, 1, 1 if payload["transfer_listed"] else 0)
             if "loan_listed" in payload and payload["loan_listed"] is not None:
@@ -870,6 +903,153 @@ class PESEngine:
                 self.mem.write_u8(p + 0x148, max(0, min(255, inj)))
             return self.get_player_details(p)
 
+    def get_econ_sync_mode(self) -> int:
+        with self.lock:
+            return self.econ_sync_mode
+
+    def set_econ_sync_mode(self, mode: int) -> Dict[str, Any]:
+        with self.lock:
+            m = _safe_int(mode, econ_model.ECON_MODE_ALL)
+            self.econ_sync_mode = max(0, min(3, 1 if m is None else m))
+            return {"ok": True, "mode": self.econ_sync_mode}
+
+    def _apply_economy_sync_locked(self, p: int, before_buf: bytes) -> Dict[str, Any]:
+        mode = self.econ_sync_mode
+        delta: Dict[str, Any] = {"applied": False, "mode": mode}
+        if mode == econ_model.ECON_MODE_OFF or not before_buf or len(before_buf) < PLAYER_RECORD_SIZE:
+            return delta
+        after_buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+        if not after_buf or len(after_buf) < PLAYER_RECORD_SIZE:
+            return delta
+
+        old_ovr, old_pos = calc_ovr_from_buf(before_buf)
+        new_ovr, new_pos = calc_ovr_from_buf(after_buf)
+        if new_ovr == old_ovr:
+            return delta
+
+        pid = struct.unpack_from("<I", before_buf, 0x30)[0]
+        old_age = before_buf[0x1C] & 0x3F
+        new_age = after_buf[0x1C] & 0x3F
+        old_nat = struct.unpack_from("<H", before_buf, 0x144)[0] & 0x1FF
+        new_nat = struct.unpack_from("<H", after_buf, 0x144)[0] & 0x1FF
+        cur_mkt = struct.unpack_from("<i", before_buf, 0x174)[0]
+        cur_sal = struct.unpack_from("<i", before_buf, 0x15C)[0]
+        has_rf = _get_bits_buf(before_buf, 0x147, 6, 1) == 1
+        aff = (struct.unpack_from("<I", before_buf, 0x13C)[0] >> 18) & 0x7F
+
+        anc = self._econ_anchors.get(p)
+        if not anc or anc.get("pid") != pid:
+            anc = {
+                "pid": pid,
+                "ovr": old_ovr,
+                "age": old_age,
+                "pos": old_pos,
+                "nat": old_nat,
+                "market_raw": cur_mkt,
+                "salary_raw": cur_sal,
+                "has_release_fee": has_rf,
+                "release_fee_raw": econ_model.calc_konami_release_fee_raw(cur_mkt, has_rf, old_age, aff, old_ovr),
+            }
+            self._econ_anchors[p] = anc
+
+        old_rel = econ_model.calc_konami_release_fee_raw(cur_mkt, has_rf, old_age, aff, old_ovr)
+        new_mkt = cur_mkt
+        new_sal = cur_sal
+        new_rel = old_rel
+
+        do_market = mode in (econ_model.ECON_MODE_ALL, econ_model.ECON_MODE_MARKET_RELEASE)
+        do_salary = mode in (econ_model.ECON_MODE_ALL, econ_model.ECON_MODE_SALARY_ONLY)
+
+        if do_market:
+            new_mkt = econ_model.scale_economy_value(
+                anc["market_raw"], anc["ovr"], anc["age"], anc["pos"], anc["nat"],
+                new_ovr, new_age, new_pos, new_nat, False,
+            )
+            self.mem.write_i32(p + 0x174, new_mkt)
+            self.mem.write_bytes(p + 0x178, bytes([max(15, min(63, new_age)), max(40, min(99, new_ovr))]))
+            new_rel = econ_model.calc_konami_release_fee_raw(new_mkt, has_rf, new_age, aff, new_ovr)
+
+        if do_salary:
+            new_sal = econ_model.scale_economy_value(
+                anc["salary_raw"], anc["ovr"], anc["age"], anc["pos"], anc["nat"],
+                new_ovr, new_age, new_pos, new_nat, True,
+            )
+            self.mem.write_i32(p + 0x15C, new_sal)
+            self._wage_cache_time = 0.0
+
+        applied = (new_mkt != cur_mkt) or (new_sal != cur_sal) or (new_rel != old_rel)
+        return {
+            "applied": applied,
+            "mode": mode,
+            "old_ovr": old_ovr,
+            "new_ovr": new_ovr,
+            "old_market_raw": cur_mkt,
+            "new_market_raw": new_mkt,
+            "old_salary_raw": cur_sal,
+            "new_salary_raw": new_sal,
+            "old_release_raw": old_rel,
+            "new_release_raw": new_rel,
+            "has_release_fee": has_rf,
+        }
+
+    def recalibrate_player_economy(self, addr: Optional[int] = None) -> Dict[str, Any]:
+        with self.lock:
+            if not self.ensure_attached():
+                return {"ok": False, "code": "not_connected"}
+            _, cur_p, _ = self.sync_pointers()
+            p = _safe_int(addr) or cur_p
+            if not p or p <= 0x10000:
+                return {"ok": False, "code": "no_player"}
+            buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+            if not buf or len(buf) < PLAYER_RECORD_SIZE:
+                return {"ok": False, "code": "read_failed"}
+
+            cur_ovr, reg_pos = calc_ovr_from_buf(buf)
+            age = buf[0x1C] & 0x3F
+            nat = struct.unpack_from("<H", buf, 0x144)[0] & 0x1FF
+            old_mkt = struct.unpack_from("<i", buf, 0x174)[0]
+            old_sal = struct.unpack_from("<i", buf, 0x15C)[0]
+            has_rf = _get_bits_buf(buf, 0x147, 6, 1) == 1
+            aff = (struct.unpack_from("<I", buf, 0x13C)[0] >> 18) & 0x7F
+            snap_age = buf[0x178]
+            snap_ovr = buf[0x179]
+
+            # Deterministic, idempotent recalibration directly from V3 calibrated curves
+            new_mkt = econ_model.round_pes_money(econ_model.ref_market_raw(cur_ovr, age, reg_pos, nat), False)
+            new_sal = econ_model.round_pes_money(econ_model.ref_salary_raw(cur_ovr, age, reg_pos, nat), True)
+
+            self.push_undo(p, "econ_recal")
+            mode = econ_model.ECON_MODE_ALL if self.econ_sync_mode == econ_model.ECON_MODE_OFF else self.econ_sync_mode
+            old_rel = econ_model.calc_konami_release_fee_raw(old_mkt, has_rf, age, aff, cur_ovr)
+            fin_mkt, fin_sal, fin_rel = old_mkt, old_sal, old_rel
+
+            if mode in (econ_model.ECON_MODE_ALL, econ_model.ECON_MODE_MARKET_RELEASE):
+                self.mem.write_i32(p + 0x174, new_mkt)
+                self.mem.write_bytes(p + 0x178, bytes([max(15, min(63, age)), max(40, min(99, cur_ovr))]))
+                fin_mkt = new_mkt
+                fin_rel = econ_model.calc_konami_release_fee_raw(new_mkt, has_rf, age, aff, cur_ovr)
+            if mode in (econ_model.ECON_MODE_ALL, econ_model.ECON_MODE_SALARY_ONLY):
+                self.mem.write_i32(p + 0x15C, new_sal)
+                self._wage_cache_time = 0.0
+                fin_sal = new_sal
+
+            self._econ_anchors.pop(p, None)
+            res = self.get_player_details(p)
+            res["econ_delta"] = {
+                "applied": True,
+                "mode": mode,
+                "old_ovr": snap_ovr if (40 <= snap_ovr <= 99) else cur_ovr,
+                "new_ovr": cur_ovr,
+                "old_market_raw": old_mkt,
+                "new_market_raw": fin_mkt,
+                "old_salary_raw": old_sal,
+                "new_salary_raw": fin_sal,
+                "old_release_raw": old_rel,
+                "new_release_raw": fin_rel,
+                "has_release_fee": has_rf,
+            }
+            return res
+
     def set_player_stat(self, fid: int, val: int) -> Dict[str, Any]:
         with self.lock:
             if not self.ensure_attached():
@@ -879,6 +1059,9 @@ class PESEngine:
             v = _safe_int(val)
             if not p or f not in FID_LOC or v is None:
                 return {"ok": False, "code": "invalid_arg"}
+            before_buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+            if not before_buf:
+                return {"ok": False, "code": "read_failed"}
             self.push_undo(p, "stat")
             off, bs = FID_LOC[f]
             clamped = max(40, min(99, v))
@@ -887,7 +1070,10 @@ class PESEngine:
                 self.mem.write_u8(p + 3, (cur & 0x80) | (clamped & 0x7F))
             else:
                 self.mem.set_bits(p + off, bs, 7, clamped)
-            return self.get_player_details(p)
+            ed = self._apply_economy_sync_locked(p, before_buf)
+            res = self.get_player_details(p)
+            res["econ_delta"] = ed
+            return res
 
     def set_player_stats_batch(self, stats_map: Dict[str, int]) -> Dict[str, Any]:
         with self.lock:
@@ -907,7 +1093,10 @@ class PESEngine:
                 if f in FID_LOC and iv is not None:
                     set_fid_in_buf(ba, f, iv)
             self.mem.write_bytes(p, bytes(ba[:0x28]))
-            return self.get_player_details(p)
+            ed = self._apply_economy_sync_locked(p, buf)
+            res = self.get_player_details(p)
+            res["econ_delta"] = ed
+            return res
 
     def set_player_skill(self, skill_key: str, enabled: bool) -> Dict[str, Any]:
         with self.lock:
@@ -974,11 +1163,17 @@ class PESEngine:
             pi = _safe_int(pos_idx, -1)
             if not p or pi not in POS_APT_LOC:
                 return {"ok": False, "code": "invalid_arg"}
+            before_buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
+            if not before_buf:
+                return {"ok": False, "code": "read_failed"}
             self.push_undo(p, "reg_pos")
             self.mem.set_bits(p + 0x07, 4, 4, pi)
             off, bs = POS_APT_LOC[pi]
             self.mem.set_bits(p + off, bs, 2, 2)
-            return self.get_player_details(p)
+            ed = self._apply_economy_sync_locked(p, before_buf)
+            res = self.get_player_details(p)
+            res["econ_delta"] = ed
+            return res
 
     def _get_pos_weights(self, pos_idx: int) -> Dict[int, float]:
         target_code = POS_REMAP.get(pos_idx, 0)
@@ -1013,6 +1208,18 @@ class PESEngine:
                     out[fid] = out.get(fid, 0.0) + w
         return out
 
+    @staticmethod
+    def _compute_stat_diffs(before_buf: BufLike, after_buf: BufLike) -> List[Dict[str, int]]:
+        diffs: List[Dict[str, int]] = []
+        for s in STAT_DEFS:
+            f = s["fid"]
+            ov = get_fid_from_buf(before_buf, f)
+            nv = get_fid_from_buf(after_buf, f)
+            if ov != nv:
+                diffs.append({"fid": f, "old": ov, "new": nv})
+        diffs.sort(key=lambda d: (0 if d["new"] > d["old"] else 1, -abs(d["new"] - d["old"]), d["fid"]))
+        return diffs
+
     def _scale_primary_ovr(self, p: int, target_ovr: int) -> Dict[str, Any]:
         """Proportional DNA-Preserving Overall Solver (Hamilton Largest-Remainder + Core DNA Refinement)."""
         buf = self.mem.read_bytes(p, PLAYER_RECORD_SIZE)
@@ -1021,7 +1228,7 @@ class PESEngine:
         cur_ovr, reg_pos = calc_ovr_from_buf(buf)
         target = max(40, min(109, int(target_ovr)))
         if cur_ovr == target:
-            return {"action_ok": True, "code": "already_at_ovr", "ovr": cur_ovr}
+            return {"action_ok": True, "code": "already_at_ovr", "ovr": cur_ovr, "stat_diffs": []}
 
         self.push_undo(p, "ovr_dna")
 
@@ -1045,8 +1252,19 @@ class PESEngine:
 
         def _commit(final_ba: bytearray) -> Dict[str, Any]:
             self.mem.write_bytes(p, bytes(final_ba[:0x28]))
+            ed = self._apply_economy_sync_locked(p, buf)
             fin_ovr, _ = calc_ovr_from_buf(final_ba, reg_pos, False)
-            return {"action_ok": True, "code": "pri_updated", "orig": cur_ovr, "final": fin_ovr}
+            return {
+                "action_ok": True,
+                "code": "pri_updated",
+                "pos": reg_pos,
+                "reg_pos": reg_pos,
+                "orig": cur_ovr,
+                "final": fin_ovr,
+                "pri": fin_ovr,
+                "stat_diffs": self._compute_stat_diffs(buf[:0x28], final_ba[:0x28]),
+                "econ_delta": ed,
+            }
 
         for k in range(1, len(active_fids) * 60 + 1):
             cand = bytearray(buf[:0x28])
@@ -1256,6 +1474,7 @@ class PESEngine:
 
         self.push_undo(p, "pos_ovr")
         self.mem.write_bytes(p, bytes(best_ba[:0x28]))
+        ed = self._apply_economy_sync_locked(p, buf)
         return {
             "action_ok": True,
             "code": "pos_partial" if best_sec != target else "pos_updated",
@@ -1265,6 +1484,8 @@ class PESEngine:
             "final": best_sec,
             "pri": orig_pri,
             "needs_grade": needs_grade,
+            "stat_diffs": self._compute_stat_diffs(buf[:0x28], best_ba[:0x28]),
+            "econ_delta": ed,
         }
 
     def step_player_ovr(self, delta: int) -> Dict[str, Any]:

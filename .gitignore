@@ -2,6 +2,7 @@
 .venv/
 app/.venv/
 app/build_tmp/
+native/build_tmp/
 dist/*.exe
 __pycache__/
 *.py[cod]

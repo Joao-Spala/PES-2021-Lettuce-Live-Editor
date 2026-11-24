@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## [13.0.0] - 2026-11-24 - Native C++20/DX11 Workbench, Calibrated Economy & Live Match Overhaul
+
+### Added / Adicionado
+- **PES 2021 Workbench Native (`native/`)**: Standalone C++20 + DirectX 11 + Dear ImGui desktop application (~2.4 MB, zero runtime dependencies, event-driven rendering, Per-Monitor DPI scaling, 7 live UI fonts, `PT-BR / EN` and `EUR / BRL / USD / GBP`).
+- **Calibrated Economy Model (`econ_model.hpp` & `app/engine/econ_model.py`)**: Automatic and manual sync for Market Value, Salary, and Konami Release Clause factoring primary OVR, age, position, nationality, and secondary position versatility (capped at `+7%` market and `+3.15%` salary).
+- **Quick Contract & Finances Card (`Player -> Bio`)**: Fast 1-click contract year (`-1y/+1y/+3y/+5y`), market/salary percentage steps (`-25%/-10%/+10%/+25%`), release clause toggle with live fee preview, club affection controls, and economy recalibration.
+- **Live Match Clock Control Center**: Automatic match detection (`Hook 5` auto-arms on match entry), live `MM:SS` + period readout, exact clock setter, quick minute shifts (`-10/-5/+5/+10 min`), half presets (`44:00`, `89:00`, `Reset Half`, `End Half`), live sync button (`Read Live`), clock freeze, 6 selective stamina modes, and quick squad prep.
+- **Pack Studio (JSON v13)**: Export/import single players or entire squads across saves with Exact ID / normalized name / manual matching, diff preview, and optional economy recalibration.
+
+### Fixed / Corrigido
+- **Use-After-Free in Squad & Scouts Tables**: Deferred `reload_squad()` and `reload_scouts()` calls until after table loops finish, and resolved `cur_list` pointer after list mutations.
+- **Paused Match Clock Display & UI Blocking**: Prioritized live `(prot_ticks + off_ticks)` over frozen `ptrMatchHud` during pause, removed redundant `Sleep(10)` loops on the UI thread, and added a one-shot retry guard for Hook 5 auto-arming.
+- **UI/UX Polish**: Full-row hover across Squad, Search, and Scouts tables, center-anchored triangle fan for the hexagonal radar chart, top-center non-blocking toasts, deferred `InputInt` clamping until edit commit, modal-safe global hotkeys, and `KeypadEnter` support in Command Palette.
+
+---
+
 ## [12.0.0] - 2026-11-20 - Full Canvas Data Grid UI/UX Overhaul
 
 ### Added / Adicionado

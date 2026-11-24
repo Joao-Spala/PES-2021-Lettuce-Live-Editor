@@ -101,6 +101,15 @@ class StudioAPI:
     def match_position_to_primary(self, pos_idx: Any) -> Dict[str, Any]:
         return self.engine.match_position_to_primary(_safe_int(pos_idx, -1))
 
+    def get_econ_sync_mode(self) -> Dict[str, Any]:
+        return {"ok": True, "mode": self.engine.get_econ_sync_mode()}
+
+    def set_econ_sync_mode(self, mode: Any) -> Dict[str, Any]:
+        return self.engine.set_econ_sync_mode(_safe_int(mode, 1) if _safe_int(mode) is not None else 1)
+
+    def recalibrate_player_economy(self, addr: Any = None) -> Dict[str, Any]:
+        return self.engine.recalibrate_player_economy(_safe_int(addr))
+
     def undo_last(self) -> Dict[str, Any]:
         return self.engine.undo_last()
 

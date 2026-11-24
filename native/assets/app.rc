@@ -1,0 +1,31 @@
+#include <winver.h>
+
+101 ICON "app_icon.ico"
+
+1 VERSIONINFO
+FILEVERSION     12,0,0,0
+PRODUCTVERSION  12,0,0,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "PES 2021 Workbench"
+            VALUE "FileDescription",  "PES 2021 Workbench Native"
+            VALUE "FileVersion",      "12.0.0.0"
+            VALUE "InternalName",     "PES2021WorkbenchNative"
+            VALUE "OriginalFilename", "PES 2021 Workbench Native.exe"
+            VALUE "ProductName",      "PES 2021 Workbench Native"
+            VALUE "ProductVersion",   "12.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

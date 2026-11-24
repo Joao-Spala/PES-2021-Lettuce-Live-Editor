@@ -29,6 +29,14 @@ let CUR_FONT = (function () {
   try { const f = localStorage.getItem("pes21_studio_font") || "inter"; return FONTS[f] ? f : "inter"; }
   catch (e) { return "inter"; }
 })();
+let ECON_SYNC_MODE = (function () {
+  try {
+    const raw = localStorage.getItem("pes21_studio_econ_sync");
+    if (raw === null) return 1;
+    const v = Number(raw);
+    return (v >= 0 && v <= 3) ? v : 1;
+  } catch (e) { return 1; }
+})();
 
 const TACTICAL_ORDER = [12, 11, 9, 10, 8, 6, 5, 7, 4, 2, 1, 3, 0];
 
@@ -41,6 +49,11 @@ let LAST_FINANCES = null;
 let LAST_PLAYER_ADDR = 0;
 let CURRENT_PLAYER = null;
 let HIGHLIGHTED_POS = null;
+let PITCH_ORIENT_MODE = 0; // 0=Auto, 1=Horizontal, 2=Vertical
+let POSLAB_LOG_MODE = 0;   // 0=Steps, 1=Net Summary
+let POSLAB_LOG_ADDR = 0;
+let POSLAB_BASE_STATS = null;
+let POSLAB_LOG = [];
 let SQUAD_DATA = [];
 let SQUAD_CLUB = "";
 let SQUAD_FILTER = "all";
@@ -143,10 +156,14 @@ const I18N = {
     tip_grade_c: "Grau C (Sem familiaridade): sem bônus de Grau na posição secundária (+0 OVR)",
     tip_pos_grade: "Familiaridade na posição (C, B ou A). Subir para A libera bônus direto no OVR da posição",
     tip_pos_iso: "Sobe ou desce 1 OVR na posição secundária usando contrapeso exato sem alterar o OVR principal",
+    tip_pitch_orient: "Clique para alternar entre Automático (vira na horizontal em janelas verticais), Horizontal ou Vertical",
+    tip_poslab_log: "Mostra exatamente quais atributos subiram ou foram compensados em cada ajuste do Lab de Posições",
+    log_steps: "Passo a passo",
+    log_net: "Acumulado",
     tip_playing_style: "Define a inteligência de movimentação sem bola nas posições compatíveis",
     tip_player_skills: "Passe o mouse em qualquer habilidade para ver o efeito exato em campo. O limite nativo do jogo é 10",
     tip_com_ai: "Define tendências de decisão quando o jogador está sob controle da IA (CPU ou modo SIM)",
-    tip_team_role: "Papel do atleta no elenco da Master League. Gera bônus de XP em treino, Espírito de Equipe e receitas",
+    tip_team_role: "Função do atleta no elenco da Master League. Gera bônus de XP em treino, Espírito de equipe, receitas e efeitos de capitão",
     tip_role_lvl: "Níveis mais altos amplificam os bônus de treino, moral e receita da função escolhida",
     tip_match_stam: "Controla o desgaste de fôlego em tempo real durante a partida",
     tip_press_home: "Mantém o time da casa em 100% e reduz o visitante para 5% de fôlego",
@@ -223,7 +240,7 @@ const I18N = {
     ptab_stats: "Atributos (25)",
     ptab_poslab: "Lab de Posições",
     ptab_skills: "Estilo & Habilidades",
-    ptab_role: "Função de Equipe",
+    ptab_role: "Função no time",
     card_quick_stam: "Fôlego & Saúde Rápida",
     btn_heal_one: "Curar Lesão",
     card_form_arrow: "Seta de Forma (Match Form)",
@@ -244,10 +261,10 @@ const I18N = {
     lbl_salary_yr: "Salário Anual (ex: 2.5M)",
     lbl_market_val: "Valor de Mercado (ex: 30M)",
     lbl_inj_days: "Dias Lesionado (0 = OK)",
-    lbl_wfu: "Uso Pé Ruim (1-4)",
-    lbl_wfa: "Precisão Pé Ruim (1-4)",
-    lbl_form: "Estabilidade / Forma (1-8)",
-    lbl_injres: "Resistência a Lesões (1-3)",
+    lbl_wfu: "Pior pé (frequência) (1-4)",
+    lbl_wfa: "Pior pé (precisão) (1-4)",
+    lbl_form: "Forma física (1-8)",
+    lbl_injres: "Resistência a lesão (1-3)",
     lbl_transfer_listed: "Listado para Transferência",
     lbl_loan_listed: "Listado para Empréstimo",
     dna_bar_title: "Evolução de OVR Geral (Mantendo DNA)",
@@ -262,13 +279,13 @@ const I18N = {
     btn_all_99: "Tudo 99",
     poslab_title: "Lab de Posições (Precisão Cirúrgica)",
     poslab_hint: "OVR já inclui bônus do Grau. +1/-1 move 1 por vez e a posição principal nunca é alterada.",
-    card_playing_style: "Estilo de Jogo (Playing Style)",
-    card_player_skills: "Habilidades do Jogador",
-    card_com_ai: "Estilos de Jogo do COM (AI)",
-    card_team_role: "Função de Equipe (Team Role)",
+    card_playing_style: "Estilo de jogo",
+    card_player_skills: "Habilidades do jogador",
+    card_com_ai: "Estilos de jogo do COMP",
+    card_team_role: "Função no time",
     lbl_role: "Função",
     lbl_role_lvl: "Nível (0 a 3)",
-    btn_apply_role: "Aplicar Função de Equipe",
+    btn_apply_role: "Aplicar Função no time",
     srch_title: "Buscar Jogador (Base Completa)",
     srch_sub: "Pesquise instantaneamente entre todos os 30.000+ jogadores carregados na Master League.",
     lbl_send_to: "Enviar para:",
@@ -320,6 +337,18 @@ const I18N = {
     card_bal: "Pontos de Foco (Rumo ao Estrelato / BAL)",
     lbl_lock_99: "Travar valor",
     lbl_unsaved: "Alterações não salvas",
+    lbl_econ_sync: "Economia ao editar OVR:",
+    econ_opt_0: "Desativado (Manual)",
+    econ_opt_1: "Tudo (Mercado + Salário + Rescisão)",
+    econ_opt_2: "Só Mercado e Rescisão",
+    econ_opt_3: "Só Contrato (Salário)",
+    btn_recal_econ: "Recalibrar Economia",
+    lbl_has_rf: "Possui Taxa de Rescisão (Multa)",
+    tip_econ_sync: "Ajusta imediatamente Valor de Mercado, Salário do Contrato e Taxa de Rescisão ao alterar o OVR. Escala a partir do valor original do atleta levando em conta OVR, idade, posição e país.",
+    tip_econ_sync_sel: "Escolha se ao mudar o OVR devem subir ou descer Mercado + Salário + Rescisão, apenas Mercado e Rescisão, apenas Salário ou ficar manual.",
+    tip_release_pill: "Calculada em tempo real pela fórmula nativa do PES 2021 a partir do Valor de Mercado, idade, afinidade e OVR. Ative ou desative a multa na aba Condição & Bio.",
+    tip_recal_econ: "Recalcula Valor de Mercado, Salário e Rescisão realistas para o OVR, idade, posição e país atuais.",
+    tip_has_rf: "Ativa ou remove a cláusula de multa rescisória do contrato. Quando ativa, o valor acompanha automaticamente o Valor de Mercado.",
   },
   en: {
     nav_career: "CAREER",
@@ -385,10 +414,14 @@ const I18N = {
     tip_grade_c: "Grade C (Unfamiliar): zero Grade bonus in this secondary position (+0 OVR)",
     tip_pos_grade: "Position familiarity (C, B, or A). Raising to A adds a direct OVR bonus in that position",
     tip_pos_iso: "Steps secondary position OVR 1 by 1 using exact counterbalance while locking primary OVR",
+    tip_pitch_orient: "Click to cycle Auto (flips horizontal on vertical/narrow windows), Horizontal, or Vertical",
+    tip_poslab_log: "Shows exactly which attributes increased or counterbalanced on every Position Lab step",
+    log_steps: "Step-by-step",
+    log_net: "Net Summary",
     tip_playing_style: "Controls off-the-ball movement intelligence when playing in compatible positions",
     tip_player_skills: "Hover any skill to see its exact on-pitch effect. Default game cap is 10 skills",
     tip_com_ai: "Controls decision tendencies when the player is managed by AI (CPU or SIM mode)",
-    tip_team_role: "Master League squad role. Grants training EXP boosts, Team Spirit, and club revenue perks",
+    tip_team_role: "Master League squad role. Grants training EXP boosts, Team Spirit, club revenue, and captain perks",
     tip_role_lvl: "Higher levels amplify the training, morale, and financial perks of the selected role",
     tip_match_stam: "Controls real-time stamina drain during live matches",
     tip_press_home: "Locks Home team at 100% stamina and drains Away team to 5%",
@@ -488,7 +521,7 @@ const I18N = {
     lbl_inj_days: "Injury Days (0 = OK)",
     lbl_wfu: "Weak Foot Usage (1-4)",
     lbl_wfa: "Weak Foot Accuracy (1-4)",
-    lbl_form: "Form Stability (1-8)",
+    lbl_form: "Form (1-8)",
     lbl_injres: "Injury Resistance (1-3)",
     lbl_transfer_listed: "Transfer Listed",
     lbl_loan_listed: "Loan Listed",
@@ -506,7 +539,7 @@ const I18N = {
     poslab_hint: "Displayed OVR includes Grade bonus. +1/-1 steps 1 by 1 and primary position is never altered.",
     card_playing_style: "Playing Style",
     card_player_skills: "Player Skills",
-    card_com_ai: "COM Playing Styles (AI)",
+    card_com_ai: "COM Playing Styles",
     card_team_role: "Team Role",
     lbl_role: "Role",
     lbl_role_lvl: "Level (0 to 3)",
@@ -562,6 +595,18 @@ const I18N = {
     card_bal: "Focus Points (Become a Legend / BAL)",
     lbl_lock_99: "Lock value",
     lbl_unsaved: "Unsaved changes",
+    lbl_econ_sync: "Auto-sync Economy on OVR:",
+    econ_opt_0: "Off (Manual)",
+    econ_opt_1: "All (Market + Salary + Release)",
+    econ_opt_2: "Market & Release Only",
+    econ_opt_3: "Contract Salary Only",
+    btn_recal_econ: "Recalibrate Economy",
+    lbl_has_rf: "Has Release Clause",
+    tip_econ_sync: "Immediately scales Market Value, Contract Salary and Release Fee whenever OVR changes. Anchored to the player's original value considering OVR, age, position and country.",
+    tip_econ_sync_sel: "Choose whether OVR edits update Market + Salary + Release Fee, Market & Release only, Salary only, or stay manual.",
+    tip_release_pill: "Computed live by PES 2021's native formula from Market Value, age, affection and OVR. Toggle the clause in Condition & Bio.",
+    tip_recal_econ: "Recalculates realistic Market Value, Salary and Release Fee for the current OVR, age, position and country.",
+    tip_has_rf: "Enables or removes the contract release fee clause. When active, the fee scales automatically with Market Value.",
   },
 };
 
@@ -625,7 +670,10 @@ function toast(msg, type = "ok") {
   };
   el.addEventListener("click", dismiss);
   wrap.appendChild(el);
-  setTimeout(dismiss, 3400);
+  const dur = (msg && String(msg).length > 52) ? 9000 : 6500;
+  let timer = setTimeout(dismiss, dur);
+  el.addEventListener("mouseenter", () => { if (timer) { clearTimeout(timer); timer = null; } });
+  el.addEventListener("mouseleave", () => { if (!timer) timer = setTimeout(dismiss, 2400); });
 }
 
 function fmtMoney(raw) {
@@ -634,6 +682,21 @@ function fmtMoney(raw) {
   const abs = Math.abs(euros);
   const s = abs.toLocaleString(LANG === "en" ? cur.localeEn : cur.localePt);
   return (euros < 0 ? `-${cur.sym} ` : `${cur.sym} `) + s;
+}
+
+function fmtEconDeltaLine(ed) {
+  if (!ed || !ed.applied) return "";
+  const parts = [];
+  if (ed.old_market_raw !== ed.new_market_raw) {
+    parts.push(`${T("Mercado", "Market")}: ${fmtMoney(ed.old_market_raw)} -> ${fmtMoney(ed.new_market_raw)}`);
+  }
+  if (ed.old_salary_raw !== ed.new_salary_raw) {
+    parts.push(`${T("Salário", "Salary")}: ${fmtMoney(ed.old_salary_raw)} -> ${fmtMoney(ed.new_salary_raw)}`);
+  }
+  if (ed.has_release_fee && ed.old_release_raw !== ed.new_release_raw) {
+    parts.push(`${T("Rescisão", "Release")}: ${fmtMoney(ed.old_release_raw)} -> ${fmtMoney(ed.new_release_raw)}`);
+  }
+  return parts.join(" | ");
 }
 
 function fmtClub(club) { return club || T("Sem Clube / Livre", "Free Agent"); }
@@ -756,11 +819,46 @@ function updatePlayingStyleInfo() {
 function updateTeamRoleInfo() {
   if (!META) return;
   const sel = document.getElementById("p-team-role");
-  const descEl = document.getElementById("p-role-desc");
-  if (!sel || !descEl) return;
+  const infoEl = document.getElementById("p-role-info");
+  if (!sel || !infoEl) return;
   const rid = Number(sel.value || 0);
   const role = META.team_roles.find(x => x.id === rid);
-  descEl.textContent = role ? (LANG === "en" ? role.desc_en : role.desc_pt) : "";
+  if (!role) {
+    infoEl.innerHTML = "";
+    infoEl.classList.remove("has-captain");
+    return;
+  }
+  const hasCap = !!role.captain;
+  infoEl.classList.toggle("has-captain", hasCap);
+
+  const tagLabels = {
+    fin: T("Finanças", "Finances"),
+    cond: T("Condição", "Condition"),
+    xp: T("Treino / XP", "Training / EXP"),
+    spirit: T("Espírito de equipe", "Team Spirit"),
+  };
+  const chips = [];
+  if (role.id !== 0) {
+    if (hasCap) {
+      chips.push(`<span class="role-tag role-tag-cap">★ ${escapeHtml(T("Bônus de Capitão", "Captain Bonus"))}</span>`);
+    } else {
+      chips.push(`<span class="role-tag role-tag-muted">${escapeHtml(T("Sem bônus de capitão", "No captain bonus"))}</span>`);
+    }
+    (role.tags || []).forEach(tg => {
+      if (tagLabels[tg]) chips.push(`<span class="role-tag">${escapeHtml(tagLabels[tg])}</span>`);
+    });
+  }
+
+  const desc = LANG === "en" ? role.desc_en : role.desc_pt;
+  const capDesc = LANG === "en" ? (role.captain_en || "") : (role.captain_pt || "");
+  const capTitle = T("Efeito de Capitão (com a braçadeira)", "Captain Effect (when wearing the armband)");
+
+  infoEl.innerHTML =
+    (chips.length ? `<div class="role-tags">${chips.join("")}</div>` : "") +
+    `<div class="role-desc-text">${escapeHtml(desc)}</div>` +
+    (hasCap && capDesc
+      ? `<div class="role-captain-box"><div class="role-captain-title">★ ${escapeHtml(capTitle)}</div><div class="role-captain-body">${escapeHtml(capDesc)}</div></div>`
+      : "");
 }
 
 function populateLocalizedSelects() {
@@ -778,7 +876,11 @@ function populateLocalizedSelects() {
 
   const roleEl = document.getElementById("p-team-role");
   const curRole = roleEl.value || "0";
-  roleEl.innerHTML = META.team_roles.map(r => `<option value="${r.id}">${escapeHtml(LANG === "en" ? r.en : r.pt)}</option>`).join("");
+  const capSuffix = T(" ★ Capitão", " ★ Captain");
+  roleEl.innerHTML = META.team_roles.map(r => {
+    const base = LANG === "en" ? r.en : r.pt;
+    return `<option value="${r.id}">${escapeHtml(r.captain ? `${base}${capSuffix}` : base)}</option>`;
+  }).join("");
   roleEl.value = curRole;
   updateTeamRoleInfo();
 
@@ -1126,6 +1228,28 @@ function updateHeroHeader(d) {
   const uCnt = d.undo_count || 0;
   document.getElementById("undo-badge").textContent = `(${uCnt})`;
   document.getElementById("btn-undo").disabled = uCnt === 0;
+
+  // Economy Sync strip & Release Fee pill
+  const selEcon = document.getElementById("sel-econ-sync");
+  if (selEcon) selEcon.value = String(ECON_SYNC_MODE);
+  const lblEcon = document.getElementById("lbl-econ-sync");
+  if (lblEcon) lblEcon.classList.toggle("off", ECON_SYNC_MODE === 0);
+
+  const rfPill = document.getElementById("p-release-pill");
+  if (rfPill) {
+    if (d.has_release_fee && d.release_fee_raw > 0) {
+      rfPill.textContent = `${T("Rescisão", "Release")}: ${fmtMoney(d.release_fee_raw)}`;
+      rfPill.classList.add("active");
+    } else {
+      rfPill.textContent = T("Rescisão: Sem multa", "Release: No clause");
+      rfPill.classList.remove("active");
+    }
+  }
+  const recalBtn = document.getElementById("btn-recal-econ");
+  if (recalBtn) {
+    const snapMismatch = (d.snap_ovr >= 40 && d.snap_ovr <= 99 && d.snap_ovr !== d.ovr);
+    recalBtn.classList.toggle("btn-gold", snapMismatch);
+  }
 }
 
 function renderPlayerDetails(d) {
@@ -1175,11 +1299,19 @@ function renderPlayerDetails(d) {
   document.getElementById("bio-injres").value = d.inj_res;
   document.getElementById("bio-tlist").checked = !!d.transfer_listed;
   document.getElementById("bio-llist").checked = !!d.loan_listed;
+  const rfChk = document.getElementById("bio-has-rf");
+  if (rfChk) rfChk.checked = !!d.has_release_fee;
 
   renderStatsRadar(d.stats);
   renderStatsGroups(d);
+  if (d.addr !== POSLAB_LOG_ADDR) {
+    POSLAB_LOG_ADDR = d.addr;
+    POSLAB_BASE_STATS = { ...d.stats };
+    POSLAB_LOG = [];
+  }
   renderPositionPitch(d);
   renderPositionLab(d);
+  renderPosLabLog();
   renderSkillsAndStyle(d);
   document.getElementById("p-team-role").value = String(d.team_role);
   document.getElementById("p-team-role-lvl").value = String(d.team_role_lvl);
@@ -1199,7 +1331,7 @@ function computeRadarAxes(stats) {
     { lbl: "PAS",           val: avg([21, 22]) },
     { lbl: T("FIS", "PHY"), val: avg([33, 34, 35, 36, 37, 38, 39]) },
     { lbl: "DEF",           val: avg([15, 24, 25]) },
-    { lbl: T("GL", "GK"),   val: avg([16, 28, 29, 30, 31]) },
+    { lbl: T("GO", "GK"),   val: avg([16, 28, 29, 30, 31]) },
   ];
 }
 
@@ -1313,6 +1445,12 @@ async function onStatChange(fid, val) {
       numInp.className = `stat-num-inp ${ovrClass(newVal)}`;
     }
     updateHeroHeader(res);
+    if (res.econ_delta && res.econ_delta.applied) {
+      document.getElementById("bio-salary").value = fmtMoney(res.salary_raw);
+      document.getElementById("bio-market").value = fmtMoney(res.market_raw);
+      const el = fmtEconDeltaLine(res.econ_delta);
+      if (el) toast(`OVR ${res.econ_delta.old_ovr} -> ${res.econ_delta.new_ovr} | ${el}`);
+    }
     renderStatsRadar(res.stats);
     renderPositionPitch(res);
     renderPositionLab(res);
@@ -1329,9 +1467,9 @@ async function stepPlayerOvrDNA(delta) {
     const r = await api().step_player_ovr(delta);
     if (r && r.ok) {
       CURRENT_PLAYER = r;
+      recordPosLabAction(r, delta > 0 ? "+1 OVR DNA" : "-1 OVR DNA", delta > 0 ? "+1 OVR DNA" : "-1 OVR DNA");
       renderPlayerDetails(r);
       pulseOvrShield();
-      toast(fmtCodeMsg(r));
     } else {
       toast(fmtCodeMsg(r), "err");
     }
@@ -1356,10 +1494,10 @@ async function setTargetOvrDNA() {
     const r = await api().set_player_ovr(Math.round(val));
     if (r && r.ok) {
       CURRENT_PLAYER = r;
+      recordPosLabAction(r, "Alvo OVR DNA", "Target OVR DNA");
       renderPlayerDetails(r);
       pulseOvrShield();
       if (inp) inp.value = "";
-      toast(fmtCodeMsg(r));
     } else {
       toast(fmtCodeMsg(r), "err");
     }
@@ -1378,31 +1516,72 @@ async function presetStats(val) {
     CURRENT_PLAYER = res;
     renderPlayerDetails(res);
     pulseOvrShield();
-    toast(T(`Atributos definidos para ${val}`, `Attributes set to ${val}`));
+    const el = fmtEconDeltaLine(res.econ_delta);
+    const baseMsg = T(`Atributos definidos para ${val}`, `Attributes set to ${val}`);
+    toast(el ? `${baseMsg} | ${el}` : baseMsg);
   } else toast(fmtCodeMsg(res), "err");
 }
 
 // -------------------------------------------------------------------
-// INTERACTIVE TACTICAL MINI-PITCH + STABLE POSITION LAB
+// INTERACTIVE TACTICAL MINI-PITCH (VERTICAL & HORIZONTAL) + DIFF LOG
 // -------------------------------------------------------------------
-const PITCH_COORDS = {
+function isPitchHorizontal() {
+  if (PITCH_ORIENT_MODE === 1) return true;
+  if (PITCH_ORIENT_MODE === 2) return false;
+  return window.innerWidth <= 1160 || window.innerHeight > window.innerWidth * 0.78;
+}
+
+const PITCH_COORDS_VERT = {
   12: [110, 34], 11: [110, 74], 9: [44, 62], 10: [176, 62],
   8: [110, 114], 6: [40, 146], 5: [110, 154], 7: [180, 146],
   4: [110, 194], 2: [40, 232], 1: [110, 240], 3: [180, 232], 0: [110, 286],
 };
 
+const PITCH_COORDS_HORIZ = {
+  0: [36, 102],
+  2: [98, 36], 1: [98, 102], 3: [98, 168],
+  4: [160, 102],
+  6: [224, 34], 5: [224, 102], 7: [224, 170],
+  8: [288, 102],
+  9: [352, 38], 11: [352, 102], 10: [352, 166],
+  12: [416, 102],
+};
+
 function renderPositionPitch(d) {
   const svg = document.getElementById("poslab-pitch-svg");
   if (!svg || !d || !d.positions) return;
-  const pitchLines = `
-    <rect x="8" y="8" width="204" height="304" rx="6" fill="none" stroke="rgba(16,185,129,0.32)" stroke-width="1.4"/>
-    <line x1="8" y1="160" x2="212" y2="160" stroke="rgba(16,185,129,0.28)" stroke-width="1.2"/>
-    <circle cx="110" cy="160" r="28" fill="none" stroke="rgba(16,185,129,0.28)" stroke-width="1.2"/>
-    <rect x="56" y="8" width="108" height="44" fill="none" stroke="rgba(16,185,129,0.25)" stroke-width="1.2"/>
-    <rect x="56" y="268" width="108" height="44" fill="none" stroke="rgba(16,185,129,0.25)" stroke-width="1.2"/>
-  `;
+  const isHoriz = isPitchHorizontal();
+  const layout = document.getElementById("poslab-layout");
+  if (layout) layout.classList.toggle("stacked", isHoriz);
+  const oBtn = document.getElementById("btn-pitch-orient");
+  if (oBtn) {
+    oBtn.textContent = PITCH_ORIENT_MODE === 0
+      ? (isHoriz ? "Auto (H)" : "Auto (V)")
+      : (PITCH_ORIENT_MODE === 1 ? "Horiz" : "Vert");
+  }
+  svg.setAttribute("viewBox", isHoriz ? "0 0 460 204" : "0 0 220 320");
+  svg.classList.toggle("horizontal", isHoriz);
+
+  const pitchLines = isHoriz
+    ? `
+      <rect x="8" y="8" width="444" height="188" rx="6" fill="none" stroke="rgba(16,185,129,0.32)" stroke-width="1.4"/>
+      <line x1="230" y1="8" x2="230" y2="196" stroke="rgba(16,185,129,0.28)" stroke-width="1.2"/>
+      <circle cx="230" cy="102" r="28" fill="none" stroke="rgba(16,185,129,0.28)" stroke-width="1.2"/>
+      <rect x="8" y="46" width="52" height="112" fill="none" stroke="rgba(16,185,129,0.25)" stroke-width="1.2"/>
+      <rect x="400" y="46" width="52" height="112" fill="none" stroke="rgba(16,185,129,0.25)" stroke-width="1.2"/>
+    `
+    : `
+      <rect x="8" y="8" width="204" height="304" rx="6" fill="none" stroke="rgba(16,185,129,0.32)" stroke-width="1.4"/>
+      <line x1="8" y1="160" x2="212" y2="160" stroke="rgba(16,185,129,0.28)" stroke-width="1.2"/>
+      <circle cx="110" cy="160" r="28" fill="none" stroke="rgba(16,185,129,0.28)" stroke-width="1.2"/>
+      <rect x="56" y="8" width="108" height="44" fill="none" stroke="rgba(16,185,129,0.25)" stroke-width="1.2"/>
+      <rect x="56" y="268" width="108" height="44" fill="none" stroke="rgba(16,185,129,0.25)" stroke-width="1.2"/>
+    `;
+
+  const coords = isHoriz ? PITCH_COORDS_HORIZ : PITCH_COORDS_VERT;
+  const fallback = isHoriz ? [230, 102] : [110, 160];
   const nodes = d.positions.map(pos => {
-    const [x, y] = PITCH_COORDS[pos.id] || [110, 160];
+    const [x, y] = coords[pos.id] || fallback;
     const fill = pos.is_reg ? "#2563eb" : (pos.apt === 2 ? "#059669" : (pos.apt === 1 ? "#b45309" : "#1e293b"));
     const stroke = (HIGHLIGHTED_POS === pos.id) ? "#ffffff" : (pos.is_reg ? "#93c5fd" : (pos.apt === 2 ? "#34d399" : (pos.apt === 1 ? "#fbbf24" : "#475569")));
     const sw = (HIGHLIGHTED_POS === pos.id || pos.is_reg) ? 2.2 : 1.2;
@@ -1413,6 +1592,152 @@ function renderPositionPitch(d) {
     </g>`;
   }).join("");
   svg.innerHTML = pitchLines + nodes;
+}
+
+function statDefByFid(fid) {
+  return (META && META.stats) ? META.stats.find(s => Number(s.fid) === Number(fid)) : null;
+}
+
+function fmtStatDiffChips(diffs, compact = false) {
+  return (diffs || []).map(df => {
+    const sd = statDefByFid(df.fid);
+    const name = sd ? (LANG === "en" ? sd.en : sd.pt) : `#${df.fid}`;
+    const desc = sd ? (LANG === "en" ? (sd.desc_en || "") : (sd.desc_pt || "")) : "";
+    const d = Number(df.new) - Number(df.old);
+    const sign = d > 0 ? `+${d}` : String(d);
+    const lbl = compact ? `${name} ${sign}` : `${name} ${df.old}->${df.new} (${sign})`;
+    return `<span class="diff-chip ${d > 0 ? "up" : "dn"}" data-tip-title="${escapeHtml(name)}" data-tip="${escapeHtml(desc)}">${escapeHtml(lbl)}</span>`;
+  }).join("");
+}
+
+function recordPosLabAction(res, tagPt, tagEn) {
+  const diffs = Array.isArray(res.stat_diffs) ? res.stat_diffs : [];
+  let msg = fmtCodeMsg(res);
+  if (diffs.length) {
+    const now = new Date();
+    const ts = now.toTimeString().slice(0, 8);
+    POSLAB_LOG.unshift({
+      time: ts,
+      pos: res.pos != null ? res.pos : (res.reg_pos != null ? res.reg_pos : -1),
+      reg_pos: res.reg_pos != null ? res.reg_pos : -1,
+      orig: res.orig || 0,
+      final: res.final || 0,
+      pri: res.pri || res.ovr || 0,
+      tagPt,
+      tagEn,
+      diffs,
+    });
+    if (POSLAB_LOG.length > 30) POSLAB_LOG.length = 30;
+    const top = diffs.slice(0, 3).map(df => {
+      const sd = statDefByFid(df.fid);
+      const nm = sd ? (LANG === "en" ? sd.en : sd.pt) : `#${df.fid}`;
+      const d = df.new - df.old;
+      return `${nm} ${d > 0 ? "+" : ""}${d}`;
+    }).join(", ");
+    const more = diffs.length > 3 ? ` (+${diffs.length - 3})` : "";
+    msg += ` | ${top}${more}`;
+  }
+  const el = fmtEconDeltaLine(res.econ_delta);
+  if (el) msg += ` | ${el}`;
+  toast(msg, res.action_ok === false ? "err" : "ok");
+}
+
+function recordPosLabMeta(posId, origOvr, finalOvr, tagPt, tagEn) {
+  const ts = new Date().toTimeString().slice(0, 8);
+  POSLAB_LOG.unshift({
+    time: ts,
+    pos: posId,
+    reg_pos: CURRENT_PLAYER ? CURRENT_PLAYER.reg_pos : -1,
+    orig: origOvr,
+    final: finalOvr,
+    pri: CURRENT_PLAYER ? CURRENT_PLAYER.ovr : 0,
+    tagPt,
+    tagEn,
+    diffs: [],
+  });
+  if (POSLAB_LOG.length > 30) POSLAB_LOG.length = 30;
+}
+
+function renderPosLabLog() {
+  const titleEl = document.getElementById("poslab-log-title");
+  const bodyEl = document.getElementById("poslab-log-body");
+  const stripEl = document.getElementById("poslab-last-strip");
+  const actBtn = document.getElementById("btn-log-action");
+  if (!titleEl || !bodyEl) return;
+
+  titleEl.textContent = `${T("Histórico de Atributos", "Attribute Diff Log")} (${POSLAB_LOG.length})`;
+  document.getElementById("btn-log-mode-steps").classList.toggle("active", POSLAB_LOG_MODE === 0);
+  document.getElementById("btn-log-mode-net").classList.toggle("active", POSLAB_LOG_MODE === 1);
+  if (actBtn) actBtn.textContent = POSLAB_LOG_MODE === 0 ? T("Limpar", "Clear") : T("Zerar base", "Reset base");
+
+  // Compact 1-line last-change strip above table when stacked/horizontal
+  if (stripEl) {
+    const showStrip = isPitchHorizontal() && POSLAB_LOG.length > 0 && POSLAB_LOG[0].diffs.length > 0;
+    if (showStrip) {
+      const last = POSLAB_LOG[0];
+      stripEl.style.display = "flex";
+      stripEl.innerHTML =
+        `<span style="color:#60a5fa; font-weight:700;">${escapeHtml(T("Última alteração", "Last change"))}:</span>` +
+        (last.pos >= 0 ? `<span class="pos-chip ${posClass(last.pos)}" style="min-width:34px; height:19px; font-size:10px;">${escapeHtml(posShort(last.pos))}</span>` : "") +
+        `<div class="poslab-diff-chips">${fmtStatDiffChips(last.diffs, true)}</div>`;
+    } else {
+      stripEl.style.display = "none";
+    }
+  }
+
+  if (POSLAB_LOG_MODE === 0) {
+    if (!POSLAB_LOG.length) {
+      bodyEl.innerHTML = `<div style="color:var(--muted); font-size:12px;">${escapeHtml(T("Clique em +1/-1 OVR ou Igualar Principal para acompanhar aqui cada atributo modificado.", "Click +1/-1 OVR or Match Primary to see every modified attribute tracked here."))}</div>`;
+      return;
+    }
+    bodyEl.innerHTML = POSLAB_LOG.map(e => {
+      const delta = e.final - e.orig;
+      const ovrSpan = e.orig !== e.final
+        ? `<span style="font-weight:800; color:${delta > 0 ? "#34d399" : "#f87171"};">${e.orig} -> ${e.final} (${delta > 0 ? "+" : ""}${delta})</span>`
+        : `<span style="font-weight:700; color:#60a5fa;">${escapeHtml(LANG === "en" ? e.tagEn : e.tagPt)}</span>`;
+      const priTag = (e.reg_pos >= 0 && e.pos !== e.reg_pos && e.pri > 0)
+        ? `<span style="color:var(--muted);">(${escapeHtml(posShort(e.reg_pos))} ${e.pri})</span>`
+        : "";
+      const posChip = e.pos >= 0
+        ? `<span class="pos-chip ${posClass(e.pos)}" style="min-width:34px; height:19px; font-size:10px;">${escapeHtml(posShort(e.pos))}</span>`
+        : "";
+      const chips = e.diffs.length
+        ? `<div class="poslab-diff-chips">${fmtStatDiffChips(e.diffs, false)}</div>`
+        : (e.orig !== e.final ? `<div style="font-size:11px; color:var(--subtext);">${escapeHtml(LANG === "en" ? e.tagEn : e.tagPt)}</div>` : "");
+      return `<div class="poslab-log-entry"><div class="poslab-log-head"><span style="color:var(--muted);">${escapeHtml(e.time)}</span>${posChip}${ovrSpan}${priTag}</div>${chips}</div>`;
+    }).join("");
+  } else {
+    const net = [];
+    let sumUp = 0, sumDn = 0;
+    if (CURRENT_PLAYER && CURRENT_PLAYER.stats && POSLAB_BASE_STATS && META) {
+      META.stats.forEach(s => {
+        const k = String(s.fid);
+        const ov = Number(POSLAB_BASE_STATS[k] || 40);
+        const nv = Number(CURRENT_PLAYER.stats[k] || 40);
+        if (ov !== nv) {
+          net.push({ fid: s.fid, old: ov, new: nv });
+          if (nv > ov) sumUp += (nv - ov);
+          else sumDn += (ov - nv);
+        }
+      });
+      net.sort((a, b) => {
+        const da = a.new - a.old, db = b.new - b.old;
+        if ((da > 0) !== (db > 0)) return da > 0 ? -1 : 1;
+        return Math.abs(db) - Math.abs(da);
+      });
+    }
+    if (!net.length) {
+      bodyEl.innerHTML = `<div style="color:var(--muted); font-size:12px;">${escapeHtml(T("Nenhuma diferença acumulada nos atributos desde o carregamento deste atleta.", "No net attribute changes since loading this player."))}</div>`;
+      return;
+    }
+    bodyEl.innerHTML =
+      `<div style="display:flex; gap:10px; font-size:11.5px; font-weight:700;">
+        <span style="color:#34d399;">+${sumUp} ${escapeHtml(T("ganhos", "gained"))}</span>
+        <span style="color:#fb923c;">-${sumDn} ${escapeHtml(T("compensados", "counterbalanced"))}</span>
+        <span style="color:var(--subtext);">(${net.length} ${escapeHtml(T("atributos", "stats"))})</span>
+      </div>
+      <div class="poslab-diff-chips">${fmtStatDiffChips(net, false)}</div>`;
+  }
 }
 
 function renderPositionLab(d) {
@@ -2328,34 +2653,90 @@ async function bootstrap() {
     if (!api()) return;
     const aptBtn = e.target.closest("[data-pos-apt]");
     if (aptBtn) {
-      const r = await api().set_position_aptitude(Number(aptBtn.dataset.posApt), Number(aptBtn.dataset.grade));
-      if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); }
-      else toast(fmtCodeMsg(r), "err");
+      const pid = Number(aptBtn.dataset.posApt);
+      const g = Number(aptBtn.dataset.grade);
+      const prevPos = CURRENT_PLAYER && CURRENT_PLAYER.positions.find(x => x.id === pid);
+      const oldG = prevPos ? prevPos.apt : 0;
+      const oldO = prevPos ? prevPos.ovr : 0;
+      const r = await api().set_position_aptitude(pid, g);
+      if (r && r.ok) {
+        CURRENT_PLAYER = r;
+        if (oldG !== g) {
+          const gn = ["C", "B", "A"];
+          const np = r.positions.find(x => x.id === pid);
+          recordPosLabMeta(pid, oldO, np ? np.ovr : oldO, `Grau ${gn[oldG]} -> ${gn[g]}`, `Grade ${gn[oldG]} -> ${gn[g]}`);
+        }
+        renderPlayerDetails(r);
+      } else toast(fmtCodeMsg(r), "err");
       return;
     }
     const stepBtn = e.target.closest("[data-pos-step]");
     if (stepBtn) {
       HIGHLIGHTED_POS = Number(stepBtn.dataset.posStep);
-      const r = await api().step_position_ovr(HIGHLIGHTED_POS, Number(stepBtn.dataset.delta));
-      if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(fmtCodeMsg(r), r.action_ok === false ? "err" : "ok"); }
-      else toast(fmtCodeMsg(r), "err");
+      const dl = Number(stepBtn.dataset.delta);
+      const r = await api().step_position_ovr(HIGHLIGHTED_POS, dl);
+      if (r && r.ok) {
+        CURRENT_PLAYER = r;
+        recordPosLabAction(r, dl > 0 ? "+1 OVR" : "-1 OVR", dl > 0 ? "+1 OVR" : "-1 OVR");
+        renderPlayerDetails(r);
+      } else toast(fmtCodeMsg(r), "err");
       return;
     }
     const matchBtn = e.target.closest("[data-pos-match]");
     if (matchBtn) {
       HIGHLIGHTED_POS = Number(matchBtn.dataset.posMatch);
       const r = await api().match_position_to_primary(HIGHLIGHTED_POS);
-      if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(fmtCodeMsg(r), r.action_ok === false ? "err" : "ok"); }
-      else toast(fmtCodeMsg(r), "err");
+      if (r && r.ok) {
+        CURRENT_PLAYER = r;
+        recordPosLabAction(r, "Igualar Principal", "Match Primary");
+        renderPlayerDetails(r);
+      } else toast(fmtCodeMsg(r), "err");
       return;
     }
     const regBtn = e.target.closest("[data-pos-reg]");
     if (regBtn) {
-      HIGHLIGHTED_POS = Number(regBtn.dataset.posReg);
+      const oldReg = CURRENT_PLAYER ? CURRENT_PLAYER.reg_pos : -1;
+      const pid = Number(regBtn.dataset.posReg);
+      const prevPos = CURRENT_PLAYER && CURRENT_PLAYER.positions.find(x => x.id === pid);
+      HIGHLIGHTED_POS = pid;
       const r = await api().set_registered_position(HIGHLIGHTED_POS);
-      if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); pulseOvrShield(); toast(T("Posição principal alterada!", "Primary position updated!")); }
-      else toast(fmtCodeMsg(r), "err");
+      if (r && r.ok) {
+        CURRENT_PLAYER = r;
+        const np = r.positions.find(x => x.id === pid);
+        recordPosLabMeta(pid, prevPos ? prevPos.ovr : 0, np ? np.ovr : 0, `Principal: ${posShort(oldReg)} -> ${posShort(pid)}`, `Primary: ${posShort(oldReg)} -> ${posShort(pid)}`);
+        renderPlayerDetails(r);
+        pulseOvrShield();
+        const el = fmtEconDeltaLine(r.econ_delta);
+        const baseMsg = T("Posição principal alterada!", "Primary position updated!");
+        toast(el ? `${baseMsg} | ${el}` : baseMsg);
+      } else toast(fmtCodeMsg(r), "err");
     }
+  });
+
+  // Pitch orientation toggle & Attribute Diff Log controls
+  document.getElementById("btn-pitch-orient").addEventListener("click", () => {
+    PITCH_ORIENT_MODE = (PITCH_ORIENT_MODE + 1) % 3;
+    if (CURRENT_PLAYER) {
+      renderPositionPitch(CURRENT_PLAYER);
+      renderPosLabLog();
+    }
+  });
+  document.getElementById("btn-log-mode-steps").addEventListener("click", () => {
+    POSLAB_LOG_MODE = 0;
+    renderPosLabLog();
+  });
+  document.getElementById("btn-log-mode-net").addEventListener("click", () => {
+    POSLAB_LOG_MODE = 1;
+    renderPosLabLog();
+  });
+  document.getElementById("btn-log-action").addEventListener("click", () => {
+    if (POSLAB_LOG_MODE === 0) {
+      POSLAB_LOG = [];
+    } else if (CURRENT_PLAYER && CURRENT_PLAYER.stats) {
+      POSLAB_BASE_STATS = { ...CURRENT_PLAYER.stats };
+      toast(T("Base de comparação zerada.", "Comparison baseline reset."));
+    }
+    renderPosLabLog();
   });
 
   // Skills & COM AI delegated toggles
@@ -2525,10 +2906,37 @@ async function bootstrap() {
       inj_res: optNum("bio-injres"),
       transfer_listed: document.getElementById("bio-tlist").checked,
       loan_listed: document.getElementById("bio-llist").checked,
+      has_release_fee: document.getElementById("bio-has-rf") ? document.getElementById("bio-has-rf").checked : undefined,
     });
     if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Dados biográficos salvos!", "Bio saved!")); }
     else toast(fmtCodeMsg(r), "err");
   });
+
+  // OVR-Linked Economy Sync Selector & Recalibrate button
+  const selEcon = document.getElementById("sel-econ-sync");
+  if (selEcon) {
+    selEcon.value = String(ECON_SYNC_MODE);
+    selEcon.addEventListener("change", async e => {
+      ECON_SYNC_MODE = Math.max(0, Math.min(3, Number(e.target.value) || 0));
+      try { localStorage.setItem("pes21_studio_econ_sync", String(ECON_SYNC_MODE)); } catch (err) {}
+      const lblEcon = document.getElementById("lbl-econ-sync");
+      if (lblEcon) lblEcon.classList.toggle("off", ECON_SYNC_MODE === 0);
+      if (api()) await api().set_econ_sync_mode(ECON_SYNC_MODE);
+    });
+  }
+  const btnRecal = document.getElementById("btn-recal-econ");
+  if (btnRecal) {
+    btnRecal.addEventListener("click", async () => {
+      if (!api() || !CURRENT_PLAYER) return toast(tKey("no_player"), "err");
+      const r = await api().recalibrate_player_economy(CURRENT_PLAYER.addr);
+      if (r && r.ok) {
+        CURRENT_PLAYER = r;
+        renderPlayerDetails(r);
+        const el = fmtEconDeltaLine(r.econ_delta);
+        toast(el ? `${T("Economia recalibrada!", "Economy recalibrated!")} | ${el}` : T("Economia recalibrada!", "Economy recalibrated!"));
+      } else toast(fmtCodeMsg(r), "err");
+    });
+  }
   document.getElementById("p-playing-style").addEventListener("change", async e => {
     updatePlayingStyleInfo();
     if (!api()) return;
@@ -2543,7 +2951,7 @@ async function bootstrap() {
       Number(document.getElementById("p-team-role").value),
       Number(document.getElementById("p-team-role-lvl").value)
     );
-    if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Função de equipe salva!", "Team role saved!")); }
+    if (r && r.ok) { CURRENT_PLAYER = r; renderPlayerDetails(r); toast(T("Função no time salva!", "Team role saved!")); }
     else toast(fmtCodeMsg(r), "err");
   });
 
@@ -2669,6 +3077,16 @@ async function bootstrap() {
     } else toast(fmtCodeMsg(r), "err");
   });
 
+  window.addEventListener("resize", () => {
+    if (CURRENT_PLAYER) {
+      renderPositionPitch(CURRENT_PLAYER);
+      renderPosLabLog();
+    }
+  });
+
+  if (api()) {
+    try { await api().set_econ_sync_mode(ECON_SYNC_MODE); } catch (e) {}
+  }
   await pollStatus();
   setInterval(pollStatus, 600);
 }

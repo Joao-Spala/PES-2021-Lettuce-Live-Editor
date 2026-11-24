@@ -293,6 +293,21 @@
               <button class="btn btn-sm" id="btn-export-json" type="button" data-i18n="btn_export_json" data-i18n-tip="tip_export_json">Exportar JSON</button>
               <button class="btn btn-sm" id="btn-import-json" type="button" data-i18n="btn_import_json" data-i18n-tip="tip_import_json">Importar JSON</button>
             </div>
+            <div class="player-econ-strip">
+              <div class="econ-strip-left">
+                <span class="econ-strip-lbl has-tip" id="lbl-econ-sync" data-i18n="lbl_econ_sync" data-i18n-tip="tip_econ_sync">Economia ao editar OVR:</span>
+                <select class="select econ-sync-select" id="sel-econ-sync" data-i18n-tip="tip_econ_sync_sel">
+                  <option value="0" data-i18n="econ_opt_0">Desativado (Manual)</option>
+                  <option value="1" data-i18n="econ_opt_1">Tudo (Mercado + Salário + Rescisão)</option>
+                  <option value="2" data-i18n="econ_opt_2">Só Mercado e Rescisão</option>
+                  <option value="3" data-i18n="econ_opt_3">Só Contrato (Salário)</option>
+                </select>
+              </div>
+              <div class="econ-strip-right">
+                <span class="econ-rf-pill" id="p-release-pill" data-i18n-tip="tip_release_pill">Rescisão: Sem multa</span>
+                <button class="btn btn-xs" id="btn-recal-econ" type="button" data-i18n="btn_recal_econ" data-i18n-tip="tip_recal_econ">Recalibrar Economia</button>
+              </div>
+            </div>
           </div>
 
           <div class="tabs" id="player-subtabs">
@@ -300,7 +315,7 @@
             <button class="tab-btn" type="button" data-ptab="stats" data-i18n="ptab_stats">Atributos (25)</button>
             <button class="tab-btn" type="button" data-ptab="poslab" data-i18n="ptab_poslab">Lab de Posições</button>
             <button class="tab-btn" type="button" data-ptab="skills" data-i18n="ptab_skills">Estilo & Habilidades</button>
-            <button class="tab-btn" type="button" data-ptab="role" data-i18n="ptab_role">Função de Equipe</button>
+            <button class="tab-btn" type="button" data-ptab="role" data-i18n="ptab_role">Função no time</button>
           </div>
 
           <!-- Subtab: Condição & Bio -->
@@ -353,10 +368,10 @@
                 <div class="field"><label data-i18n="lbl_salary_yr">Salário Anual (ex: 2.5M)</label><input class="input" id="bio-salary" /></div>
                 <div class="field"><label data-i18n="lbl_market_val">Valor de Mercado (ex: 30M)</label><input class="input" id="bio-market" /></div>
                 <div class="field"><label data-i18n="lbl_inj_days">Dias Lesionado (0 = OK)</label><input class="input" type="number" min="0" max="255" id="bio-injury" /></div>
-                <div class="field"><label><span class="has-tip" data-i18n="lbl_wfu" data-i18n-tip="tip_wfu">Uso Pé Ruim (1-4)</span></label><input class="input" type="number" min="1" max="4" id="bio-wfu" /></div>
-                <div class="field"><label><span class="has-tip" data-i18n="lbl_wfa" data-i18n-tip="tip_wfa">Precisão Pé Ruim (1-4)</span></label><input class="input" type="number" min="1" max="4" id="bio-wfa" /></div>
-                <div class="field"><label><span class="has-tip" data-i18n="lbl_form" data-i18n-tip="tip_form_cons">Estabilidade / Forma (1-8)</span></label><input class="input" type="number" min="1" max="8" id="bio-form" /></div>
-                <div class="field"><label><span class="has-tip" data-i18n="lbl_injres" data-i18n-tip="tip_injres">Resistência a Lesões (1-3)</span></label><input class="input" type="number" min="1" max="3" id="bio-injres" /></div>
+                <div class="field"><label><span class="has-tip" data-i18n="lbl_wfu" data-i18n-tip="tip_wfu">Pior pé (frequência) (1-4)</span></label><input class="input" type="number" min="1" max="4" id="bio-wfu" /></div>
+                <div class="field"><label><span class="has-tip" data-i18n="lbl_wfa" data-i18n-tip="tip_wfa">Pior pé (precisão) (1-4)</span></label><input class="input" type="number" min="1" max="4" id="bio-wfa" /></div>
+                <div class="field"><label><span class="has-tip" data-i18n="lbl_form" data-i18n-tip="tip_form_cons">Forma física (1-8)</span></label><input class="input" type="number" min="1" max="8" id="bio-form" /></div>
+                <div class="field"><label><span class="has-tip" data-i18n="lbl_injres" data-i18n-tip="tip_injres">Resistência a lesão (1-3)</span></label><input class="input" type="number" min="1" max="3" id="bio-injres" /></div>
               </div>
               <div style="display:flex; gap:18px; flex-wrap:wrap; padding-top:4px; border-top:1px solid var(--border);">
                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--subtext); font-size:12px;" data-i18n-tip="tip_tlist">
@@ -364,6 +379,9 @@
                 </label>
                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--subtext); font-size:12px;" data-i18n-tip="tip_llist">
                   <input type="checkbox" id="bio-llist" /> <span data-i18n="lbl_loan_listed">Listado para Empréstimo</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--subtext); font-size:12px;" data-i18n-tip="tip_has_rf">
+                  <input type="checkbox" id="bio-has-rf" /> <span data-i18n="lbl_has_rf">Possui Taxa de Rescisão (Multa)</span>
                 </label>
               </div>
             </div>
@@ -407,26 +425,43 @@
             </div>
           </div>
 
-          <!-- Subtab: Position Lab + Interactive Tactical Pitch -->
+          <!-- Subtab: Position Lab + Interactive Tactical Pitch + Attribute Diff Log -->
           <div class="ptab-pane" id="ptab-poslab" style="display:none;">
-            <div class="poslab-layout">
-              <div class="card pitch-card">
-                <div class="card-title" style="width:100%;">
-                  <span data-i18n="pitch_title">Mapa Tático (13 Posições)</span>
+            <div class="poslab-layout" id="poslab-layout">
+              <div class="poslab-left-col">
+                <div class="card pitch-card">
+                  <div class="card-title" style="width:100%;">
+                    <span data-i18n="pitch_title">Mapa Tático (13 Posições)</span>
+                    <button class="btn btn-xs" id="btn-pitch-orient" type="button" data-i18n-tip="tip_pitch_orient">Auto</button>
+                  </div>
+                  <svg id="poslab-pitch-svg" class="pitch-svg" viewBox="0 0 220 320"></svg>
+                  <div style="display:flex; gap:10px; font-size:11px; color:var(--subtext);">
+                    <span class="has-tip" data-i18n-tip="tip_grade_a"><b style="color:var(--green);">●</b> <span data-i18n="grade_a">Grau A</span></span>
+                    <span class="has-tip" data-i18n-tip="tip_grade_b"><b style="color:var(--gold);">●</b> <span data-i18n="grade_b">Grau B</span></span>
+                    <span class="has-tip" data-i18n-tip="tip_grade_c"><b style="color:var(--muted);">●</b> <span data-i18n="grade_c">Grau C</span></span>
+                  </div>
                 </div>
-                <svg id="poslab-pitch-svg" class="pitch-svg" viewBox="0 0 220 320"></svg>
-                <div style="display:flex; gap:10px; font-size:11px; color:var(--subtext);">
-                  <span class="has-tip" data-i18n-tip="tip_grade_a"><b style="color:var(--green);">●</b> <span data-i18n="grade_a">Grau A</span></span>
-                  <span class="has-tip" data-i18n-tip="tip_grade_b"><b style="color:var(--gold);">●</b> <span data-i18n="grade_b">Grau B</span></span>
-                  <span class="has-tip" data-i18n-tip="tip_grade_c"><b style="color:var(--muted);">●</b> <span data-i18n="grade_c">Grau C</span></span>
+                <div class="card poslab-log-card" id="poslab-log-card">
+                  <div class="card-title">
+                    <span class="has-tip" id="poslab-log-title" data-i18n-tip="tip_poslab_log">Histórico de Atributos (0)</span>
+                  </div>
+                  <div class="poslab-log-bar">
+                    <div class="seg">
+                      <button type="button" class="active" id="btn-log-mode-steps" data-i18n="log_steps">Passo a passo</button>
+                      <button type="button" id="btn-log-mode-net" data-i18n="log_net">Acumulado</button>
+                    </div>
+                    <button class="btn btn-xs" id="btn-log-action" type="button" data-i18n="btn_clear">Limpar</button>
+                  </div>
+                  <div class="poslab-log-body" id="poslab-log-body"></div>
                 </div>
               </div>
-              <div class="card">
+              <div class="card poslab-table-card">
                 <div class="card-title">
                   <span data-i18n="poslab_title">Lab de Posições (Precisão Cirúrgica)</span>
                   <span style="font-size:11px; color:var(--subtext);" data-i18n="poslab_hint">OVR já inclui bônus do Grau. +1/-1 move 1 por vez e a posição principal nunca é alterada.</span>
                 </div>
-                <div class="table-wrap" id="poslab-scroll" style="max-height:calc(100vh - 340px);">
+                <div class="poslab-last-strip" id="poslab-last-strip" style="display:none;"></div>
+                <div class="table-wrap" id="poslab-scroll">
                   <table class="studio-table">
                     <thead>
                       <tr>
@@ -448,7 +483,7 @@
           <div class="ptab-pane" id="ptab-skills" style="display:none;">
             <div class="card" style="margin-bottom:14px;">
               <div class="card-title">
-                <span class="has-tip" data-i18n="card_playing_style" data-i18n-tip="tip_playing_style">Estilo de Jogo (Playing Style)</span>
+                <span class="has-tip" data-i18n="card_playing_style" data-i18n-tip="tip_playing_style">Estilo de jogo</span>
                 <span id="p-style-pos" class="count-badge" style="font-size:11px;"></span>
               </div>
               <select class="select" id="p-playing-style" style="max-width:360px;"></select>
@@ -456,14 +491,14 @@
             </div>
             <div class="card" style="margin-bottom:14px;">
               <div class="card-title">
-                <span class="has-tip" data-i18n="card_player_skills" data-i18n-tip="tip_player_skills">Habilidades do Jogador</span>
+                <span class="has-tip" data-i18n="card_player_skills" data-i18n-tip="tip_player_skills">Habilidades do jogador</span>
                 <span id="skills-count" class="num" style="font-size:12px; color:var(--green);">0 / 10</span>
               </div>
               <div class="skills-categories" id="p-skills-grid"></div>
             </div>
             <div class="card">
               <div class="card-title">
-                <span class="has-tip" data-i18n="card_com_ai" data-i18n-tip="tip_com_ai">Estilos de Jogo do COM (AI)</span>
+                <span class="has-tip" data-i18n="card_com_ai" data-i18n-tip="tip_com_ai">Estilos de jogo do COMP</span>
                 <span id="comai-count" class="num" style="font-size:12px; color:var(--cyan);">0</span>
               </div>
               <div class="chip-grid" id="p-comai-grid"></div>
@@ -472,19 +507,19 @@
 
           <!-- Subtab: Team Role -->
           <div class="ptab-pane" id="ptab-role" style="display:none;">
-            <div class="card" style="max-width:560px;">
-              <div class="card-title"><span class="has-tip" data-i18n="card_team_role" data-i18n-tip="tip_team_role">Função de Equipe (Team Role)</span></div>
+            <div class="card" style="max-width:640px;">
+              <div class="card-title"><span class="has-tip" data-i18n="card_team_role" data-i18n-tip="tip_team_role">Função no time</span></div>
               <div class="field">
                 <label data-i18n="lbl_role">Função</label>
                 <select class="select" id="p-team-role"></select>
               </div>
-              <div class="info-note" id="p-role-desc"></div>
+              <div class="role-info-card" id="p-role-info"></div>
               <div class="field">
                 <label><span class="has-tip" data-i18n="lbl_role_lvl" data-i18n-tip="tip_role_lvl">Nível (0 a 3)</span></label>
                 <select class="select" id="p-team-role-lvl"></select>
               </div>
               <div>
-                <button class="btn btn-primary" id="btn-save-role" type="button" data-i18n="btn_apply_role">Aplicar Função de Equipe</button>
+                <button class="btn btn-primary" id="btn-save-role" type="button" data-i18n="btn_apply_role">Aplicar Função no time</button>
               </div>
             </div>
           </div>
