@@ -37,10 +37,9 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 namespace {
 
 constexpr wchar_t kWndClass[] = L"PES2021WorkbenchNativeClass";
-constexpr wchar_t kWndTitle[] = L"PES 2021 Workbench Native";
 constexpr wchar_t kMutexName[] = L"Local\\PES2021_Workbench_Native_SingleInstance_v12";
 constexpr UINT kWmStatusUpdated = WM_APP + 1;
-constexpr int kAppIconId = 101;
+constexpr int kAppIconId = 101;        // logo Lettuce (icone do executavel e da janela)
 
 ID3D11Device*           g_pd3dDevice = nullptr;
 ID3D11DeviceContext*    g_pd3dDeviceContext = nullptr;
@@ -141,13 +140,40 @@ void configure_custom_window_frame(HWND hwnd) {
     DWORD corner = 2;
     DwmSetWindowAttribute(hwnd, 33, &corner, sizeof(corner));
     // DWMWA_BORDER_COLOR (34) = subtle studio slate-blue border #223452
-    COLORREF border_col = RGB(34, 52, 82);
+    COLORREF border_col = RGB(static_cast<BYTE>(pes::ui::col::Border.x * 255.0f + 0.5f), static_cast<BYTE>(pes::ui::col::Border.y * 255.0f + 0.5f), static_cast<BYTE>(pes::ui::col::Border.z * 255.0f + 0.5f));
     DwmSetWindowAttribute(hwnd, 34, &border_col, sizeof(border_col));
     // Extend 1px into client area to preserve native DWM drop shadow on frameless window
     MARGINS margins = {0, 0, 0, 1};
     DwmExtendFrameIntoClientArea(hwnd, &margins);
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                  SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+#ifndef PES_QA_DUMP
+// Grava posicao, tamanho e estado maximizado. Precisa rodar em WM_CLOSE: depois do DestroyWindow o handle ja nao existe.
+void save_window_state(HWND hwnd) {
+    WINDOWPLACEMENT wp{};
+    wp.length = sizeof(wp);
+    if (!GetWindowPlacement(hwnd, &wp)) return;
+    pes::ui::AppSettings cur = pes::ui::load_settings();
+    cur.win_x = wp.rcNormalPosition.left;
+    cur.win_y = wp.rcNormalPosition.top;
+    cur.win_w = wp.rcNormalPosition.right - wp.rcNormalPosition.left;
+    cur.win_h = wp.rcNormalPosition.bottom - wp.rcNormalPosition.top;
+    cur.win_max = (wp.showCmd == SW_SHOWMAXIMIZED) || ((wp.flags & WPF_RESTORETOMAXIMIZED) != 0);
+    pes::ui::save_settings(cur);
+}
+#endif
+
+COLORREF to_colorref(const ImVec4& c) {
+    auto b = [](float v) { return static_cast<BYTE>(std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f); };
+    return RGB(b(c.x), b(c.y), b(c.z));
+}
+
+// A borda DWM acompanha a paleta do tema ativo (nome e icone sao sempre os do Lettuce)
+void apply_window_identity(HWND hwnd, HINSTANCE) {
+    COLORREF border_col = to_colorref(pes::ui::col::Border);
+    DwmSetWindowAttribute(hwnd, 34, &border_col, sizeof(border_col));
 }
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -264,7 +290,16 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if ((wParam & 0xfff0) == SC_KEYMENU) return 0; // disable Alt menu beep
             break;
 
+        case WM_CLOSE:
+#ifndef PES_QA_DUMP
+            save_window_state(hWnd);
+#endif
+            break; // DefWindowProc destroi a janela
+
         case WM_ENDSESSION:
+#ifndef PES_QA_DUMP
+            if (wParam) save_window_state(hWnd);
+#endif
             if (wParam) emergency_shutdown();
             return 0;
 
@@ -297,11 +332,23 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     // 2. Per-Monitor V2 DPI Awareness
     ImGui_ImplWin32_EnableDpiAwareness();
 
+    // Preferencias visuais precisam estar prontas antes do icone, da janela e do pincel de fundo
+    pes::ui::AppSettings cfg = pes::ui::load_settings();
+#ifdef PES_QA_DUMP
+    if (const char* qt = std::getenv("PES_QA_THEME")) {  // QA: forca o tema sem tocar no settings.ini do usuario
+        cfg.theme_idx = std::clamp(std::atoi(qt), 0, pes::ui::kThemeCount - 1);
+        cfg.accent_idx = pes::ui::theme_default_accent(cfg.theme_idx);
+    }
+#endif
+    pes::ui::apply_visual_theme(cfg.theme_idx);
+    pes::ui::set_accent_theme(cfg.accent_idx);
+
+    const int start_icon_id = kAppIconId;
     HICON hIconBig = static_cast<HICON>(LoadImageW(
-        hInstance, MAKEINTRESOURCEW(kAppIconId), IMAGE_ICON,
+        hInstance, MAKEINTRESOURCEW(start_icon_id), IMAGE_ICON,
         GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR));
     HICON hIconSmall = static_cast<HICON>(LoadImageW(
-        hInstance, MAKEINTRESOURCEW(kAppIconId), IMAGE_ICON,
+        hInstance, MAKEINTRESOURCEW(start_icon_id), IMAGE_ICON,
         GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
 
     WNDCLASSEXW wc{};
@@ -312,13 +359,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     wc.hIcon = hIconBig ? hIconBig : LoadIconW(nullptr, IDI_APPLICATION);
     wc.hIconSm = hIconSmall ? hIconSmall : wc.hIcon;
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    wc.hbrBackground = CreateSolidBrush(RGB(8, 13, 23));
+    wc.hbrBackground = CreateSolidBrush(RGB(static_cast<BYTE>(pes::ui::col::BgCanvas.x * 255.0f + 0.5f), static_cast<BYTE>(pes::ui::col::BgCanvas.y * 255.0f + 0.5f), static_cast<BYTE>(pes::ui::col::BgCanvas.z * 255.0f + 0.5f)));
     wc.lpszClassName = kWndClass;
     RegisterClassExW(&wc);
-
-    // Preferencias persistidas (tema de destaque, escala da UI, geometria da janela, Always-on-Top)
-    pes::ui::AppSettings cfg = pes::ui::load_settings();
-    pes::ui::set_accent_theme(cfg.accent_idx);
 
     // Center window comfortably on primary work area
     RECT wa{};
@@ -331,7 +374,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     int pos_y = wa.top + (wa_h - win_h) / 2;
 
     HWND hwnd = CreateWindowExW(
-        0, kWndClass, kWndTitle,
+        0, kWndClass, L"Lettuce Live Editor",
         WS_OVERLAPPEDWINDOW,
         pos_x, pos_y, win_w, win_h,
         nullptr, nullptr, hInstance, nullptr
@@ -352,16 +395,39 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     int scaled_y = wa.top + (wa_h - scaled_h) / 2;
     bool restored_geom = false;
     if (cfg.win_w >= 640 && cfg.win_h >= 480) {
-        RECT sr{cfg.win_x, cfg.win_y, cfg.win_x + cfg.win_w, cfg.win_y + cfg.win_h};
-        // So restaura se a janela ainda cai sobre algum monitor (evita janela fora da tela apos trocar de monitor)
-        if (MonitorFromRect(&sr, MONITOR_DEFAULTTONULL)) {
-            scaled_x = cfg.win_x; scaled_y = cfg.win_y; scaled_w = cfg.win_w; scaled_h = cfg.win_h;
+        // rcNormalPosition usa coordenadas da area de trabalho (origem no canto da area de trabalho primaria)
+        RECT sr{cfg.win_x + wa.left, cfg.win_y + wa.top, cfg.win_x + wa.left + cfg.win_w, cfg.win_y + wa.top + cfg.win_h};
+        // A faixa da barra de titulo precisa cair sobre algum monitor, senao a janela ficaria inalcancavel
+        RECT band{sr.left + 40, sr.top, std::max<LONG>(sr.left + 41, sr.right - 40), sr.top + 40};
+        if (HMONITOR mon = MonitorFromRect(&band, MONITOR_DEFAULTTONULL)) {
+            MONITORINFO mi{};
+            mi.cbSize = sizeof(mi);
+            if (GetMonitorInfoW(mon, &mi) && mi.rcWork.right > mi.rcWork.left && mi.rcWork.bottom > mi.rcWork.top) {
+            const int mw = mi.rcWork.right - mi.rcWork.left;
+            const int mh = mi.rcWork.bottom - mi.rcWork.top;
+            const int w = std::min(cfg.win_w, mw);
+            const int h = std::min(cfg.win_h, mh);
+            const int x = std::clamp(static_cast<int>(sr.left), static_cast<int>(mi.rcWork.left), static_cast<int>(mi.rcWork.right) - w);
+            const int y = std::clamp(static_cast<int>(sr.top), static_cast<int>(mi.rcWork.top), static_cast<int>(mi.rcWork.bottom) - h);
+            WINDOWPLACEMENT wp{};
+            wp.length = sizeof(wp);
+            wp.showCmd = SW_HIDE; // so posiciona: a janela aparece depois, em ShowWindow(nCmdShow)
+            wp.rcNormalPosition = RECT{x - wa.left, y - wa.top, x - wa.left + w, y - wa.top + h};
+            SetWindowPlacement(hwnd, &wp);
             restored_geom = true;
+            }
         }
     }
-    SetWindowPos(hwnd, cfg.topmost ? HWND_TOPMOST : nullptr, scaled_x, scaled_y, scaled_w, scaled_h,
-                 (cfg.topmost ? 0 : SWP_NOZORDER) | SWP_NOACTIVATE);
+    if (!restored_geom) {
+        SetWindowPos(hwnd, nullptr, scaled_x, scaled_y, scaled_w, scaled_h, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+    if (cfg.topmost) SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     if (restored_geom && cfg.win_max) nCmdShow = SW_SHOWMAXIMIZED;
+
+    // A janela pode ter ido parar em um monitor com outro DPI: mede de novo antes de montar fontes e estilo
+    dpi = ImGui_ImplWin32_GetDpiScaleForHwnd(hwnd);
+    if (dpi < 0.75f || dpi > 3.0f) dpi = 1.0f;
+    g_dpi_scale = dpi;
 
     configure_custom_window_frame(hwnd);
 
@@ -381,6 +447,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr;
+#ifdef PES_QA_DUMP
+    io.ConfigErrorRecoveryEnableAssert = true; // QA: Push/Pop desbalanceado vira IM_ASSERT registrado em arquivo
+#endif
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     const float eff_dpi = dpi * pes::ui::kUiScales[std::clamp(cfg.ui_scale_idx, 0, 4)];
@@ -541,7 +610,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     // 5. Event-Driven Zero-Idle-CPU/GPU Main Loop
     bool done = false;
     bool keep_animating = true;
-    const float clear_col[4] = {0.031f, 0.051f, 0.090f, 1.0f};
 
     while (!done) {
         MSG msg;
@@ -586,6 +654,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
             pes::ui::build_font_bank(fonts, new_dpi);
             pes::ui::apply_studio_theme(new_dpi);
             app.set_window_handle(hwnd, new_dpi);
+            apply_window_identity(hwnd, hInstance);
             g_dirty_frames = 6;
         }
 
@@ -597,6 +666,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
 
         ImGui::Render();
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
+        const float clear_col[4] = {pes::ui::col::BgCanvas.x, pes::ui::col::BgCanvas.y, pes::ui::col::BgCanvas.z, 1.0f};
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_col);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
@@ -605,19 +675,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     }
 
     // 6. Clean Shutdown
-    {
-        WINDOWPLACEMENT wp{};
-        wp.length = sizeof(wp);
-        if (GetWindowPlacement(hwnd, &wp)) {
-            pes::ui::AppSettings cur = pes::ui::load_settings();
-            cur.win_x = wp.rcNormalPosition.left;
-            cur.win_y = wp.rcNormalPosition.top;
-            cur.win_w = wp.rcNormalPosition.right - wp.rcNormalPosition.left;
-            cur.win_h = wp.rcNormalPosition.bottom - wp.rcNormalPosition.top;
-            cur.win_max = (wp.showCmd == SW_SHOWMAXIMIZED);
-            pes::ui::save_settings(cur);
-        }
-    }
     app.stop_background_poller();
     g_app_ptr = nullptr;
     engine.shutdown();

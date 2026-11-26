@@ -23,23 +23,20 @@ struct Pen {
 
     ImVec2 p(float x, float y) const { return ImVec2(o.x + x * k, o.y + y * k); }
 
-    void cap(ImVec2 a) const { if (t > 1.6f) dl->AddCircleFilled(a, t * 0.5f, col, 8); }
+    // Pontas arredondadas so com opacidade total: com alpha menor a sobreposicao apareceria como pontos
+    void cap(ImVec2 a) const { if (t > 1.6f && ((col >> IM_COL32_A_SHIFT) & 0xFF) == 255) dl->AddCircleFilled(a, t * 0.5f, col, 8); }
 
     void line(float x1, float y1, float x2, float y2) const {
         dl->AddLine(p(x1, y1), p(x2, y2), col, t);
         cap(p(x1, y1)); cap(p(x2, y2));
     }
     void poly(std::initializer_list<ImVec2> pts, bool closed = false) const {
-        ImVec2 prev{}, first{};
-        int i = 0;
-        for (const ImVec2& q : pts) {
-            ImVec2 cur = p(q.x, q.y);
-            if (i == 0) first = cur; else { dl->AddLine(prev, cur, col, t); cap(prev); }
-            prev = cur; ++i;
-        }
-        if (closed && i > 2) dl->AddLine(prev, first, col, t);
-        cap(prev);
-        if (closed) cap(first);
+        ImVec2 buf[24];
+        int n = 0;
+        for (const ImVec2& q : pts) { if (n < 24) buf[n++] = p(q.x, q.y); }
+        if (n < 2) return;
+        dl->AddPolyline(buf, n, col, closed ? ImDrawFlags_Closed : ImDrawFlags_None, t);
+        if (!closed) { cap(buf[0]); cap(buf[n - 1]); }
     }
     void circle(float x, float y, float r, bool filled = false) const {
         if (filled) dl->AddCircleFilled(p(x, y), r * k, col, 20);
@@ -152,7 +149,7 @@ void draw_icon(ImDrawList* dl, Icon ic, ImVec2 c, float size, ImU32 col, float s
             break;
         case Icon::Refresh:
             g.arc(12.0f, 12.0f, 7.8f, -0.55f, 4.15f);
-            g.poly({ImVec2(14.2f, 2.8f), ImVec2(9.6f, 4.6f), ImVec2(11.9f, 8.7f)});
+            g.poly({ImVec2(5.4f, 4.1f), ImVec2(9.2f, 4.6f), ImVec2(8.0f, 8.3f)});
             break;
         case Icon::Gear: {
             g.circle(12.0f, 12.0f, 3.2f);
@@ -345,6 +342,7 @@ bool icon_button(Icon ic, const char* label, const ImVec4& bg, const ImVec4& bor
     ImGui::PopStyleColor(4);
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->PushClipRect(pmin, pmax, true); // conteudo nunca vaza para fora do botao
     ImU32 col = ImGui::GetColorU32(text);
     float content_w = m.icon + (has_text ? m.gap + tw : 0.0f);
     float x0 = pmin.x + ((pmax.x - pmin.x) - content_w) * 0.5f;
@@ -354,11 +352,12 @@ bool icon_button(Icon ic, const char* label, const ImVec4& bg, const ImVec4& bor
         float ty = cy - ImGui::GetTextLineHeight() * 0.5f;
         dl->AddText(ImVec2(x0 + m.icon + m.gap, ty), col, b, e);
     }
+    dl->PopClipRect();
     return clicked;
 }
 
 bool icon_btn_primary(Icon ic, const char* label, ImVec2 size) {
-    return icon_button(ic, label, col::Accent, ImVec4(0.376f, 0.647f, 0.980f, 0.72f), ImVec4(1, 1, 1, 1), size);
+    return icon_button(ic, label, col::Accent, ImVec4(col::AccentSoft.x, col::AccentSoft.y, col::AccentSoft.z, 0.72f), ImVec4(1, 1, 1, 1), size);
 }
 bool icon_btn_green(Icon ic, const char* label, ImVec2 size) {
     return icon_button(ic, label, ImVec4(0.063f, 0.725f, 0.506f, 0.16f), ImVec4(0.063f, 0.725f, 0.506f, 0.48f), col::GreenSoft, size);

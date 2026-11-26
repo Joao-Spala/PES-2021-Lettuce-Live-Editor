@@ -100,6 +100,14 @@ void section_label(const char* txt, const FontBank& fonts) {
     if (fonts.small_bold) ImGui::PopFont();
 }
 
+// Corta em n bytes sem partir um caractere UTF-8 no meio
+std::string utf8_prefix(const std::string& s, size_t n) {
+    if (s.size() <= n) return s;
+    size_t cut = n;
+    while (cut > 0 && (static_cast<unsigned char>(s[cut]) & 0xC0) == 0x80) --cut;
+    return s.substr(0, cut);
+}
+
 // Texto descritivo colorido que quebra linha no espaco disponivel (nunca corta em janelas estreitas)
 void wrapped_colored(const ImVec4& c, const char* fmt, const char* txt) {
     (void)fmt;
@@ -584,7 +592,7 @@ void WorkbenchApp::run_squad_cmd_impl(const char* mode, const std::vector<uint64
         std::snprintf(msg, sizeof(msg), T(settings_.lang, "Aplicado a %d atletas do elenco!%s", "Applied to %d squad players!%s"), r.count,
                       r.flag ? T(settings_.lang, " Backup do elenco salvo em Packs\\Backups.", " Squad backup saved in Packs\\Backups.") : "");
         toasts_.push(msg);
-        if (current_view_ == View::Squad) reload_squad();
+        if (current_view_ == View::Squad) squad_reload_pending_ = true; // recarrega depois da tabela (rows aponta para squad_)
         if (current_view_ == View::Player) reload_player();
         wake_poller();
     } else {
@@ -805,19 +813,19 @@ void WorkbenchApp::render_titlebar(const FontBank& fonts, float tb_h) {
 
     float tx = wp.x + 12.0f + emb_sz + 10.0f;
     if (bold) ImGui::PushFont(bold);
-    const char* title_s = "PES 2021 Workbench";
+    const char* title_s = brand_title();
     ImVec2 tsz = ImGui::CalcTextSize(title_s);
     dl->AddText(ImVec2(tx, wp.y + (tb_h - tsz.y) * 0.5f), ImGui::GetColorU32(col::Text), title_s);
     if (bold) ImGui::PopFont();
 
     tx += tsz.x + 8.0f;
     if (fonts.small_bold) ImGui::PushFont(fonts.small_bold);
-    const char* nat_tag = "NATIVE";
+    const char* nat_tag = brand_tag();
     ImVec2 nsz = ImGui::CalcTextSize(nat_tag);
     float pw = nsz.x + 12.0f, ph = nsz.y + 4.0f;
     float py = wp.y + (tb_h - ph) * 0.5f;
-    dl->AddRectFilled(ImVec2(tx, py), ImVec2(tx + pw, py + ph), IM_COL32(59, 130, 246, 42), 5.0f);
-    dl->AddRect(ImVec2(tx, py), ImVec2(tx + pw, py + ph), IM_COL32(96, 165, 250, 120), 5.0f, 0, 1.0f);
+    dl->AddRectFilled(ImVec2(tx, py), ImVec2(tx + pw, py + ph), ImGui::GetColorU32(ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.18f)), 5.0f);
+    dl->AddRect(ImVec2(tx, py), ImVec2(tx + pw, py + ph), ImGui::GetColorU32(ImVec4(col::AccentSoft.x, col::AccentSoft.y, col::AccentSoft.z, 0.48f)), 5.0f, 0, 1.0f);
     dl->AddText(ImVec2(tx + 6.0f, py + 2.0f), ImGui::GetColorU32(col::AccentSoft), nat_tag);
     if (fonts.small_bold) ImGui::PopFont();
 
@@ -916,8 +924,8 @@ void WorkbenchApp::render_sidebar(const FontBank& fonts, bool compact, bool auto
     const float nav_h = std::round(36.0f * dpi_scale_);
     auto nav_btn = [&](View v, const char* /*short_tag*/) {
         bool active = (current_view_ == v);
-        ImVec4 bg = active ? ImVec4(0.231f, 0.510f, 0.965f, 0.19f) : ImVec4(0, 0, 0, 0);
-        ImVec4 brd = active ? ImVec4(0.231f, 0.510f, 0.965f, 0.42f) : ImVec4(0, 0, 0, 0);
+        ImVec4 bg = active ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.19f) : ImVec4(0, 0, 0, 0);
+        ImVec4 brd = active ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.42f) : ImVec4(0, 0, 0, 0);
         ImVec4 fg = active ? col::AccentSoft : col::Subtext;
         char txt[64];
         if (compact) std::snprintf(txt, sizeof(txt), "##nv%d", static_cast<int>(v));
@@ -1010,7 +1018,9 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
     // Pre-calculate exact width of right-hand controls so NOTHING ever clips or collides!
     int u_cnt = st_.has_player ? st_.player.undo_count : 0;
     char u_lbl[48];
-    std::snprintf(u_lbl, sizeof(u_lbl), "%s (%d)", T(L, "Desfazer", "Undo"), u_cnt);
+    std::snprintf(u_lbl, sizeof(u_lbl), "%s (%d)###tb_undo", T(L, "Desfazer", "Undo"), u_cnt);
+    char u_tip[48];
+    std::snprintf(u_tip, sizeof(u_tip), "%s (%d)", T(L, "Desfazer", "Undo"), u_cnt);
     float undo_w = icon_button_width(u_lbl);
 
     float font_combo_w = calc_combo_width(FontBank::kNames, fonts.count, 130.0f * dpi_scale_, 210.0f * dpi_scale_);
@@ -1090,7 +1100,7 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
         trigger_undo();
     }
     ImGui::EndDisabled();
-    show_tip_if_hovered(u_lbl, T(L, "Desfazer última edição do atleta (Ctrl+Z)", "Undo last edit on this player (Ctrl+Z)"));
+    show_tip_if_hovered(u_tip, T(L, "Desfazer última edição do atleta (Ctrl+Z)", "Undo last edit on this player (Ctrl+Z)"));
 
     ImGui::SameLine(0, gap);
     ImVec2 hist_pos = ImGui::GetCursorScreenPos();
@@ -1154,6 +1164,49 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
     ImGui::TextColored(col::Text, "%s", T(L, "Ajustes do aplicativo", "Application settings"));
     ImGui::PopFont();
     ImGui::Spacing();
+
+    // Tema visual: cartoes de pre-visualizacao clicaveis
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Tema visual", "Visual theme"));
+    {
+        const float tgap = std::round(8.0f * dpi_scale_);
+        const float tw = std::max(120.0f * dpi_scale_, (ImGui::GetContentRegionAvail().x - tgap) * 0.5f);
+        const float th = std::round(62.0f * dpi_scale_);
+        for (int i = 0; i < kThemeCount; ++i) {
+            if (i > 0) ImGui::SameLine(0, tgap);
+            char tid[24]; std::snprintf(tid, sizeof(tid), "##theme%d", i);
+            ImVec2 tp = ImGui::GetCursorScreenPos();
+            bool tclick = ImGui::InvisibleButton(tid, ImVec2(tw, th));
+            bool thov = ImGui::IsItemHovered();
+            if (thov) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            ImVec4 pv[4];
+            theme_preview(i, pv);
+            const bool tact = (settings_.theme_idx == i);
+            ImDrawList* tdl = ImGui::GetWindowDrawList();
+            const float trnd = std::round(10.0f * dpi_scale_);
+            tdl->AddRectFilled(tp, ImVec2(tp.x + tw, tp.y + th), ImGui::GetColorU32(pv[0]), trnd);
+            tdl->AddRectFilled(ImVec2(tp.x + 8.0f * dpi_scale_, tp.y + 8.0f * dpi_scale_), ImVec2(tp.x + tw * 0.62f, tp.y + th - 8.0f * dpi_scale_), ImGui::GetColorU32(pv[1]), trnd * 0.7f);
+            tdl->AddRectFilled(ImVec2(tp.x + 14.0f * dpi_scale_, tp.y + 14.0f * dpi_scale_), ImVec2(tp.x + tw * 0.40f, tp.y + 20.0f * dpi_scale_), ImGui::GetColorU32(pv[2]), 3.0f);
+            tdl->AddRectFilled(ImVec2(tp.x + 14.0f * dpi_scale_, tp.y + 26.0f * dpi_scale_), ImVec2(tp.x + tw * 0.52f, tp.y + 30.0f * dpi_scale_), ImGui::GetColorU32(pv[3]), 2.0f);
+            tdl->AddCircleFilled(ImVec2(tp.x + tw * 0.80f, tp.y + th * 0.42f), 9.0f * dpi_scale_, ImGui::GetColorU32(pv[2]), 20);
+            tdl->AddCircleFilled(ImVec2(tp.x + tw * 0.80f + 5.0f * dpi_scale_, tp.y + th * 0.42f - 4.0f * dpi_scale_), 4.0f * dpi_scale_, ImGui::GetColorU32(pv[3]), 16);
+            const char* tn = theme_name(i, L == Lang::EN);
+            ImVec2 tsz = ImGui::CalcTextSize(tn);
+            tdl->AddText(ImVec2(tp.x + 14.0f * dpi_scale_, tp.y + th - 8.0f * dpi_scale_ - tsz.y - 2.0f), ImGui::GetColorU32(ImVec4(0.93f, 0.96f, 0.92f, 1.0f)), tn);
+            tdl->AddRect(tp, ImVec2(tp.x + tw, tp.y + th), tact ? ImGui::GetColorU32(pv[3]) : ImGui::GetColorU32(thov ? col::BorderLit : col::Border), trnd, 0, tact ? 2.0f : 1.0f);
+            if (tclick && !tact) {
+                settings_.theme_idx = i;
+                settings_.accent_idx = theme_default_accent(i);
+                apply_visual_theme(i);
+                set_accent_theme(settings_.accent_idx);
+                save_settings(settings_);
+                theme_rebuild_ = true;
+            }
+        }
+    }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 330.0f * dpi_scale_);
+    ImGui::TextColored(col::Muted, "%s", T(L, "O nome e o logo Lettuce Live Editor valem para os dois temas. Alface é o verde padrão, Azul é o azul-marinho.", "The Lettuce Live Editor name and logo apply to both themes. Lettuce is the default green, Blue is the navy look."));
+    ImGui::PopTextWrapPos();
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
 
     // Always-on-Top
     bool top_v = settings_.topmost;
@@ -1495,7 +1548,7 @@ void WorkbenchApp::apply_preset_cmd(bool to_selection) {
         std::snprintf(msg, sizeof(msg), T(L, "Preset de habilidades aplicado a %d atleta(s)!%s", "Skill preset applied to %d player(s)!%s"), r.count,
                       r.flag ? T(L, " Backup do elenco salvo em Packs\\Backups.", " Squad backup saved in Packs\\Backups.") : "");
         toasts_.push(msg);
-        if (current_view_ == View::Squad) reload_squad();
+        if (current_view_ == View::Squad) squad_reload_pending_ = true;
         if (current_view_ == View::Player || has_player_details_) reload_player();
         wake_poller();
     } else {
@@ -1518,7 +1571,7 @@ void WorkbenchApp::render_preset_controls(const FontBank& fonts, bool compact) {
         ImGui::EndCombo();
     }
     show_tip_if_hovered(en ? cur.en : cur.pt, en ? cur.desc_en : cur.desc_pt);
-    ImGui::SameLine(0, 8.0f * dpi_scale_);
+    flow_next(48.0f * dpi_scale_ + ImGui::CalcTextSize(T(L, "Substituir habilidades", "Replace skills")).x, 12.0f * dpi_scale_);
     toggle_switch("##sw_preset_repl", T(L, "Substituir habilidades", "Replace skills"), &preset_replace_);
     show_tip_if_hovered(T(L, "Substituir habilidades", "Replace skills"),
         T(L, "Desligado: só adiciona as habilidades do preset, respeitando o limite nativo de 10, e preserva o DNA do atleta. Ligado: remove as 41 habilidades antes de aplicar.",
@@ -1558,8 +1611,10 @@ void WorkbenchApp::render_history_popup(const FontBank& fonts) {
     ImGui::PushFont(bold);
     ImGui::TextColored(col::Text, "%s", T(L, "Histórico de alterações", "Edit history"));
     ImGui::PopFont();
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 440.0f * dpi_scale_);
     wrapped_colored(col::Muted, "%s", T(L, "Do mais recente para o mais antigo. Desfazer até aqui reverte esta edição e todas as posteriores.",
                                               "Newest first. Undo to here reverts this edit and every later one."));
+    ImGui::PopTextWrapPos();
     ImGui::Spacing();
     if (journal_cache_.empty()) {
         ImGui::TextColored(col::Subtext, "%s", T(L, "Nenhuma edição nesta sessão.", "No edits in this session."));
@@ -1663,10 +1718,10 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
     // Filter pills + quick squad commands (auto-wrapping)
     auto flt_btn = [&](int idx, const char* lbl, int cnt, bool first) {
         char buf[64];
-        std::snprintf(buf, sizeof(buf), "%s (%d)##f%d", lbl, cnt, idx);
+        std::snprintf(buf, sizeof(buf), "%s (%d)###f%d", lbl, cnt, idx);
         if (!first) flow_next(calc_btn_w(buf));
         bool act = (squad_filter_ == idx);
-        if (styled_button(buf, act ? ImVec4(0.231f, 0.510f, 0.965f, 0.24f) : col::BgCard, act ? col::Accent : col::Border, act ? col::AccentSoft : col::Subtext)) {
+        if (styled_button(buf, act ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.24f) : col::BgCard, act ? col::Accent : col::Border, act ? col::AccentSoft : col::Subtext)) {
             squad_filter_ = idx;
         }
     };
@@ -1703,7 +1758,7 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
     int batch_cnt = engine_.last_batch_undo_count();
     if (batch_cnt > 0) {
         char blbl[64];
-        std::snprintf(blbl, sizeof(blbl), T(L, "Desfazer Lote (%d)##sqbu", "Undo Batch (%d)##sqbu"), batch_cnt);
+        std::snprintf(blbl, sizeof(blbl), T(L, "Desfazer Lote (%d)###sqbu", "Undo Batch (%d)###sqbu"), batch_cnt);
         flow_next(calc_btn_w(blbl));
         if (btn_red(blbl)) {
             auto r = engine_.undo_last_batch();
@@ -1775,7 +1830,7 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
 
         ImGui::Spacing();
         render_preset_controls(fonts, true);
-        ImGui::SameLine(0, 8.0f * dpi_scale_);
+        flow_next(icon_button_width(T(L, "Aplicar preset à seleção##selb", "Apply preset to selection##selb")), 8.0f * dpi_scale_);
         if (icon_btn_primary(Icon::Check, T(L, "Aplicar preset à seleção##selb", "Apply preset to selection##selb"))) apply_preset_cmd(true);
         }
         end_studio_card();
@@ -1787,16 +1842,27 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
     float tbl_h = std::max(260.0f * dpi_scale_, ImGui::GetContentRegionAvail().y - 6.0f);
     float w_ovr = std::round(48.0f * dpi_scale_ + 30.0f * dpi_scale_);
     float w_pos = std::round(54.0f * dpi_scale_);
-    float w_age = std::round(50.0f * dpi_scale_);
-    float w_con = std::round(70.0f * dpi_scale_);
-    float w_sal = std::round(108.0f * dpi_scale_);
-    float w_frm = std::round(48.0f * dpi_scale_);
-    float w_stm = std::round(108.0f * dpi_scale_);
-    float w_hlt = std::round(54.0f * dpi_scale_);
-    float w_act = std::round(118.0f * dpi_scale_);
-    float pad_est = ImGui::GetStyle().CellPadding.x * 22.0f + ImGui::GetStyle().ScrollbarSize + 18.0f * dpi_scale_;
-    float w_name = std::max(std::round(182.0f * dpi_scale_),
-                            ImGui::GetContentRegionAvail().x - (w_ovr + w_pos + w_age + w_con + w_sal + w_frm + w_stm + w_hlt + w_act + pad_est));
+    float w_age = std::round(44.0f * dpi_scale_);
+    float w_con = std::round(76.0f * dpi_scale_);
+    float w_sal = std::round(98.0f * dpi_scale_);
+    float w_frm = std::round(54.0f * dpi_scale_);
+    float w_stm = std::round(92.0f * dpi_scale_);
+    float w_hlt = std::round(48.0f * dpi_scale_);
+    float w_act = std::round(110.0f * dpi_scale_);
+    // Colunas opcionais somem em janelas estreitas (ordem: barra de folego, forma) para nunca cortar as acoes
+    bool show_stm = true, show_frm = true;
+    const float sq_avail = ImGui::GetContentRegionAvail().x;
+    const float sq_name_min = std::round(140.0f * dpi_scale_);
+    auto sq_need = [&]() {
+        int ncols = 8 + (show_stm ? 1 : 0) + (show_frm ? 1 : 0);
+        float fixed = w_ovr + w_pos + w_age + w_con + w_sal + w_hlt + w_act + (show_stm ? w_stm : 0.0f) + (show_frm ? w_frm : 0.0f);
+        return fixed + sq_name_min + ImGui::GetStyle().CellPadding.x * 2.0f * static_cast<float>(ncols) + ImGui::GetStyle().ScrollbarSize + 14.0f * dpi_scale_;
+    };
+    if (sq_need() > sq_avail) show_stm = false;
+    if (sq_need() > sq_avail) show_frm = false;
+    float pad_est = ImGui::GetStyle().CellPadding.x * 2.0f * static_cast<float>(8 + (show_stm ? 1 : 0) + (show_frm ? 1 : 0)) + ImGui::GetStyle().ScrollbarSize + 14.0f * dpi_scale_;
+    float w_name = std::max(sq_name_min,
+                            sq_avail - (w_ovr + w_pos + w_age + w_con + w_sal + w_hlt + w_act + (show_stm ? w_stm : 0.0f) + (show_frm ? w_frm : 0.0f) + pad_est));
     if (ImGui::BeginTable("##squad_tbl", 10, tf, ImVec2(0, tbl_h))) {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("OVR", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, w_ovr, 0);
@@ -1805,8 +1871,8 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
         ImGui::TableSetupColumn(T(L, "IDADE", "AGE"), ImGuiTableColumnFlags_WidthFixed, w_age, 3);
         ImGui::TableSetupColumn(T(L, "CONTRATO", "CONTRACT"), ImGuiTableColumnFlags_WidthFixed, w_con, 4);
         ImGui::TableSetupColumn(T(L, "SALÁRIO", "SALARY"), ImGuiTableColumnFlags_WidthFixed, w_sal, 5);
-        ImGui::TableSetupColumn(T(L, "FORMA", "FORM"), ImGuiTableColumnFlags_WidthFixed, w_frm, 6);
-        ImGui::TableSetupColumn(T(L, "FÔLEGO", "STAMINA"), ImGuiTableColumnFlags_WidthFixed, w_stm, 7);
+        ImGui::TableSetupColumn(T(L, "FORMA", "FORM"), ImGuiTableColumnFlags_WidthFixed | (show_frm ? 0 : ImGuiTableColumnFlags_Disabled), w_frm, 6);
+        ImGui::TableSetupColumn(T(L, "FÔLEGO", "STAMINA"), ImGuiTableColumnFlags_WidthFixed | (show_stm ? 0 : ImGuiTableColumnFlags_Disabled), w_stm, 7);
         ImGui::TableSetupColumn(T(L, "SAÚDE", "HEALTH"), ImGuiTableColumnFlags_WidthFixed, w_hlt, 8);
         ImGui::TableSetupColumn(T(L, "AÇÕES", "ACTIONS"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, w_act, 9);
         ImGui::TableHeadersRow();
@@ -1889,6 +1955,10 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
         }
         ImGui::EndTable();
         if (need_reload_squad) reload_squad();
+    }
+    if (squad_reload_pending_) {
+        squad_reload_pending_ = false;
+        reload_squad();
     }
 }
 
@@ -2170,8 +2240,8 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
     // Compact Persistent Inline Last-Edit Delta Strip (stays visible until dismissed or player changes!)
     if (last_edit_.active && last_edit_.player_addr == player_.addr) {
         ImGui::Spacing();
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.055f, 0.088f, 0.155f, 0.92f));
-        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.231f, 0.510f, 0.965f, 0.45f));
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(col::BgInput.x, col::BgInput.y, col::BgInput.z, 0.92f));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.45f));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(11.0f * dpi_scale_), std::round(6.0f * dpi_scale_)));
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, std::round(8.0f * dpi_scale_));
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(std::round(6.0f * dpi_scale_), std::round(4.0f * dpi_scale_)));
@@ -2467,8 +2537,8 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
             for (int k = 0; k < 4; ++k) {
                 if (k > 0) ImGui::SameLine(0, 4.0f * dpi_scale_);
                 bool up = (s_mults[k] > 1.0);
-                if (styled_button(s_lbls[k], up ? ImVec4(0.231f, 0.510f, 0.965f, 0.16f) : col::BgInput,
-                                  up ? ImVec4(0.231f, 0.510f, 0.965f, 0.45f) : col::Border,
+                if (styled_button(s_lbls[k], up ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.16f) : col::BgInput,
+                                  up ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.45f) : col::Border,
                                   up ? col::AccentSoft : col::Subtext, ImVec2(0, std::round(24.0f * dpi_scale_)))) {
                     double base_raw = std::max(10.0, static_cast<double>(player_.salary_raw));
                     int32_t nv = econ::round_pes_money(base_raw * s_mults[k], true);
@@ -2511,7 +2581,6 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
     ImGui::TextColored(col::Subtext, "%s", aff_lbl);
     ImGui::SameLine(0, 6.0f * dpi_scale_);
     ImGui::SetNextItemWidth(aff_slider_w);
-    const bool aff_edit_done = false;
     ImGui::SliderInt("##baff", &bio_affection_, 0, 100, "");
     const bool aff_committed = ImGui::IsItemDeactivatedAfterEdit();
     show_tip_if_hovered(T(L, "Afinidade Clube (0-100)", "Club Affection (0-100)"),
@@ -2520,7 +2589,6 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
     ImGui::SameLine(0, 6.0f * dpi_scale_);
     ImGui::AlignTextToFramePadding();
     ImGui::TextColored(col::AccentSoft, "%3d", bio_affection_);
-    (void)aff_edit_done;
     if (aff_committed) {
         BioUpdate cu; cu.affection = bio_affection_;
         apply_contract_update(cu, "Afinidade Clube", "Club Affection");
@@ -2529,7 +2597,7 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
         ImGui::SameLine(0, 4.0f * dpi_scale_);
         char ab[16]; std::snprintf(ab, sizeof(ab), "%d##af", av);
         bool cur = (bio_affection_ == av);
-        if (styled_button(ab, cur ? ImVec4(0.231f, 0.510f, 0.965f, 0.22f) : col::BgInput,
+        if (styled_button(ab, cur ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.22f) : col::BgInput,
                           cur ? col::Accent : col::Border, cur ? col::AccentSoft : col::Subtext,
                           ImVec2(0, std::round(24.0f * dpi_scale_)))) {
             bio_affection_ = av;
@@ -2667,7 +2735,7 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
     const char* t_tl = T(L, "Listado para Transferência", "Transfer Listed");
     const char* t_ll = T(L, "Listado para Empréstimo", "Loan Listed");
     toggle_switch("##sw_tl", t_tl, &bio_tlist_);
-    flow_next(48.0f + ImGui::CalcTextSize(t_ll).x, 22.0f);
+    flow_next(48.0f * dpi_scale_ + ImGui::CalcTextSize(t_ll).x, 22.0f);
     toggle_switch("##sw_ll", t_ll, &bio_llist_);
 
     if (save_clicked) {
@@ -2893,13 +2961,13 @@ void WorkbenchApp::render_poslab_log_card(const FontBank& fonts, float max_h) {
     ImGui::Spacing();
     bool is_steps = (poslab_log_mode_ == 0);
     if (styled_button(T(L, "Passo a passo##lm0", "Step-by-step##lm0"),
-                      is_steps ? ImVec4(0.231f, 0.510f, 0.965f, 0.25f) : col::BgSidebar,
+                      is_steps ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.25f) : col::BgSidebar,
                       is_steps ? col::Accent : col::Border, is_steps ? col::AccentSoft : col::Subtext)) {
         poslab_log_mode_ = 0;
     }
     ImGui::SameLine(0, 6);
     if (styled_button(T(L, "Acumulado##lm1", "Net Summary##lm1"),
-                      !is_steps ? ImVec4(0.231f, 0.510f, 0.965f, 0.25f) : col::BgSidebar,
+                      !is_steps ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.25f) : col::BgSidebar,
                       !is_steps ? col::Accent : col::Border, !is_steps ? col::AccentSoft : col::Subtext)) {
         poslab_log_mode_ = 1;
     }
@@ -3082,7 +3150,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
             const auto& last = poslab_log_[0];
             ImGui::Spacing();
             ImGui::PushStyleColor(ImGuiCol_ChildBg, col::BgInput);
-            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.231f, 0.510f, 0.965f, 0.45f));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.45f));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(12.0f * dpi_scale_), std::round(8.0f * dpi_scale_)));
             ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, std::round(8.0f * dpi_scale_));
             ImGui::BeginChild("##poslab_last_strip", ImVec2(-1.0f, 0),
@@ -3144,7 +3212,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                 const auto& pos = player_.positions[pid];
                 ImGui::TableNextRow();
                 if (highlighted_pos_ == pid) {
-                    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(ImVec4(0.231f, 0.510f, 0.965f, 0.22f)));
+                    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.22f)));
                     if (scroll_poslab_to_hl_) {
                         ImGui::SetScrollHereY(0.4f);
                         scroll_poslab_to_hl_ = false;
@@ -3278,7 +3346,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
              "Applies a skill set that fits an on-pitch role, without exceeding the native cap of 10."));
     ImGui::Spacing();
     render_preset_controls(fonts, false);
-    ImGui::SameLine(0, 8.0f * dpi_scale_);
+    flow_next(icon_button_width(T(L, "Aplicar preset##skp", "Apply preset##skp")), 8.0f * dpi_scale_);
     if (icon_btn_primary(Icon::Check, T(L, "Aplicar preset##skp", "Apply preset##skp"))) apply_preset_cmd(false);
     {
         const auto& cp = presets::kSkillPresets[static_cast<size_t>(std::clamp(preset_idx_, 0, static_cast<int>(presets::kSkillPresets.size()) - 1))];
@@ -3299,7 +3367,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
     ImGui::SameLine(0, 10);
     char pos_tag[96];
     std::snprintf(pos_tag, sizeof(pos_tag), "%s: %s", T(L, "Ativa em", "Active at"), (L == Lang::EN) ? ps.pos_en : ps.pos_pt);
-    draw_pill(pos_tag, col::AccentSoft, ImVec4(0.231f, 0.510f, 0.965f, 0.16f), ImVec4(0.231f, 0.510f, 0.965f, 0.42f));
+    draw_pill(pos_tag, col::AccentSoft, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.16f), ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.42f));
     ImGui::Spacing();
     ImGui::SetNextItemWidth(std::min(380.0f, ImGui::GetContentRegionAvail().x));
     if (ImGui::BeginCombo("##pstyle_sel", (L == Lang::EN) ? ps.en : ps.pt)) {
@@ -3524,7 +3592,7 @@ void WorkbenchApp::render_ptab_role(const FontBank& fonts) {
         auto tag_pill = [&](uint8_t bit, const char* pt, const char* en) {
             if (cur_role.tag_mask & bit) {
                 flow_next(ImGui::CalcTextSize(T(L, pt, en)).x + 22.0f, 6.0f);
-                draw_pill(T(L, pt, en), col::AccentSoft, ImVec4(0.231f, 0.510f, 0.965f, 0.15f), ImVec4(0.231f, 0.510f, 0.965f, 0.40f));
+                draw_pill(T(L, pt, en), col::AccentSoft, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.15f), ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.40f));
             }
         };
         tag_pill(data::ROLE_TAG_FIN, "Finanças", "Finances");
@@ -3635,7 +3703,7 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
         search_res_ = {};
     }
     const char* free_lbl = T(L, "Apenas Sem Clube", "Free Agents Only");
-    flow_next(48.0f + ImGui::CalcTextSize(free_lbl).x, 18.0f);
+    flow_next(48.0f * dpi_scale_ + ImGui::CalcTextSize(free_lbl).x, 18.0f);
     toggle_switch("##sw_free", free_lbl, &srch_free_);
 
     const char* sc_opts[4] = {
@@ -3670,7 +3738,7 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
         flow_next(calc_btn_w(none_lbl), 6.0f * dpi_scale_);
         if (styled_button(none_lbl, col::BgCard, col::Border, col::Subtext)) srch_sel_.clear();
         char send_sel[96];
-        std::snprintf(send_sel, sizeof(send_sel), "%s (%d)##srs", T(L, "Enviar marcados", "Send ticked"), nsel);
+        std::snprintf(send_sel, sizeof(send_sel), "%s (%d)###srs", T(L, "Enviar marcados", "Send ticked"), nsel);
         flow_next(icon_button_width(send_sel), 6.0f * dpi_scale_);
         ImGui::BeginDisabled(nsel == 0);
         if (icon_btn_green(Icon::Move, send_sel)) {
@@ -3884,12 +3952,12 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
             if (styled_button(lb, a2 ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.24f) : col::BgCard, a2 ? col::Accent : col::Border, a2 ? col::AccentSoft : col::Subtext)) scout_pos_filter_ = i;
         }
         const char* fl = T(L, "Sem clube", "No club");
-        flow_next(48.0f + ImGui::CalcTextSize(fl).x, 14.0f);
+        flow_next(48.0f * dpi_scale_ + ImGui::CalcTextSize(fl).x, 14.0f);
         toggle_switch("##sc_free", fl, &scout_only_free_);
         char el_buf[48];
         std::snprintf(el_buf, sizeof(el_buf), T(L, "Contrato até %d", "Contract to %d"), exp_limit);
         const char* el = el_buf;
-        flow_next(48.0f + ImGui::CalcTextSize(el).x, 14.0f);
+        flow_next(48.0f * dpi_scale_ + ImGui::CalcTextSize(el).x, 14.0f);
         toggle_switch("##sc_exp", el, &scout_only_exp_);
     }
     ImGui::Spacing();
@@ -3919,13 +3987,13 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
                 }
                 ImGui::EndCombo();
             }
-            char mv[64]; std::snprintf(mv, sizeof(mv), "%s (%d)##scm", T(L, "Mover", "Move"), nsel);
+            char mv[64]; std::snprintf(mv, sizeof(mv), "%s (%d)###scm", T(L, "Mover", "Move"), nsel);
             flow_next(icon_button_width(mv), 6.0f * dpi_scale_);
             if (icon_btn_primary(Icon::Move, mv)) op = OpMove;
-            char cp[64]; std::snprintf(cp, sizeof(cp), "%s (%d)##scc", T(L, "Copiar", "Copy"), nsel);
+            char cp[64]; std::snprintf(cp, sizeof(cp), "%s (%d)###scc", T(L, "Copiar", "Copy"), nsel);
             flow_next(icon_button_width(cp), 6.0f * dpi_scale_);
             if (icon_btn_plain(Icon::Copy, cp)) op = OpCopy;
-            char rm[64]; std::snprintf(rm, sizeof(rm), "%s (%d)##scr", T(L, "Remover", "Remove"), nsel);
+            char rm[64]; std::snprintf(rm, sizeof(rm), "%s (%d)###scr", T(L, "Remover", "Remove"), nsel);
             flow_next(icon_button_width(rm), 6.0f * dpi_scale_);
             if (icon_btn_red(Icon::Trash, rm)) op = OpRemove;
         }
@@ -3939,7 +4007,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
         }
         int ud = engine_.scout_undo_depth();
         char ul[96];
-        std::snprintf(ul, sizeof(ul), "%s (%d)##scu", T(L, "Desfazer alteração", "Undo change"), ud);
+        std::snprintf(ul, sizeof(ul), "%s (%d)###scu", T(L, "Desfazer alteração", "Undo change"), ud);
         flow_next(icon_button_width(ul), 6.0f * dpi_scale_);
         ImGui::BeginDisabled(ud == 0);
         if (icon_btn_plain(Icon::Undo, ul)) op = OpUndo;
@@ -4138,7 +4206,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
             if (!r.ok) { toast_code(r.code, true); break; }
             char m[320];
             std::snprintf(m, sizeof(m), T(L, "Importados %d atleta(s). Sem correspondência: %d.%s%s", "Imported %d player(s). Unmatched: %d.%s%s"),
-                          r.count, r.value, r.text.empty() ? "" : " ", r.text.substr(0, 120).c_str());
+                          r.count, r.value, r.text.empty() ? "" : " ", utf8_prefix(r.text, 120).c_str());
             toasts_.push(m);
             dirty = true;
         } break;
@@ -4191,7 +4259,7 @@ void WorkbenchApp::render_view_match(const FontBank& fonts) {
             ImGui::SameLine(0, 8.0f * dpi_scale_);
         }
         if (st_.freeze_clock) {
-            draw_pill(T(L, "CONGELADO", "FROZEN"), col::AccentSoft, ImVec4(0.231f, 0.510f, 0.965f, 0.22f), ImVec4(0.231f, 0.510f, 0.965f, 0.58f), true);
+            draw_pill(T(L, "CONGELADO", "FROZEN"), col::AccentSoft, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.22f), ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.58f), true);
         } else {
             draw_pill(T(L, "CORRENDO", "RUNNING"), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.14f), ImVec4(0.063f, 0.725f, 0.506f, 0.42f), true);
         }
@@ -4705,7 +4773,7 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
             // ==================== EXPORT TAB ====================
             const char* m_sq = T(L, "Elenco Completo##pke0", "Full Squad##pke0");
             const char* m_pl = T(L, "Jogador Atual##pke1", "Current Player##pke1");
-            if (styled_button(m_sq, pack_export_is_squad_ ? ImVec4(0.231f, 0.510f, 0.965f, 0.24f) : col::BgInput,
+            if (styled_button(m_sq, pack_export_is_squad_ ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.24f) : col::BgInput,
                               pack_export_is_squad_ ? col::Accent : col::Border,
                               pack_export_is_squad_ ? col::AccentSoft : col::Subtext)) {
                 pack_export_is_squad_ = true;
@@ -4715,7 +4783,7 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
                 else toast_code(r.code, true);
             }
             ImGui::SameLine(0, 6.0f * dpi_scale_);
-            if (styled_button(m_pl, !pack_export_is_squad_ ? ImVec4(0.231f, 0.510f, 0.965f, 0.24f) : col::BgInput,
+            if (styled_button(m_pl, !pack_export_is_squad_ ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.24f) : col::BgInput,
                               !pack_export_is_squad_ ? col::Accent : col::Border,
                               !pack_export_is_squad_ ? col::AccentSoft : col::Subtext)) {
                 pack_export_is_squad_ = false;
@@ -4881,7 +4949,7 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
             auto scope_btn = [&](PackMatchScope sc, const char* lbl, bool first) {
                 if (!first) flow_next(calc_btn_w(lbl), 6.0f * dpi_scale_);
                 bool act = (pack_scope_ == sc);
-                if (styled_button(lbl, act ? ImVec4(0.231f, 0.510f, 0.965f, 0.24f) : col::BgInput,
+                if (styled_button(lbl, act ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.24f) : col::BgInput,
                                   act ? col::Accent : col::Border, act ? col::AccentSoft : col::Subtext)) {
                     if (pack_scope_ != sc) {
                         pack_scope_ = sc;
@@ -4985,7 +5053,7 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
                         } else if (row.match_kind == PackMatchKind::ExactName) {
                             draw_pill(T(L, "Nome", "Name"), col::GoldSoft, ImVec4(0.961f, 0.620f, 0.043f, 0.16f), ImVec4(0.961f, 0.620f, 0.043f, 0.45f), true);
                         } else if (row.match_kind == PackMatchKind::ManualCurrent) {
-                            draw_pill("Manual", col::AccentSoft, ImVec4(0.231f, 0.510f, 0.965f, 0.18f), ImVec4(0.231f, 0.510f, 0.965f, 0.48f), true);
+                            draw_pill("Manual", col::AccentSoft, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.18f), ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.48f), true);
                         } else if (pack_scope_ == PackMatchScope::CurrentPlayer && has_player_details_) {
                             if (ImGui::SmallButton(T(L, "Escolher##pkch", "Pick##pkch"))) {
                                 run_pack_preview(row.pack_idx);
@@ -5086,7 +5154,7 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
             if (bcnt > 0) {
                 ImGui::SameLine(0, 8.0f * dpi_scale_);
                 char ulbl[64];
-                std::snprintf(ulbl, sizeof(ulbl), T(L, "Desfazer Última Importação (%d)##pkub", "Undo Last Import (%d)##pkub"), bcnt);
+                std::snprintf(ulbl, sizeof(ulbl), T(L, "Desfazer Última Importação (%d)###pkub", "Undo Last Import (%d)###pkub"), bcnt);
                 if (btn_gold(ulbl)) {
                     auto r = engine_.undo_last_batch();
                     if (r.ok) {

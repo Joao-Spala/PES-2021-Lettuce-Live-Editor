@@ -27,12 +27,78 @@ std::filesystem::path get_settings_path() {
     return L"settings.ini";
 }
 
+// Geometria salva a mao ou corrompida nao pode estourar a aritmetica de RECT
+int clamp_geom(const std::string& v) {
+    long x = std::strtol(v.c_str(), nullptr, 10);
+    return static_cast<int>(std::clamp(x, -100000L, 100000L));
+}
+
 bool file_exists(const char* path) {
     DWORD attr = GetFileAttributesA(path);
     return (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY));
 }
 
 } // namespace
+
+namespace {
+struct Palette {
+    ImVec4 bg_title, bg_canvas, bg_sidebar, bg_surface, bg_card, bg_card_top, bg_card_bot, bg_card2, bg_card_hov, bg_input;
+    ImVec4 border, border_lit, text, subtext, muted;
+    ImVec4 popup, scroll_grab, scroll_grab_hov, table_head, table_line, hero_bg;
+    ImVec4 glass_top, glass_bot, glass_hero_top, glass_hero_bot, glow_a, glow_b, dim;
+    int default_accent;
+    const char* name_pt;
+    const char* name_en;
+    const char* brand;
+    const char* tag;
+};
+
+const Palette kPalettes[kThemeCount] = {
+    // 0: Estudio (azul-marinho, o visual original)
+    {ImVec4(0.055f, 0.082f, 0.137f, 1), ImVec4(0.031f, 0.047f, 0.078f, 1), ImVec4(0.059f, 0.086f, 0.141f, 1), ImVec4(0.059f, 0.086f, 0.141f, 1),
+     ImVec4(0.075f, 0.110f, 0.180f, 1), ImVec4(0.090f, 0.129f, 0.212f, 1), ImVec4(0.063f, 0.094f, 0.157f, 1), ImVec4(0.082f, 0.122f, 0.196f, 1),
+     ImVec4(0.102f, 0.149f, 0.239f, 1), ImVec4(0.043f, 0.067f, 0.118f, 1),
+     ImVec4(0.133f, 0.188f, 0.290f, 1), ImVec4(0.200f, 0.278f, 0.420f, 1), ImVec4(0.945f, 0.961f, 0.976f, 1), ImVec4(0.580f, 0.639f, 0.722f, 1), ImVec4(0.392f, 0.455f, 0.545f, 1),
+     ImVec4(0.059f, 0.086f, 0.141f, 0.98f), ImVec4(0.149f, 0.212f, 0.322f, 0.90f), ImVec4(0.220f, 0.310f, 0.471f, 1.0f), ImVec4(0.055f, 0.086f, 0.153f, 1.0f),
+     ImVec4(0.118f, 0.176f, 0.282f, 0.55f), ImVec4(0.075f, 0.114f, 0.192f, 0.98f),
+     ImVec4(0.133f, 0.196f, 0.322f, 1), ImVec4(0.055f, 0.082f, 0.141f, 1), ImVec4(0.118f, 0.188f, 0.322f, 1), ImVec4(0.059f, 0.090f, 0.153f, 1),
+     ImVec4(0.145f, 0.388f, 0.922f, 1), ImVec4(0.063f, 0.725f, 0.506f, 1), ImVec4(0.016f, 0.027f, 0.055f, 0.80f),
+     0, "Azul", "Blue", "Lettuce Live Editor", "PES 2021"},
+    // 1: Alface (verde-floresta com folhas de alface, o visual Lettuce Live Editor)
+    {ImVec4(0.039f, 0.078f, 0.047f, 1), ImVec4(0.024f, 0.051f, 0.031f, 1), ImVec4(0.043f, 0.086f, 0.055f, 1), ImVec4(0.043f, 0.086f, 0.055f, 1),
+     ImVec4(0.059f, 0.114f, 0.075f, 1), ImVec4(0.078f, 0.157f, 0.102f, 1), ImVec4(0.047f, 0.094f, 0.063f, 1), ImVec4(0.071f, 0.145f, 0.102f, 1),
+     ImVec4(0.094f, 0.192f, 0.137f, 1), ImVec4(0.031f, 0.071f, 0.043f, 1),
+     ImVec4(0.118f, 0.227f, 0.153f, 1), ImVec4(0.176f, 0.353f, 0.235f, 1), ImVec4(0.933f, 0.969f, 0.910f, 1), ImVec4(0.643f, 0.733f, 0.627f, 1), ImVec4(0.424f, 0.533f, 0.439f, 1),
+     ImVec4(0.043f, 0.090f, 0.055f, 0.98f), ImVec4(0.160f, 0.300f, 0.190f, 0.90f), ImVec4(0.230f, 0.420f, 0.270f, 1.0f), ImVec4(0.055f, 0.106f, 0.071f, 1.0f),
+     ImVec4(0.118f, 0.227f, 0.153f, 0.55f), ImVec4(0.075f, 0.145f, 0.094f, 0.98f),
+     ImVec4(0.133f, 0.275f, 0.169f, 1), ImVec4(0.047f, 0.102f, 0.063f, 1), ImVec4(0.118f, 0.267f, 0.157f, 1), ImVec4(0.043f, 0.098f, 0.059f, 1),
+     ImVec4(0.520f, 0.800f, 0.090f, 1), ImVec4(0.120f, 0.720f, 0.450f, 1), ImVec4(0.012f, 0.035f, 0.016f, 0.80f),
+     5, "Alface", "Lettuce", "Lettuce Live Editor", "PES 2021"},
+};
+int g_visual_theme = 1;
+} // namespace
+
+void apply_visual_theme(int idx) {
+    g_visual_theme = std::clamp(idx, 0, kThemeCount - 1);
+    const Palette& p = kPalettes[g_visual_theme];
+    col::BgTitlebar = p.bg_title; col::BgCanvas = p.bg_canvas; col::BgSidebar = p.bg_sidebar; col::BgSurface = p.bg_surface;
+    col::BgCard = p.bg_card; col::BgCardTop = p.bg_card_top; col::BgCardBot = p.bg_card_bot; col::BgCard2 = p.bg_card2;
+    col::BgCardHov = p.bg_card_hov; col::BgInput = p.bg_input;
+    col::Border = p.border; col::BorderLit = p.border_lit; col::Text = p.text; col::Subtext = p.subtext; col::Muted = p.muted;
+    col::PopupBg = p.popup; col::ScrollGrab = p.scroll_grab; col::ScrollGrabHov = p.scroll_grab_hov;
+    col::TableHead = p.table_head; col::TableLine = p.table_line; col::HeroBg = p.hero_bg;
+    col::GlassTop = p.glass_top; col::GlassBot = p.glass_bot; col::GlassHeroTop = p.glass_hero_top; col::GlassHeroBot = p.glass_hero_bot;
+    col::GlowA = p.glow_a; col::GlowB = p.glow_b; col::Dim = p.dim;
+}
+int current_visual_theme() { return g_visual_theme; }
+bool brand_is_lettuce() { return true; } // a marca nao muda com o tema de cores
+const char* brand_title() { return "Lettuce Live Editor"; }
+const char* brand_tag() { return "PES 2021"; }
+const char* theme_name(int idx, bool en) {
+    const Palette& p = kPalettes[std::clamp(idx, 0, kThemeCount - 1)];
+    return en ? p.name_en : p.name_pt;
+}
+int theme_default_accent(int idx) { return kPalettes[std::clamp(idx, 0, kThemeCount - 1)].default_accent; }
 
 namespace {
 struct AccentDef { const char* pt; const char* en; ImVec4 main; ImVec4 soft; };
@@ -42,6 +108,7 @@ const AccentDef kAccents[kAccentCount] = {
     {"Esmeralda", "Emerald",  ImVec4(0.063f, 0.725f, 0.506f, 1.0f), ImVec4(0.431f, 0.906f, 0.718f, 1.0f)},
     {"Ouro",      "Gold",     ImVec4(0.918f, 0.675f, 0.082f, 1.0f), ImVec4(0.992f, 0.878f, 0.455f, 1.0f)},
     {"Ciano",     "Cyan",     ImVec4(0.086f, 0.710f, 0.831f, 1.0f), ImVec4(0.500f, 0.898f, 0.965f, 1.0f)},
+    {"Alface",    "Lettuce",  ImVec4(0.310f, 0.561f, 0.078f, 1.0f), ImVec4(0.639f, 0.902f, 0.208f, 1.0f)},
 };
 } // namespace
 
@@ -54,6 +121,15 @@ const char* accent_name(int idx, bool en) {
     const auto& a = kAccents[std::clamp(idx, 0, kAccentCount - 1)];
     return en ? a.en : a.pt;
 }
+void theme_preview(int idx, ImVec4 out[4]) {
+    const Palette& p = kPalettes[std::clamp(idx, 0, kThemeCount - 1)];
+    out[0] = p.bg_canvas;
+    out[1] = p.bg_card;
+    const auto& a = kAccents[std::clamp(p.default_accent, 0, kAccentCount - 1)];
+    out[2] = a.main;
+    out[3] = a.soft;
+}
+
 ImVec4 accent_swatch(int idx) { return kAccents[std::clamp(idx, 0, kAccentCount - 1)].main; }
 
 void apply_studio_theme(float dpi_scale) {
@@ -90,7 +166,7 @@ void apply_studio_theme(float dpi_scale) {
     c[ImGuiCol_TextDisabled]         = col::Muted;
     c[ImGuiCol_WindowBg]             = col::BgCanvas;
     c[ImGuiCol_ChildBg]              = col::BgCard;
-    c[ImGuiCol_PopupBg]              = ImVec4(0.059f, 0.086f, 0.141f, 0.98f); // #0f1624
+    c[ImGuiCol_PopupBg]              = col::PopupBg;
     c[ImGuiCol_Border]               = col::Border;
     c[ImGuiCol_BorderShadow]         = ImVec4(0, 0, 0, 0);
     c[ImGuiCol_FrameBg]              = col::BgInput;
@@ -100,9 +176,9 @@ void apply_studio_theme(float dpi_scale) {
     c[ImGuiCol_TitleBgActive]        = col::BgTitlebar;
     c[ImGuiCol_TitleBgCollapsed]     = col::BgTitlebar;
     c[ImGuiCol_MenuBarBg]            = col::BgSidebar;
-    c[ImGuiCol_ScrollbarBg]          = ImVec4(0.031f, 0.047f, 0.078f, 0.35f);
-    c[ImGuiCol_ScrollbarGrab]        = ImVec4(0.149f, 0.212f, 0.322f, 0.90f); // #263652
-    c[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.220f, 0.310f, 0.471f, 1.0f);  // #384f78
+    c[ImGuiCol_ScrollbarBg]          = ImVec4(col::BgCanvas.x, col::BgCanvas.y, col::BgCanvas.z, 0.35f);
+    c[ImGuiCol_ScrollbarGrab]        = col::ScrollGrab;
+    c[ImGuiCol_ScrollbarGrabHovered] = col::ScrollGrabHov;
     c[ImGuiCol_ScrollbarGrabActive]  = col::Accent;
     c[ImGuiCol_CheckMark]            = col::AccentSoft;
     c[ImGuiCol_SliderGrab]           = col::AccentSoft;
@@ -110,28 +186,23 @@ void apply_studio_theme(float dpi_scale) {
     c[ImGuiCol_Button]               = col::BgCard2;
     c[ImGuiCol_ButtonHovered]        = col::Border;     // #22304a (.btn:hover)
     c[ImGuiCol_ButtonActive]         = col::BorderLit;
-    c[ImGuiCol_Header]               = ImVec4(0.231f, 0.510f, 0.965f, 0.20f);
-    c[ImGuiCol_HeaderHovered]        = ImVec4(0.231f, 0.510f, 0.965f, 0.32f);
-    c[ImGuiCol_HeaderActive]         = ImVec4(0.231f, 0.510f, 0.965f, 0.44f);
-    c[ImGuiCol_Separator]            = ImVec4(0.133f, 0.188f, 0.290f, 0.80f);
+    c[ImGuiCol_Header]               = ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.20f);
+    c[ImGuiCol_HeaderHovered]        = ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.32f);
+    c[ImGuiCol_HeaderActive]         = ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.44f);
+    c[ImGuiCol_Separator]            = ImVec4(col::Border.x, col::Border.y, col::Border.z, 0.80f);
     c[ImGuiCol_SeparatorHovered]     = col::BorderLit;
     c[ImGuiCol_SeparatorActive]      = col::Accent;
-    c[ImGuiCol_TableHeaderBg]        = ImVec4(0.071f, 0.106f, 0.176f, 1.0f);  // #121b2d (thead th)
     c[ImGuiCol_TableBorderStrong]    = col::Border;
-    c[ImGuiCol_TableBorderLight]     = ImVec4(0.133f, 0.188f, 0.290f, 0.55f);
-    c[ImGuiCol_TableRowBg]           = ImVec4(0.059f, 0.086f, 0.141f, 0.65f);
-    c[ImGuiCol_TableRowBgAlt]        = ImVec4(0.075f, 0.110f, 0.180f, 0.55f);
-    c[ImGuiCol_ModalWindowDimBg]     = ImVec4(0.020f, 0.035f, 0.070f, 0.72f);
     c[ImGuiCol_Tab]                  = col::BgSidebar;
     c[ImGuiCol_TabHovered]           = col::BgCard2;
     c[ImGuiCol_TabSelected]          = col::Accent;
-    c[ImGuiCol_TableHeaderBg]        = ImVec4(0.055f, 0.086f, 0.153f, 1.0f);
+    c[ImGuiCol_TableHeaderBg]        = col::TableHead;
     c[ImGuiCol_TableBorderStrong]    = col::Border;
-    c[ImGuiCol_TableBorderLight]     = ImVec4(0.118f, 0.176f, 0.282f, 0.55f);
+    c[ImGuiCol_TableBorderLight]     = col::TableLine;
     c[ImGuiCol_TableRowBg]           = ImVec4(0, 0, 0, 0);
     c[ImGuiCol_TableRowBgAlt]        = ImVec4(1.0f, 1.0f, 1.0f, 0.018f);
-    c[ImGuiCol_TextSelectedBg]       = ImVec4(0.231f, 0.510f, 0.965f, 0.36f);
-    c[ImGuiCol_ModalWindowDimBg]     = ImVec4(0.016f, 0.027f, 0.055f, 0.80f);
+    c[ImGuiCol_TextSelectedBg]       = ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.36f);
+    c[ImGuiCol_ModalWindowDimBg]     = col::Dim;
 }
 
 void build_font_bank(FontBank& bank, float dpi_scale) {
@@ -213,6 +284,7 @@ AppSettings load_settings() {
     std::ifstream f(get_settings_path());
     if (!f) return s;
     std::string line;
+    bool has_theme = false;
     while (std::getline(f, line)) {
         auto eq = line.find('=');
         if (eq == std::string::npos) continue;
@@ -223,32 +295,49 @@ AppSettings load_settings() {
         else if (k == "font") s.font_idx = std::clamp(std::atoi(v.c_str()), 0, 3);
         else if (k == "econ_sync") s.econ_sync_mode = std::clamp(std::atoi(v.c_str()), 0, 3);
         else if (k == "sidebar_collapsed") s.sidebar_collapsed = (v == "1");
+        else if (k == "theme") { s.theme_idx = std::clamp(std::atoi(v.c_str()), 0, kThemeCount - 1); has_theme = true; }
         else if (k == "ui_scale") s.ui_scale_idx = std::clamp(std::atoi(v.c_str()), 0, 4);
         else if (k == "accent") s.accent_idx = std::clamp(std::atoi(v.c_str()), 0, kAccentCount - 1);
         else if (k == "topmost") s.topmost = (v == "1");
-        else if (k == "win_x") s.win_x = std::atoi(v.c_str());
-        else if (k == "win_y") s.win_y = std::atoi(v.c_str());
-        else if (k == "win_w") s.win_w = std::atoi(v.c_str());
-        else if (k == "win_h") s.win_h = std::atoi(v.c_str());
+        else if (k == "win_x") s.win_x = clamp_geom(v);
+        else if (k == "win_y") s.win_y = clamp_geom(v);
+        else if (k == "win_w") s.win_w = clamp_geom(v);
+        else if (k == "win_h") s.win_h = clamp_geom(v);
         else if (k == "win_max") s.win_max = (v == "1");
     }
+    // Arquivo anterior aos temas: adota tambem a cor de destaque do tema padrao (identidade completa)
+    if (!has_theme) s.accent_idx = theme_default_accent(s.theme_idx);
     return s;
 }
 
 void save_settings(const AppSettings& s) {
-    std::ofstream f(get_settings_path(), std::ios::trunc);
-    if (!f) return;
-    f << "lang=" << (s.lang == Lang::EN ? "en" : "pt") << "\n";
-    f << "currency=" << s.currency_idx << "\n";
-    f << "font=" << s.font_idx << "\n";
-    f << "econ_sync=" << s.econ_sync_mode << "\n";
-    f << "sidebar_collapsed=" << (s.sidebar_collapsed ? 1 : 0) << "\n";
-    f << "ui_scale=" << s.ui_scale_idx << "\n";
-    f << "accent=" << s.accent_idx << "\n";
-    f << "topmost=" << (s.topmost ? 1 : 0) << "\n";
-    f << "win_x=" << s.win_x << "\n" << "win_y=" << s.win_y << "\n";
-    f << "win_w=" << s.win_w << "\n" << "win_h=" << s.win_h << "\n";
-    f << "win_max=" << (s.win_max ? 1 : 0) << "\n";
+    // Grava em arquivo temporario e troca: um crash no meio nao deixa o settings.ini vazio
+    const auto path = get_settings_path();
+    auto tmp = path;
+    tmp += L".tmp";
+    {
+        std::ofstream f(tmp, std::ios::trunc);
+        if (!f) return;
+        f << "lang=" << (s.lang == Lang::EN ? "en" : "pt") << "\n";
+        f << "currency=" << s.currency_idx << "\n";
+        f << "font=" << s.font_idx << "\n";
+        f << "econ_sync=" << s.econ_sync_mode << "\n";
+        f << "sidebar_collapsed=" << (s.sidebar_collapsed ? 1 : 0) << "\n";
+        f << "theme=" << s.theme_idx << "\n";
+        f << "ui_scale=" << s.ui_scale_idx << "\n";
+        f << "accent=" << s.accent_idx << "\n";
+        f << "topmost=" << (s.topmost ? 1 : 0) << "\n";
+        f << "win_x=" << s.win_x << "\n" << "win_y=" << s.win_y << "\n";
+        f << "win_w=" << s.win_w << "\n" << "win_h=" << s.win_h << "\n";
+        f << "win_max=" << (s.win_max ? 1 : 0) << "\n";
+        if (!f.good()) return;
+    }
+    std::error_code ec;
+    std::filesystem::rename(tmp, path, ec);
+    if (ec) {
+        std::filesystem::copy_file(tmp, path, std::filesystem::copy_options::overwrite_existing, ec);
+        std::filesystem::remove(tmp, ec);
+    }
 }
 
 } // namespace pes::ui

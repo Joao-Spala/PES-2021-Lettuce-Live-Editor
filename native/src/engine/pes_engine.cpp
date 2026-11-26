@@ -521,6 +521,11 @@ void PESEngine::reset_career_caches() {
     last_batch_undo_.clear();
     last_batch_label_.clear();
     econ_anchors_.clear();
+    // Outro save: snapshots de olheiros e linha do tempo apontam para memoria do save anterior
+    scout_undo_.clear();
+    journal_.clear();
+    journal_batch_open_ = false;
+    ++journal_rev_;
 }
 
 void PESEngine::shutdown() {
@@ -682,6 +687,11 @@ void PESEngine::push_undo(uint64_t p_addr, const char* action_code, const uint8_
     if (static_cast<int>(st.size()) > kUndoMaxDepth) {
         st.erase(st.begin());
     }
+    // "Desfazer lote" so vale logo apos o lote: uma edicao avulsa depois dele invalida o snapshot
+    if (!journal_batch_open_) {
+        last_batch_undo_.clear();
+        last_batch_label_.clear();
+    }
     // Linha do tempo global: um lote vira uma unica entrada
     if (journal_batch_open_ && !journal_.empty()) {
         journal_.back().addrs.push_back(p_addr);
@@ -780,7 +790,8 @@ std::string PESEngine::backup_squad_locked(std::string_view tag) {
         std::strftime(stamp, sizeof(stamp), "%Y-%m-%d_%H-%M-%S", &lt);
         std::string tg(tag);
         for (char& ch : tg) if (!std::isalnum(static_cast<unsigned char>(ch))) ch = '_';
-        std::string fname = "Backup_" + tg + "_" + stamp + ".json";
+        static unsigned backup_seq = 0;
+        std::string fname = "Backup_" + tg + "_" + stamp + "_" + std::to_string(++backup_seq) + ".json";
         std::filesystem::path file = dir / fs_path_from_utf8(fname);
         std::ofstream f(file, std::ios::binary | std::ios::trunc);
         if (!f) return {};
@@ -803,6 +814,13 @@ ActionResult PESEngine::undo_last(uint64_t addr) {
     if (it == undo_stack_.end() || it->second.empty()) return {false, "nothing_to_undo"};
     UndoEntry e = std::move(it->second.back());
     it->second.pop_back();
+    {
+        uint8_t probe[data::PLAYER_RECORD_SIZE]{};
+        if (!mem_.read_into(p, probe, sizeof(probe)) || !is_sane_player_buf(probe)) {
+            journal_drop_addr(p); // entrada obsoleta (tabela mudou): descarta sem gravar
+            return {false, "read_failed"};
+        }
+    }
     mem_.write_from(p, e.bytes.data(), e.bytes.size());
     if (e.prev_anchor.has_value()) {
         econ_anchors_[p] = *e.prev_anchor;
@@ -1832,6 +1850,7 @@ ActionResult PESEngine::run_squad_commander(std::string_view mode, const std::ve
     std::string backup_path;
     if (mode == "econ_recal" || mode == "ovr1" || mode == "contract") {
         backup_path = backup_squad_locked(std::string("antes_") + std::string(mode));
+        if (backup_path.empty()) return {false, "backup_failed"};
     }
     journal_begin_batch(std::string("batch_") + std::string(mode));
     struct JGuard { PESEngine* e; ~JGuard() { e->journal_end_batch(); } } jguard{this};
@@ -1943,6 +1962,12 @@ ActionResult PESEngine::apply_skill_preset(int preset_id, const std::vector<uint
     std::vector<uint64_t> list;
     if (targets) list = *targets;
     else if (p_cur > 0x10000ULL) list.push_back(p_cur);
+    {
+        std::unordered_set<uint64_t> seen;
+        std::vector<uint64_t> uniq;
+        for (uint64_t a : list) if (seen.insert(a).second) uniq.push_back(a);
+        list.swap(uniq);
+    }
     if (list.empty()) return {false, "no_player"};
 
     // Resolve os nomes do preset para as definicoes de habilidade reais
@@ -1957,7 +1982,10 @@ ActionResult PESEngine::apply_skill_preset(int preset_id, const std::vector<uint
     if (wanted.empty()) return {false, "invalid_arg"};
 
     std::string backup_path;
-    if (list.size() > 1 || replace) backup_path = backup_squad_locked("antes_preset_habilidades");
+    if (list.size() > 1 || replace) {
+        backup_path = backup_squad_locked("antes_preset_habilidades");
+        if (backup_path.empty()) return {false, "backup_failed"};
+    }
 
     std::vector<BatchUndoItem> batch_backup;
     journal_begin_batch("skill_preset");
@@ -2170,7 +2198,7 @@ ActionResult PESEngine::add_to_scout_list(int slot_num, uint64_t player_addr) {
         if (free_idx == -1 && (handles[i] == 0 || (handles[i] & 0xFFFFULL) == data::SCOUT_EMPTY_SENTINEL)) free_idx = i;
     }
     if (free_idx == -1) return {false, "scout_full", 0, slot_num};
-    scout_snapshot_push(career, "add");
+    if (!scout_snapshot_push(career, "add")) return {false, "read_failed"};
     mem_.write_u64(career + sl->base + static_cast<uint64_t>(free_idx) * 8ULL, p_handle);
     return {true, "scout_added", 0, slot_num};
 }
@@ -2188,7 +2216,7 @@ ActionResult PESEngine::remove_from_scout_list(int slot_num, uint64_t handle) {
     if (!mem_.read_into(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t))) return {false, "read_failed"};
     for (int i = 0; i < sl->cap; ++i) {
         if (handles[i] == handle) {
-            scout_snapshot_push(career, "remove");
+            if (!scout_snapshot_push(career, "remove")) return {false, "read_failed"};
             mem_.write_u64(career + sl->base + static_cast<uint64_t>(i) * 8ULL, data::SCOUT_EMPTY_SENTINEL);
             return {true, "ok"};
         }
@@ -2204,11 +2232,13 @@ ActionResult PESEngine::clear_scout_list(int slot_num) {
     const data::ScoutListDef* sl = nullptr;
     for (const auto& s : data::SCOUT_LISTS) if (s.slot == slot_num) { sl = &s; break; }
     if (!career || !sl) return {false, "invalid_arg"};
-    scout_snapshot_push(career, "clear");
+    if (!scout_snapshot_push(career, "clear")) return {false, "read_failed"};
     std::vector<uint64_t> empty_buf(static_cast<size_t>(sl->cap), data::SCOUT_EMPTY_SENTINEL);
     mem_.write_from(career + sl->base, empty_buf.data(), empty_buf.size() * sizeof(uint64_t));
     return {true, "ok", 0, slot_num};
 }
+
+static_assert(data::SCOUT_LISTS.size() == 4, "ScoutSnap assume 4 listas de olheiros");
 
 namespace {
 inline bool scout_slot_free(uint64_t h) { return h == 0 || (h & 0xFFFFULL) == data::SCOUT_EMPTY_SENTINEL; }
@@ -2259,23 +2289,29 @@ ActionResult PESEngine::add_many_to_scout_list(int slot_num, const std::vector<u
 
     std::vector<uint64_t> handles(static_cast<size_t>(sl->cap), 0);
     if (!mem_.read_into(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t))) return {false, "read_failed"};
-    scout_snapshot_push(career, "add_many");
-
+    bool snapped = false;
     int added = 0, skipped = 0;
     bool full = false;
     for (uint64_t p : player_addrs) {
         if (p <= 0x10000ULL) { ++skipped; continue; }
+        {
+            uint8_t probe[data::PLAYER_RECORD_SIZE]{};
+            if (!mem_.read_into(p, probe, sizeof(probe)) || !is_sane_player_buf(probe)) { ++skipped; continue; }
+        }
         uint64_t h = mem_.read_u64(p + 0x2CULL);
         if (!h || (h >> 32) == 0) { ++skipped; continue; }
         if (std::find(handles.begin(), handles.end(), h) != handles.end()) { ++skipped; continue; }
         int free_idx = -1;
         for (int i = 0; i < sl->cap; ++i) if (scout_slot_free(handles[i])) { free_idx = i; break; }
         if (free_idx < 0) { full = true; ++skipped; continue; }
+        if (!snapped) {
+            if (!scout_snapshot_push(career, "add_many")) return {false, "read_failed", added, skipped, full};
+            snapped = true;
+        }
         handles[free_idx] = h;
         mem_.write_u64(career + sl->base + static_cast<uint64_t>(free_idx) * 8ULL, h);
         ++added;
     }
-    if (added == 0) scout_undo_.pop_back(); // nada mudou: nao polui o desfazer
     return {added > 0, added > 0 ? "ok" : (full ? "scout_full" : "scout_dup"), added, skipped, full};
 }
 
@@ -2290,11 +2326,16 @@ ActionResult PESEngine::remove_many_from_scout_list(int slot_num, const std::vec
 
     std::vector<uint64_t> handles(static_cast<size_t>(sl->cap), 0);
     if (!mem_.read_into(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t))) return {false, "read_failed"};
-    scout_snapshot_push(career, "remove_many");
+    bool snapped = false;
     int removed = 0;
     for (uint64_t h : handles_to_remove) {
+        if (scout_slot_free(h)) continue; // 0 ou sentinela nunca e um atleta
         for (int i = 0; i < sl->cap; ++i) {
             if (handles[i] == h) {
+                if (!snapped) {
+                    if (!scout_snapshot_push(career, "remove_many")) return {false, "read_failed", removed, 0};
+                    snapped = true;
+                }
                 handles[i] = data::SCOUT_EMPTY_SENTINEL;
                 mem_.write_u64(career + sl->base + static_cast<uint64_t>(i) * 8ULL, data::SCOUT_EMPTY_SENTINEL);
                 ++removed;
@@ -2302,7 +2343,6 @@ ActionResult PESEngine::remove_many_from_scout_list(int slot_num, const std::vec
             }
         }
     }
-    if (removed == 0) scout_undo_.pop_back();
     return {removed > 0, removed > 0 ? "ok" : "not_found", removed, static_cast<int>(handles_to_remove.size()) - removed};
 }
 
@@ -2319,11 +2359,16 @@ ActionResult PESEngine::move_scout_entries(int from_slot, int to_slot, const std
     std::vector<uint64_t> sh(static_cast<size_t>(src->cap), 0), dh(static_cast<size_t>(dst->cap), 0);
     if (!mem_.read_into(career + src->base, sh.data(), sh.size() * sizeof(uint64_t))) return {false, "read_failed"};
     if (!mem_.read_into(career + dst->base, dh.data(), dh.size() * sizeof(uint64_t))) return {false, "read_failed"};
-    scout_snapshot_push(career, copy ? "copy" : "move");
+    bool snapped = false;
+    auto ensure_snap = [&]() {
+        if (!snapped) snapped = scout_snapshot_push(career, copy ? "copy" : "move");
+        return snapped;
+    };
 
     int done = 0, skipped = 0;
     bool full = false;
     for (uint64_t h : handles_in) {
+        if (scout_slot_free(h)) { ++skipped; continue; }
         int sidx = -1;
         for (int i = 0; i < src->cap; ++i) if (sh[i] == h) { sidx = i; break; }
         if (sidx < 0) { ++skipped; continue; }
@@ -2332,17 +2377,18 @@ ActionResult PESEngine::move_scout_entries(int from_slot, int to_slot, const std
             int free_idx = -1;
             for (int i = 0; i < dst->cap; ++i) if (scout_slot_free(dh[i])) { free_idx = i; break; }
             if (free_idx < 0) { full = true; ++skipped; continue; }
+            if (!ensure_snap()) return {false, "read_failed", done, skipped, full};
             dh[free_idx] = h;
             mem_.write_u64(career + dst->base + static_cast<uint64_t>(free_idx) * 8ULL, h);
         }
         // Mover remove da origem tambem quando o atleta ja estava no destino (evita duplicata entre listas)
         if (!copy) {
+            if (!ensure_snap()) return {false, "read_failed", done, skipped, full};
             sh[sidx] = data::SCOUT_EMPTY_SENTINEL;
             mem_.write_u64(career + src->base + static_cast<uint64_t>(sidx) * 8ULL, data::SCOUT_EMPTY_SENTINEL);
         }
         if (!already || !copy) ++done; else ++skipped;
     }
-    if (done == 0) scout_undo_.pop_back();
     return {done > 0, done > 0 ? "ok" : (full ? "scout_full" : "scout_dup"), done, skipped, full};
 }
 
@@ -2379,8 +2425,10 @@ ActionResult PESEngine::import_scout_lists_json(std::string_view json_str, bool 
     if (!career) return {false, "no_career"};
 
     using json = nlohmann::json;
+    try {
     json root = json::parse(json_str.begin(), json_str.end(), nullptr, false);
-    if (root.is_discarded() || !root.is_object() || root.value("kind", "") != "scouts" || !root.contains("lists") || !root["lists"].is_array()) {
+    if (root.is_discarded() || !root.is_object() || !root.contains("kind") || !root["kind"].is_string() ||
+        root["kind"].get<std::string>() != "scouts" || !root.contains("lists") || !root["lists"].is_array()) {
         return {false, "invalid_json"};
     }
 
@@ -2395,6 +2443,7 @@ ActionResult PESEngine::import_scout_lists_json(std::string_view json_str, bool 
     by_pid.reserve(count * 2);
     for (uint32_t i = 0; i < count; ++i) {
         const uint8_t* rec = raw.data() + static_cast<size_t>(i) * data::PLAYER_RECORD_SIZE;
+        if (!is_sane_player_buf(rec)) continue;
         uint32_t pid = 0;
         std::memcpy(&pid, rec + 0x30, 4);
         if (pid == 0) continue;
@@ -2406,22 +2455,25 @@ ActionResult PESEngine::import_scout_lists_json(std::string_view json_str, bool 
         else ++it->second.second;
     }
 
-    scout_snapshot_push(career, "import");
+    bool snapped = false;
+    auto ensure_snap = [&]() {
+        if (!snapped) snapped = scout_snapshot_push(career, "import");
+        return snapped;
+    };
     int added = 0, unmatched = 0, dup = 0;
     bool full = false;
     std::string unmatched_names;
     for (const auto& jl : root["lists"]) {
-        const auto* sl = find_scout_def(jl.value("slot", 0));
+        if (!jl.is_object() || !jl.contains("slot") || !jl["slot"].is_number_integer()) continue;
+        const auto* sl = find_scout_def(jl["slot"].get<int>());
         if (!sl || !jl.contains("entries") || !jl["entries"].is_array()) continue;
         std::vector<uint64_t> handles(static_cast<size_t>(sl->cap), 0);
         if (!mem_.read_into(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t))) continue;
-        if (replace) {
-            std::fill(handles.begin(), handles.end(), data::SCOUT_EMPTY_SENTINEL);
-            mem_.write_from(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t));
-        }
+        bool cleared = !replace;
         for (const auto& je : jl["entries"]) {
-            uint32_t pid = je.value("pid", 0u);
-            std::string name = je.value("name", std::string());
+            if (!je.is_object()) continue;
+            uint32_t pid = (je.contains("pid") && je["pid"].is_number_unsigned()) ? je["pid"].get<uint32_t>() : 0u;
+            std::string name = (je.contains("name") && je["name"].is_string()) ? je["name"].get<std::string>() : std::string();
             int64_t idx = -1;
             auto pit = by_pid.find(pid);
             if (pid != 0 && pit != by_pid.end()) {
@@ -2442,16 +2494,27 @@ ActionResult PESEngine::import_scout_lists_json(std::string_view json_str, bool 
             uint64_t h = 0;
             std::memcpy(&h, rec + 0x2C, 8);
             if (!h || (h >> 32) == 0) { ++unmatched; continue; }
+            if (!cleared) {
+                // Primeiro atleta casado desta lista: agora sim limpa a lista antes de preencher
+                if (!ensure_snap()) return {false, "read_failed", added, unmatched};
+                std::fill(handles.begin(), handles.end(), data::SCOUT_EMPTY_SENTINEL);
+                mem_.write_from(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t));
+                cleared = true;
+            }
             if (std::find(handles.begin(), handles.end(), h) != handles.end()) { ++dup; continue; }
             int free_idx = -1;
             for (int i = 0; i < sl->cap; ++i) if (scout_slot_free(handles[i])) { free_idx = i; break; }
             if (free_idx < 0) { full = true; continue; }
+            if (!ensure_snap()) return {false, "read_failed", added, unmatched};
             handles[free_idx] = h;
             mem_.write_u64(career + sl->base + static_cast<uint64_t>(free_idx) * 8ULL, h);
             ++added;
         }
     }
     return {true, "ok", added, unmatched, full || dup > 0, unmatched_names};
+    } catch (const std::exception&) {
+        return {false, "invalid_json"};
+    }
 }
 
 ActionResult PESEngine::set_training_mode(int mode) {
@@ -3330,6 +3393,10 @@ ActionResult PESEngine::undo_last_batch() {
         if (bi.prev_anchor.has_value()) econ_anchors_[bi.addr] = *bi.prev_anchor;
         else econ_anchors_.erase(bi.addr);
         journal_drop_addr(bi.addr);
+        {
+            auto us = undo_stack_.find(bi.addr);
+            if (us != undo_stack_.end() && !us->second.empty()) us->second.pop_back();
+        }
         ++restored;
     }
     std::string lbl = last_batch_label_;
@@ -3340,7 +3407,18 @@ ActionResult PESEngine::undo_last_batch() {
 }
 
 int PESEngine::last_batch_undo_count() const {
+    std::lock_guard<std::recursive_mutex> g(lock_);
     return static_cast<int>(last_batch_undo_.size());
+}
+
+int PESEngine::scout_undo_depth() const {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    return static_cast<int>(scout_undo_.size());
+}
+
+std::string PESEngine::scout_undo_label() const {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    return scout_undo_.empty() ? std::string() : scout_undo_.back().label;
 }
 
 } // namespace pes

@@ -40,6 +40,13 @@ float anim_toward(ImGuiID id, float target, float speed = 12.0f) {
     return next;
 }
 
+// Sinaliza animacao ativa neste quadro (sincroniza o contador de quadros antes de marcar)
+void mark_animating() {
+    int fc = ImGui::GetFrameCount();
+    if (fc != g_anim_frame) { g_anim_frame = fc; g_anim_active = false; }
+    g_anim_active = true;
+}
+
 ImVec4 lerp_col(const ImVec4& a, const ImVec4& b, float t) {
     return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t);
 }
@@ -149,27 +156,129 @@ const char* arrow_glyph(int arrow) {
     }
 }
 
+// Folha de alface: contorno ondulado simetrico, nervura central e nervuras laterais.
+// base = ponto de fixacao, angle em radianos (0 = para cima), fill 0 = so contorno.
+void draw_leaf(ImDrawList* dl, ImVec2 base, float angle, float len, float wid, ImU32 fill, ImU32 line, float thick) {
+    constexpr int kN = 14;
+    const float ca = std::cos(angle), sa = std::sin(angle);
+    auto place = [&](float lx, float ly) { // lx lateral, ly ao longo da folha (positivo = em direcao a ponta)
+        float x = lx, y = -ly;
+        return ImVec2(base.x + x * ca - y * sa, base.y + x * sa + y * ca);
+    };
+    auto half_w = [&](float t) {
+        float shape = std::sin(3.14159265f * std::pow(t, 0.9f));
+        float ruffle = 1.0f + 0.10f * std::sin(t * 19.0f) * (0.4f + 0.6f * t);
+        return wid * std::pow(std::max(shape, 0.0f), 0.6f) * ruffle;
+    };
+    ImVec2 pts[2 * kN + 2];
+    int n = 0;
+    for (int i = 0; i <= kN; ++i) { float t = static_cast<float>(i) / kN; pts[n++] = place(-half_w(t), len * t); }
+    for (int i = kN; i >= 0; --i) { float t = static_cast<float>(i) / kN; pts[n++] = place(half_w(t), len * t); }
+    if (fill) dl->AddConvexPolyFilled(pts, n, fill);
+    dl->AddPolyline(pts, n, line, ImDrawFlags_Closed, thick);
+    dl->AddLine(place(0, len * 0.04f), place(0, len * 0.92f), line, thick);
+    for (int i = 0; i < 3; ++i) {
+        float t = 0.28f + 0.2f * i;
+        float w = half_w(std::min(t + 0.10f, 0.98f)) * 0.78f;
+        dl->AddLine(place(0, len * t), place(-w, len * (t + 0.13f)), line, thick * 0.85f);
+        dl->AddLine(place(0, len * t), place(w, len * (t + 0.13f)), line, thick * 0.85f);
+    }
+}
+
+// Mistura linear de duas cores ImU32 (t = 0 -> a, t = 1 -> b)
+ImU32 lerp_u32(ImU32 a, ImU32 b, float t) {
+    t = std::clamp(t, 0.0f, 1.0f);
+    auto ch = [&](int shift) {
+        float va = static_cast<float>((a >> shift) & 0xFF), vb = static_cast<float>((b >> shift) & 0xFF);
+        return static_cast<ImU32>(va + (vb - va) * t + 0.5f) & 0xFF;
+    };
+    return (ch(IM_COL32_R_SHIFT) << IM_COL32_R_SHIFT) | (ch(IM_COL32_G_SHIFT) << IM_COL32_G_SHIFT) |
+           (ch(IM_COL32_B_SHIFT) << IM_COL32_B_SHIFT) | (ch(IM_COL32_A_SHIFT) << IM_COL32_A_SHIFT);
+}
+
+// Folha do logo: degrade vertical (c_top em cima, c_bot embaixo), sombra projetada, brilho fino de borda e nervuras sutis.
+void draw_leaf_lit(ImDrawList* dl, ImVec2 base, float angle, float len, float wid, ImU32 c_bot, ImU32 c_top, float size, bool veins) {
+    constexpr int kN = 16;
+    const float ca = std::cos(angle), sa = std::sin(angle);
+    auto place = [&](float lx, float ly) {
+        float x = lx, y = -ly;
+        return ImVec2(base.x + x * ca - y * sa, base.y + x * sa + y * ca);
+    };
+    auto half_w = [&](float t) {
+        float shape = std::sin(3.14159265f * std::pow(t, 0.9f));
+        float ruffle = 1.0f + 0.10f * std::sin(t * 19.0f) * (0.4f + 0.6f * t);
+        return wid * std::pow(std::max(shape, 0.0f), 0.6f) * ruffle;
+    };
+    ImVec2 pts[2 * kN + 2];
+    int n = 0;
+    for (int i = 0; i <= kN; ++i) { float t = static_cast<float>(i) / kN; pts[n++] = place(-half_w(t), len * t); }
+    for (int i = kN; i >= 0; --i) { float t = static_cast<float>(i) / kN; pts[n++] = place(half_w(t), len * t); }
+
+    // sombra suave sobre as folhas de tras
+    ImVec2 sh[2 * kN + 2];
+    const float off = size * 0.016f;
+    for (int i = 0; i < n; ++i) sh[i] = ImVec2(pts[i].x, pts[i].y + off);
+    dl->AddConvexPolyFilled(sh, n, IM_COL32(0, 20, 8, 80));
+
+    // corpo: leque de triangulos a partir do centroide, cor por altura
+    float min_y = pts[0].y, max_y = pts[0].y;
+    ImVec2 cen(0, 0);
+    for (int i = 0; i < n; ++i) { min_y = std::min(min_y, pts[i].y); max_y = std::max(max_y, pts[i].y); cen.x += pts[i].x; cen.y += pts[i].y; }
+    cen.x /= n; cen.y /= n;
+    auto col_at = [&](float y) { return lerp_u32(c_bot, c_top, (max_y > min_y) ? (max_y - y) / (max_y - min_y) : 0.0f); };
+    const ImVec2 uv = ImGui::GetFontTexUvWhitePixel();
+    dl->PrimReserve(n * 3, n * 3);
+    for (int i = 0; i < n; ++i) {
+        const ImVec2 a = pts[i], b = pts[(i + 1) % n];
+        const ImDrawIdx vi = static_cast<ImDrawIdx>(dl->_VtxCurrentIdx);
+        dl->PrimWriteVtx(cen, uv, col_at(cen.y));
+        dl->PrimWriteVtx(a, uv, col_at(a.y));
+        dl->PrimWriteVtx(b, uv, col_at(b.y));
+        dl->PrimWriteIdx(vi); dl->PrimWriteIdx(static_cast<ImDrawIdx>(vi + 1)); dl->PrimWriteIdx(static_cast<ImDrawIdx>(vi + 2));
+    }
+    if (veins) {
+        const float vw = std::max(1.0f, size * 0.013f);
+        dl->AddLine(place(0, len * 0.05f), place(0, len * 0.90f), IM_COL32(8, 56, 26, 95), vw);
+        for (int i = 0; i < 3; ++i) {
+            float t = 0.26f + 0.19f * i;
+            float w = half_w(std::min(t + 0.10f, 0.98f)) * 0.74f;
+            dl->AddLine(place(0, len * t), place(-w, len * (t + 0.12f)), IM_COL32(8, 56, 26, 70), vw);
+            dl->AddLine(place(0, len * t), place(w, len * (t + 0.12f)), IM_COL32(8, 56, 26, 70), vw);
+        }
+    }
+    dl->AddPolyline(pts, n, IM_COL32(255, 255, 255, 70), ImDrawFlags_Closed, std::max(1.0f, size * 0.012f));
+}
+
 void draw_workspace_ambient_glow(ImDrawList* dl, ImVec2 origin, ImVec2 size) {
     // Match Python .app-shell ambient radial stadium lights:
     // radial-gradient(ellipse 80% 50% at 65% -10%, rgba(37, 99, 235, 0.14))
     // radial-gradient(ellipse 50% 40% at 15% 110%, rgba(16, 185, 129, 0.08))
     float r_blue = std::max(size.x, size.y) * 0.56f;
     draw_radial_glow(dl, ImVec2(origin.x + size.x * 0.68f, origin.y - size.y * 0.06f),
-                     r_blue, ImVec4(0.145f, 0.388f, 0.922f, 1.0f), 0.16f);
+                     r_blue, col::GlowA, 0.16f);
 
     float r_green = std::max(size.x, size.y) * 0.42f;
     draw_radial_glow(dl, ImVec2(origin.x + size.x * 0.14f, origin.y + size.y * 1.04f),
-                     r_green, ImVec4(0.063f, 0.725f, 0.506f, 1.0f), 0.095f);
+                     r_green, col::GlowB, 0.095f);
 
     // Ultra-subtle broadcast tactical pitch watermark arc on far-right canvas
     if (size.x > 640.0f && size.y > 420.0f) {
-        ImU32 wm = IM_COL32(148, 163, 184, 9);
         float cx = origin.x + size.x * 0.92f;
         float cy = origin.y + size.y * 0.50f;
         float cr = std::min(size.x, size.y) * 0.24f;
-        dl->AddCircle(ImVec2(cx, cy), cr, wm, 48, 1.2f);
-        dl->AddCircle(ImVec2(cx, cy), 4.0f, wm, 16, 1.2f);
-        dl->AddLine(ImVec2(cx, origin.y + 24.0f), ImVec2(cx, origin.y + size.y - 24.0f), wm, 1.2f);
+        if (brand_is_lettuce()) {
+            // Marca d'agua: cabeca de alface (tres folhas com nervuras) bem discreta
+            ImU32 wm = to_u32(col::AccentSoft, 0.045f);
+            float base_y = cy + cr * 1.05f;
+            draw_leaf(dl, ImVec2(cx, base_y), -0.66f, cr * 1.55f, cr * 0.62f, 0, wm, 1.3f);
+            draw_leaf(dl, ImVec2(cx, base_y),  0.66f, cr * 1.55f, cr * 0.62f, 0, wm, 1.3f);
+            draw_leaf(dl, ImVec2(cx, base_y),  0.00f, cr * 1.95f, cr * 0.74f, 0, wm, 1.3f);
+        } else {
+            ImU32 wm = IM_COL32(148, 163, 184, 9);
+            dl->AddCircle(ImVec2(cx, cy), cr, wm, 48, 1.2f);
+            dl->AddCircle(ImVec2(cx, cy), 4.0f, wm, 16, 1.2f);
+            dl->AddLine(ImVec2(cx, origin.y + 24.0f), ImVec2(cx, origin.y + size.y - 24.0f), wm, 1.2f);
+        }
     }
 }
 
@@ -234,7 +343,7 @@ bool styled_button(const char* label, const ImVec4& bg, const ImVec4& border, co
 }
 
 bool btn_primary(const char* label, ImVec2 size) {
-    return styled_button(label, col::Accent, ImVec4(0.376f, 0.647f, 0.980f, 0.72f), ImVec4(1, 1, 1, 1), size);
+    return styled_button(label, col::Accent, ImVec4(col::AccentSoft.x, col::AccentSoft.y, col::AccentSoft.z, 0.72f), ImVec4(1, 1, 1, 1), size);
 }
 
 bool btn_green(const char* label, ImVec2 size) {
@@ -308,12 +417,12 @@ bool draw_titlebar_win_btn(const char* id, int kind, bool is_maximized, float w,
     if (hov || held) {
         ImU32 bg = (kind == 2)
             ? (held ? IM_COL32(185, 28, 28, 255) : IM_COL32(220, 38, 38, 235))
-            : (held ? IM_COL32(42, 62, 96, 230) : IM_COL32(30, 46, 74, 215));
+            : to_u32(col::BgCardHov, held ? 1.0f : 0.88f);
         dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), bg, 0.0f);
     }
 
     ImU32 fg = (kind == 2 && hov) ? IM_COL32(255, 255, 255, 255)
-                                  : (hov ? IM_COL32(243, 247, 252, 255) : IM_COL32(150, 166, 189, 255));
+                                  : (hov ? to_u32(col::Text) : to_u32(col::Subtext));
     float cx = p.x + w * 0.5f;
     float cy = p.y + h * 0.5f;
     if (kind == 0) {
@@ -333,27 +442,39 @@ bool draw_titlebar_win_btn(const char* id, int kind, bool is_maximized, float w,
     return clicked;
 }
 
-void draw_brand_emblem(ImVec2 pos, float size, ImFont* bold_font) {
+void draw_brand_emblem(ImVec2 pos, float size, ImFont* /*bold_font*/) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 p2(pos.x + size, pos.y + size);
-    float r = size * 0.28f;
-    // Soft cobalt drop glow matching Python .brand-icon
-    dl->AddRectFilled(ImVec2(pos.x - 1.5f, pos.y + 1.5f), ImVec2(p2.x + 1.5f, p2.y + 3.0f),
-                      IM_COL32(37, 99, 235, 78), r + 1.5f);
-    // Rich cobalt-to-cyan base (#2563eb -> #06b6d4)
-    dl->AddRectFilled(pos, p2, IM_COL32(30, 88, 224, 255), r);
-    dl->AddRectFilled(ImVec2(pos.x + size * 0.35f, pos.y + size * 0.30f), p2,
-                      IM_COL32(6, 182, 212, 165), r, ImDrawFlags_RoundCornersBottomRight);
-    // Specular glass highlight on top edge
-    dl->AddRectFilled(ImVec2(pos.x + 1.0f, pos.y + 1.0f), ImVec2(p2.x - 1.0f, pos.y + size * 0.44f),
-                      IM_COL32(255, 255, 255, 42), r, ImDrawFlags_RoundCornersTop);
-    dl->AddRect(pos, p2, IM_COL32(147, 197, 253, 180), r, 0, 1.1f);
-    // Crisp '21' centered
-    ImFont* fnt = bold_font ? bold_font : ImGui::GetFont();
-    float fs = size * 0.56f;
-    ImVec2 ts = fnt->CalcTextSizeA(fs, FLT_MAX, 0.0f, "21");
-    dl->AddText(fnt, fs, ImVec2(pos.x + (size - ts.x) * 0.50f, pos.y + (size - ts.y) * 0.50f),
-                IM_COL32(255, 255, 255, 255), "21");
+    // Logo Lettuce Live Editor: medalhao verde-floresta, cabeca de alface em camadas e indicador "ao vivo"
+    const float sr = size * 0.26f;
+    dl->AddRectFilled(ImVec2(pos.x, pos.y + size * 0.014f), ImVec2(p2.x, p2.y + size * 0.014f), IM_COL32(0, 0, 0, 70), sr + 1.0f);
+    dl->AddRectFilled(pos, p2, IM_COL32(14, 66, 34, 255), sr);
+    {   // degrade diagonal dentro do medalhao (o retangulo fica recuado para nao vazar pelos cantos arredondados)
+        const float d = sr * 0.30f;
+        dl->AddRectFilledMultiColor(ImVec2(pos.x + d, pos.y + d), ImVec2(p2.x - d, p2.y - d),
+                                    IM_COL32(36, 124, 62, 150), IM_COL32(20, 90, 44, 40), IM_COL32(0, 16, 8, 150), IM_COL32(8, 50, 26, 40));
+    }
+    dl->PushClipRect(pos, p2, true);
+    draw_radial_glow(dl, ImVec2(pos.x + size * 0.5f, pos.y + size * 0.52f), size * 0.46f, ImVec4(0.64f, 0.90f, 0.21f, 1.0f), 0.32f);
+    dl->PopClipRect();
+    dl->AddRectFilled(ImVec2(pos.x + 1.0f, pos.y + 1.0f), ImVec2(p2.x - 1.0f, pos.y + size * 0.42f), IM_COL32(255, 255, 255, 22), sr, ImDrawFlags_RoundCornersTop);
+    dl->AddRect(pos, p2, IM_COL32(190, 245, 100, 120), sr, 0, std::max(1.0f, size * 0.022f));
+    const float cx = pos.x + size * 0.5f;
+    const float by = pos.y + size * 0.88f;
+    draw_leaf_lit(dl, ImVec2(cx, by), -1.05f, size * 0.50f, size * 0.17f, IM_COL32(16, 70, 36, 255), IM_COL32(40, 116, 56, 255), size, size >= 36.0f);
+    draw_leaf_lit(dl, ImVec2(cx, by),  1.05f, size * 0.50f, size * 0.17f, IM_COL32(16, 70, 36, 255), IM_COL32(40, 116, 56, 255), size, size >= 36.0f);
+    draw_leaf_lit(dl, ImVec2(cx, by), -0.62f, size * 0.66f, size * 0.21f, IM_COL32(30, 104, 46, 255), IM_COL32(86, 170, 58, 255), size, size >= 36.0f);
+    draw_leaf_lit(dl, ImVec2(cx, by),  0.62f, size * 0.66f, size * 0.21f, IM_COL32(30, 104, 46, 255), IM_COL32(86, 170, 58, 255), size, size >= 36.0f);
+    draw_leaf_lit(dl, ImVec2(cx, by),  0.00f, size * 0.76f, size * 0.27f, IM_COL32(56, 136, 52, 255), IM_COL32(132, 206, 72, 255), size, size >= 28.0f);
+    draw_leaf_lit(dl, ImVec2(cx, by),  0.00f, size * 0.62f, size * 0.22f, IM_COL32(120, 200, 62, 255), IM_COL32(210, 250, 136, 255), size, size >= 22.0f);
+    // base cortada da alface
+    dl->AddEllipseFilled(ImVec2(cx, by), ImVec2(size * 0.12f, size * 0.052f), IM_COL32(232, 248, 196, 255), 0.0f, 20);
+    if (size >= 20.0f) {
+        const ImVec2 dot(pos.x + size * 0.80f, pos.y + size * 0.21f);
+        dl->AddCircleFilled(dot, size * 0.105f, IM_COL32(163, 230, 53, 70), 20);
+        dl->AddCircle(dot, size * 0.075f, IM_COL32(190, 245, 100, 200), 20, std::max(1.0f, size * 0.014f));
+        dl->AddCircleFilled(dot, size * 0.046f, IM_COL32(214, 255, 110, 255), 16);
+    }
 }
 
 void begin_studio_card(const char* id, float min_height, bool hero_gradient, const ImVec4* accent_top) {
@@ -369,7 +490,7 @@ void begin_studio_card(const char* id, float min_height, bool hero_gradient, con
         draw_soft_shadow(parent_dl, card_pos, ImVec2(card_pos.x + est_w, card_pos.y + min_height), rnd, hero_gradient ? 1.15f : 0.85f);
     }
 
-    ImVec4 bg_base = hero_gradient ? ImVec4(0.075f, 0.114f, 0.192f, 0.98f) : col::BgCard;
+    ImVec4 bg_base = hero_gradient ? col::HeroBg : col::BgCard;
     ImVec4 brd_col = hero_gradient ? col::BorderLit : (accent_top ? ImVec4(accent_top->x, accent_top->y, accent_top->z, 0.40f) : col::Border);
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, bg_base);
@@ -395,8 +516,8 @@ void begin_studio_card(const char* id, float min_height, bool hero_gradient, con
     // Silky-smooth rounded vertical card gradient with ZERO mid-card seam and ZERO corner bleed
     if (wh > rnd * 2.0f + 4.0f) {
         if (hero_gradient) {
-            ImU32 top_c = IM_COL32(30, 48, 82, 130);
-            ImU32 bot_c = IM_COL32(15, 23, 39, 0);
+            ImU32 top_c = to_u32(col::GlassHeroTop, 0.51f);
+            ImU32 bot_c = to_u32(col::GlassHeroBot, 0.0f);
             dl->AddRectFilled(ImVec2(wmin.x + 1.0f, wmin.y + 1.0f), ImVec2(wmax.x - 1.0f, wmin.y + rnd),
                               top_c, rnd, ImDrawFlags_RoundCornersTop);
             dl->AddRectFilledMultiColor(
@@ -408,8 +529,8 @@ void begin_studio_card(const char* id, float min_height, bool hero_gradient, con
                              std::min(ww * 0.36f, 260.0f * sc), col::Accent, 0.22f);
             dl->PopClipRect();
         } else {
-            ImU32 top_c = IM_COL32(34, 50, 82, 54);
-            ImU32 bot_c = IM_COL32(14, 21, 36, 0);
+            ImU32 top_c = to_u32(col::GlassTop, 0.21f);
+            ImU32 bot_c = to_u32(col::GlassBot, 0.0f);
             dl->AddRectFilled(ImVec2(wmin.x + 1.0f, wmin.y + 1.0f), ImVec2(wmax.x - 1.0f, wmin.y + rnd),
                               top_c, rnd, ImDrawFlags_RoundCornersTop);
             dl->AddRectFilledMultiColor(
@@ -420,10 +541,30 @@ void begin_studio_card(const char* id, float min_height, bool hero_gradient, con
 
     if (accent_top) {
         // Colored top accent bar + silky-smooth fade downward (zero seam, zero corner bleed)
-        dl->AddRectFilled(
-            ImVec2(wmin.x + rnd * 0.85f, wmin.y + 1.0f),
-            ImVec2(wmax.x - rnd * 0.85f, wmin.y + 3.0f),
-            to_u32(*accent_top, 0.88f), 2.0f);
+        // A barra acompanha o raio da borda: borda superior reta + um quarto de arco em cada canto,
+        // com a ponta esmaecendo suavemente para dentro da lateral (sem corte seco)
+        if (ww > rnd * 2.0f + 6.0f) {
+            constexpr float kPiF = 3.14159265f;
+            constexpr int kSeg = 14;
+            const float arc_r = std::max(2.0f, rnd - 1.6f);
+            const float bar_t = std::max(2.0f, std::round(2.4f * sc));
+            const float top_y = wmin.y + rnd - arc_r;
+            dl->AddLine(ImVec2(wmin.x + rnd, top_y), ImVec2(wmax.x - rnd, top_y), to_u32(*accent_top, 0.92f), bar_t);
+            const float step = (kPiF * 0.5f) / static_cast<float>(kSeg);
+            for (int side = 0; side < 2; ++side) {
+                const ImVec2 ctr(side == 0 ? wmin.x + rnd : wmax.x - rnd, wmin.y + rnd);
+                const float base = (side == 0) ? kPiF : kPiF * 1.5f;
+                for (int i = 0; i < kSeg; ++i) {
+                    float t = (static_cast<float>(i) + 0.5f) / static_cast<float>(kSeg); // 0 = lateral, 1 = topo (canto esquerdo)
+                    if (side == 1) t = 1.0f - t;
+                    const float e = t * t * (3.0f - 2.0f * t);
+                    const float a0 = base + static_cast<float>(i) * step;
+                    dl->PathClear();
+                    dl->PathArcTo(ctr, arc_r, a0, a0 + step + 0.03f, 3);
+                    dl->PathStroke(to_u32(*accent_top, 0.92f * e), ImDrawFlags_None, bar_t);
+                }
+            }
+        }
         if (wh > rnd * 2.0f + 4.0f) {
             float glow_end = std::min(wmax.y - rnd, wmin.y + std::max(rnd + 8.0f, 76.0f * sc));
             ImU32 top_c = to_u32(*accent_top, 0.085f);
@@ -497,7 +638,7 @@ void draw_ovr_shield(int ovr, float size, ImFont* big_font, ImFont* small_bold) 
                       to_u32(fg, 0.16f), rnd + 2.5f);
 
     // Illuminated shield body + glossy top glass reflection
-    dl->AddRectFilled(p, p2, IM_COL32(14, 22, 38, 255), rnd);
+    dl->AddRectFilled(p, p2, to_u32(col::BgInput), rnd);
     dl->AddRectFilled(p, p2, to_u32(fg, 0.24f), rnd);
     dl->AddRectFilled(ImVec2(p.x + 1.5f, p.y + 1.5f), ImVec2(p2.x - 1.5f, p.y + size * 0.48f),
                       IM_COL32(255, 255, 255, 26), rnd, ImDrawFlags_RoundCornersTop);
@@ -537,12 +678,13 @@ void draw_arrow_badge(int arrow, float h, bool blink) {
     float w = h * 1.18f;
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::Dummy(ImVec2(w, h));
+    if (blink && !ImGui::IsItemVisible()) blink = false; // fora da tela nao precisa manter 60 fps
     ImDrawList* dl = ImGui::GetWindowDrawList();
     float pulse = 1.0f;
     if (blink) {
         // Pisca em onda suave (~1,25 Hz), mantendo o frame loop ativo apenas enquanto houver seta piscando visivel
         pulse = 0.35f + 0.65f * (0.5f + 0.5f * std::sin(static_cast<float>(ImGui::GetTime()) * 7.85f));
-        g_anim_active = true;
+        mark_animating();
     }
     dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), to_u32(fg, 0.18f + (blink ? 0.22f * pulse : 0.0f)), 6.0f);
     dl->AddRect(p, ImVec2(p.x + w, p.y + h), to_u32(fg, blink ? 0.40f + 0.60f * pulse : 0.55f), 6.0f, 0, blink ? 1.6f : 1.1f);
@@ -802,7 +944,7 @@ bool draw_mode_card(const char* id, const char* title, const char* subtitle, boo
                           to_u32(col::Accent, 0.18f), rnd + 1.0f);
     }
     ImVec4 bg = active
-        ? ImVec4(0.118f, 0.196f, 0.345f, 0.96f)
+        ? [] { ImVec4 c = lerp_col(col::BgCard2, col::Accent, 0.28f); c.w = 0.96f; return c; }()
         : lerp_col(col::BgInput, col::BgCard2, t_h * 0.85f);
     ImVec4 brd = active ? col::Accent : lerp_col(col::Border, col::BorderLit, t_h);
     dl->AddRectFilled(p, p2, to_u32(bg), rnd);
@@ -920,7 +1062,7 @@ void show_rich_tooltip(const char* title, const char* body) {
     float sc = std::clamp(ImGui::GetFontSize() / 15.0f, 0.85f, 2.5f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(13.0f * sc), std::round(10.0f * sc)));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, std::round(10.0f * sc));
-    ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.059f, 0.086f, 0.141f, 0.98f));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, col::PopupBg);
     ImGui::PushStyleColor(ImGuiCol_Border, col::BorderLit);
     if (ImGui::BeginTooltip()) {
         ImGui::PushTextWrapPos(360.0f * sc);
@@ -1148,20 +1290,20 @@ int draw_tactical_pitch(const std::array<PositionEntry, 13>& positions, int high
             show_rich_tooltip(tip_title, tip_body);
         }
 
-        ImU32 fill = pos.is_reg ? IM_COL32(37, 99, 235, 250)
+        ImU32 fill = pos.is_reg ? to_u32(col::Accent, 0.98f)
                    : (pos.apt == 2 ? IM_COL32(5, 150, 105, 245)
                    : (pos.apt == 1 ? IM_COL32(180, 83, 9, 245)
-                   : IM_COL32(25, 36, 56, 240)));
+                   : to_u32(col::BgCard2, 0.94f)));
         ImU32 stroke = (highlighted_pos == id || hov) ? IM_COL32(255, 255, 255, 255)
-                     : (pos.is_reg ? IM_COL32(147, 197, 253, 255)
+                     : (pos.is_reg ? to_u32(col::AccentSoft)
                      : (pos.apt == 2 ? IM_COL32(52, 211, 153, 255)
                      : (pos.apt == 1 ? IM_COL32(251, 191, 36, 255)
-                     : IM_COL32(71, 85, 105, 255))));
+                     : to_u32(col::Muted))));
         float sw = (highlighted_pos == id || pos.is_reg || hov) ? 2.1f : 1.1f;
 
         // Glow ring for active / primary / hovered node
         if (highlighted_pos == id || pos.is_reg || hov) {
-            ImU32 halo = pos.is_reg ? IM_COL32(59, 130, 246, 95) : IM_COL32(255, 255, 255, 65);
+            ImU32 halo = pos.is_reg ? to_u32(col::Accent, 0.37f) : IM_COL32(255, 255, 255, 65);
             dl->AddRectFilled(ImVec2(rmin.x - 3.0f, rmin.y - 3.0f), ImVec2(rmax.x + 3.0f, rmax.y + 3.0f), halo, 8.5f);
         }
         dl->AddRectFilled(ImVec2(rmin.x + 1, rmin.y + 2), ImVec2(rmax.x + 1, rmax.y + 2), IM_COL32(0, 0, 0, 95), 6.0f);
@@ -1395,7 +1537,7 @@ bool ToastManager::render(double now_sec, ImFont* bold_font) {
         ImVec4 accent = it.is_err ? col::Red : col::Green;
         float rnd = 10.0f * sc;
         draw_soft_shadow(dl, rmin, rmax, rnd, alpha * 1.15f);
-        dl->AddRectFilled(rmin, rmax, to_u32(ImVec4(0.075f, 0.110f, 0.180f, 0.98f), alpha), rnd);
+        dl->AddRectFilled(rmin, rmax, to_u32(ImVec4(col::BgCard.x, col::BgCard.y, col::BgCard.z, 0.98f), alpha), rnd);
         dl->AddRect(rmin, rmax, to_u32(hovered ? col::AccentSoft : col::BorderLit, alpha), rnd, 0, hovered ? 1.4f : 1.0f);
         dl->AddRectFilled(rmin, ImVec2(rmin.x + 4.5f * sc, rmax.y), to_u32(accent, alpha), rnd, ImDrawFlags_RoundCornersLeft);
 

@@ -242,6 +242,7 @@ private:
     SquadRoster squad_;
     int squad_filter_ = 0; // 0=all, 1=exp, 2=inj, 3=u23
     std::unordered_set<uint64_t> squad_sel_; // selecao em lote do Meu Elenco
+    bool squad_reload_pending_ = false;
     int preset_idx_ = 0;
     bool preset_replace_ = false;
     std::vector<JournalRow> journal_cache_;

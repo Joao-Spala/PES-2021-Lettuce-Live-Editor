@@ -438,7 +438,7 @@ public:
 
     // Linha do tempo global de edicoes (mais recente primeiro) e desfazer ate um ponto.
     std::vector<JournalRow> get_journal();
-    uint64_t journal_revision() const { return journal_rev_; }
+    uint64_t journal_revision() const { return journal_rev_.load(); }
     ActionResult undo_journal_to(uint64_t seq);
 
     SearchResult search_players(std::string_view query, int pos_filter, int min_ovr, int max_age, bool free_only, int limit = 150);
@@ -454,8 +454,8 @@ public:
     ActionResult move_scout_entries(int from_slot, int to_slot, const std::vector<uint64_t>& handles, bool copy);
     // Desfaz a ultima alteracao nas listas de olheiros/favoritos (pilha de 12 snapshots das 4 listas).
     ActionResult undo_scout_change();
-    int scout_undo_depth() const { return static_cast<int>(scout_undo_.size()); }
-    std::string scout_undo_label() const { return scout_undo_.empty() ? std::string() : scout_undo_.back().label; }
+    int scout_undo_depth() const;
+    std::string scout_undo_label() const;
     // Exporta as 4 listas (por ID do atleta + nome) e importa cruzando por ID e, se preciso, por nome unico.
     ActionResult export_scout_lists_json();
     ActionResult import_scout_lists_json(std::string_view json_str, bool replace);
@@ -537,7 +537,7 @@ private:
         uint64_t p, uint8_t* after_buf, const uint8_t* before_buf,
         bool allow_market = true, bool allow_salary = true);
 
-    std::recursive_mutex lock_;
+    mutable std::recursive_mutex lock_;
     Win32Memory mem_;
     HookManager hooks_;
     std::atomic<bool> shutting_down_{false};
@@ -566,7 +566,7 @@ private:
     std::vector<ScoutSnap> scout_undo_;
     std::vector<JournalEntry> journal_;
     uint64_t journal_seq_ = 0;
-    uint64_t journal_rev_ = 0;
+    std::atomic<uint64_t> journal_rev_{0};
     bool journal_batch_open_ = false;
     std::string last_batch_label_;
     EconSyncMode econ_sync_mode_ = EconSyncMode::All;

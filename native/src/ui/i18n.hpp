@@ -125,6 +125,7 @@ inline std::string fmt_code_msg(Lang lang, const std::string& code, int orig = 0
     }
     if (code == "scout_added") return T(lang, "Adicionado na lista nativa!", "Added to native list!");
     if (code == "scout_dup") return T(lang, "Jogador já está nesta lista.", "Player is already in this list.");
+    if (code == "backup_failed") return T(lang, "Não foi possível salvar o backup do elenco. Nada foi alterado.", "Could not save the squad backup. Nothing was changed.");
     if (code == "scout_full") return T(lang, "Esta lista está cheia.", "This list is full.");
     if (code == "invalid_json") return T(lang, "Backup JSON inválido.", "Invalid JSON backup.");
     return T(lang, "Operação não pôde ser concluída.", "Operation could not be completed.");
