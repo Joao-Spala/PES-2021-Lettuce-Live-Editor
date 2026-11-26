@@ -2456,11 +2456,11 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
             if (r.ok) { player_ = r; sync_player_form_buffers(); wake_poller(); toasts_.push(blink_v ? T(L, "Seta piscando ativada!", "Blinking arrow on!") : T(L, "Seta piscando desativada.", "Blinking arrow off.")); }
         }
         show_tip_if_hovered(T(L, "Seta piscando", "Blinking arrow"),
-            T(L, "Flag separada da cor da seta (bit 7 do byte 0x146 do registro, 'Flashing Form Arrow' na cheat table do Aranaktu). Ela pode ser ligada com qualquer cor. No Modo Master Liga, o manual oficial da Konami descreve o ícone de condição piscando como um jogador cuja condição é afetada por um efeito de Função no Time (Team Role), e diz que dar mais minutos a ele pode gerar uma evolução de verdade (breakthrough).",
-                 "Separate flag from the arrow colour (bit 7 of record byte 0x146, 'Flashing Form Arrow' in Aranaktu's cheat table). It can be combined with any colour. In Master League, Konami's official manual describes the blinking condition icon as a player whose condition is affected by a Team Role effect, and says giving him more playing time can lead to a real breakthrough."));
+            T(L, "Flag independente da cor da seta (bit 7 do byte 0x146 do registro). Funciona com qualquer cor. No manual da Konami, o ícone piscando indica um atleta influenciado por uma Função no Time: dar mais minutos a ele pode render uma evolução real.",
+                 "Flag independent of the arrow colour (bit 7 of record byte 0x146). Works with any colour. In Konami's manual, the blinking icon marks a player influenced by a Team Role: giving him more minutes can lead to a real breakthrough."));
         ImGui::PushStyleColor(ImGuiCol_Text, col::Muted);
-        ImGui::TextWrapped("%s", T(L, "Visual de Master Liga: ícone pulsante ao lado da seta. Um efeito direto nos atributos em campo não está documentado.",
-                                      "Master League indicator: the arrow icon pulses. A direct effect on live attributes is not documented."));
+        ImGui::TextWrapped("%s", T(L, "Faz o ícone de forma do atleta piscar na Master Liga. Só liga a flag, nenhum atributo é alterado.",
+                                      "Makes the player's form icon blink in Master League. It only sets the flag and changes no attributes."));
         ImGui::PopStyleColor();
         end_studio_card();
     }
