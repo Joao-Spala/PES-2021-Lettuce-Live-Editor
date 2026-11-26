@@ -7,7 +7,7 @@ import struct
 import zlib
 from pathlib import Path
 
-OUT_DIR = Path(r"C:\Users\joaov\Desktop\teste-ia\pes21-workbench\native\assets")
+OUT_DIR = Path(__file__).resolve().parent
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
