@@ -100,6 +100,14 @@ void section_label(const char* txt, const FontBank& fonts) {
     if (fonts.small_bold) ImGui::PopFont();
 }
 
+// Texto descritivo colorido que quebra linha no espaco disponivel (nunca corta em janelas estreitas)
+void wrapped_colored(const ImVec4& c, const char* fmt, const char* txt) {
+    (void)fmt;
+    ImGui::PushStyleColor(ImGuiCol_Text, c);
+    ImGui::TextWrapped("%s", txt);
+    ImGui::PopStyleColor();
+}
+
 float calc_btn_w(const char* label) {
     const char* hash = std::strstr(label, "##");
     ImVec2 ts = hash ? ImGui::CalcTextSize(label, hash) : ImGui::CalcTextSize(label);
@@ -939,7 +947,7 @@ void WorkbenchApp::render_sidebar(const FontBank& fonts, bool compact, bool auto
                 ImGui::GetColorU32(ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.22f)), 3.0f);
         }
         // Crisp GPU vector icon
-        float ico_sz = std::round(16.0f * dpi_scale_);
+        float ico_sz = std::round(20.0f * dpi_scale_);
         ImVec2 ico_c = compact
             ? ImVec2((bmin.x + bmax.x) * 0.5f, (bmin.y + bmax.y) * 0.5f)
             : ImVec2(bmin.x + 20.0f * dpi_scale_, (bmin.y + bmax.y) * 0.5f);
@@ -1003,7 +1011,7 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
     int u_cnt = st_.has_player ? st_.player.undo_count : 0;
     char u_lbl[48];
     std::snprintf(u_lbl, sizeof(u_lbl), "%s (%d)", T(L, "Desfazer", "Undo"), u_cnt);
-    float undo_w = calc_btn_w(u_lbl);
+    float undo_w = icon_button_width(u_lbl);
 
     float font_combo_w = calc_combo_width(FontBank::kNames, fonts.count, 130.0f * dpi_scale_, 210.0f * dpi_scale_);
 
@@ -1016,11 +1024,26 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
 
     const float gap = std::round(8.0f * dpi_scale_);
     const char* prefs_lbl = T(L, "Ajustes", "Settings");
-    float prefs_w = calc_btn_w(prefs_lbl);
+    float prefs_w = icon_button_width(prefs_lbl);
     const char* hist_lbl = T(L, "Histórico", "History");
-    float hist_w = calc_btn_w(hist_lbl);
-    float right_total_w = undo_w + hist_w + font_combo_w + cur_w + lang_w + prefs_w + gap * 5.0f;
+    float hist_w = icon_button_width(hist_lbl);
     float avail_w = ImGui::GetContentRegionAvail().x;
+
+    // Janelas estreitas: primeiro some o seletor de fonte, depois os botoes viram so icone (a dica mostra o nome)
+    const float sq = std::round(32.0f * dpi_scale_);
+    const float min_left = 210.0f * dpi_scale_;
+    auto right_total = [&](bool compact, bool font) {
+        float t = (compact ? sq * 3.0f : undo_w + hist_w + prefs_w) + cur_w + lang_w + (font ? font_combo_w : 0.0f);
+        return t + gap * (font ? 5.0f : 4.0f);
+    };
+    bool show_font = true, compact_tb = false;
+    if (right_total(false, true) > avail_w - min_left) show_font = false;
+    if (right_total(false, show_font) > avail_w - min_left) compact_tb = true;
+    if (compact_tb) { undo_w = sq; hist_w = sq; prefs_w = sq; }
+    float right_total_w = right_total(compact_tb, show_font);
+    char undo_id[64]; std::snprintf(undo_id, sizeof(undo_id), "%s", compact_tb ? "##tb_undo" : u_lbl);
+    const char* hist_btn_lbl = compact_tb ? "##tb_hist" : hist_lbl;
+    const char* prefs_btn_lbl = compact_tb ? "##tb_prefs" : prefs_lbl;
     float left_max_w = std::max(120.0f * dpi_scale_, avail_w - right_total_w - 16.0f * dpi_scale_);
     float ctrl_h = std::round(32.0f * dpi_scale_);
     float top_y = std::max(4.0f, (ImGui::GetWindowHeight() - ctrl_h) * 0.5f);
@@ -1063,21 +1086,22 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
     ImGui::SetCursorPosY(top_y);
 
     ImGui::BeginDisabled(u_cnt == 0);
-    if (styled_button(u_lbl, col::BgCard, col::Border, u_cnt > 0 ? col::Text : col::Muted, ImVec2(undo_w, ctrl_h))) {
+    if (icon_button(Icon::Undo, undo_id, col::BgCard, col::Border, u_cnt > 0 ? col::Text : col::Muted, ImVec2(undo_w, ctrl_h))) {
         trigger_undo();
     }
     ImGui::EndDisabled();
-    show_tip_if_hovered(T(L, "Desfazer", "Undo"), T(L, "Desfazer última edição do atleta (Ctrl+Z)", "Undo last edit on this player (Ctrl+Z)"));
+    show_tip_if_hovered(u_lbl, T(L, "Desfazer última edição do atleta (Ctrl+Z)", "Undo last edit on this player (Ctrl+Z)"));
 
     ImGui::SameLine(0, gap);
     ImVec2 hist_pos = ImGui::GetCursorScreenPos();
-    if (styled_button(hist_lbl, col::BgCard, col::Border, col::Text, ImVec2(hist_w, ctrl_h))) {
+    if (icon_button(Icon::History, hist_btn_lbl, col::BgCard, col::Border, col::Text, ImVec2(hist_w, ctrl_h))) {
         ImGui::SetNextWindowPos(ImVec2(hist_pos.x, hist_pos.y + ctrl_h + 6.0f * dpi_scale_), ImGuiCond_Always, ImVec2(0.0f, 0.0f));
         ImGui::OpenPopup("##hist_popup");
     }
-    show_tip_if_hovered(T(L, "Histórico de alterações", "Edit history"), T(L, "Linha do tempo de todas as edições da sessão, com desfazer até qualquer ponto.", "Timeline of every edit this session, with undo to any point."));
+    show_tip_if_hovered(hist_lbl, T(L, "Linha do tempo de todas as edições da sessão, com desfazer até qualquer ponto.", "Timeline of every edit this session, with undo to any point."));
     render_history_popup(fonts);
 
+    if (show_font) {
     ImGui::SameLine(0, gap);
     ImGui::SetNextItemWidth(font_combo_w);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f * dpi_scale_, (ctrl_h - ImGui::GetTextLineHeight()) * 0.5f));
@@ -1092,6 +1116,7 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
     }
     ImGui::PopStyleVar();
     show_tip_if_hovered(T(L, "Fonte da Interface", "UI Font"), T(L, "Escolher fonte nativa do Windows", "Choose native Windows UI font"));
+    }
 
     ImGui::SameLine(0, gap);
     if (styled_button(cur_btn, col::BgCard, col::Border, col::Text, ImVec2(cur_w, ctrl_h))) {
@@ -1111,7 +1136,7 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
 
     ImGui::SameLine(0, gap);
     ImVec2 prefs_pos = ImGui::GetCursorScreenPos();
-    if (styled_button(prefs_lbl, col::BgCard, col::Border, col::Text, ImVec2(prefs_w, ctrl_h))) {
+    if (icon_button(Icon::Gear, prefs_btn_lbl, col::BgCard, col::Border, col::Text, ImVec2(prefs_w, ctrl_h))) {
         ImGui::SetNextWindowPos(ImVec2(prefs_pos.x + prefs_w, prefs_pos.y + ctrl_h + 6.0f * dpi_scale_), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
         ImGui::OpenPopup("##prefs_popup");
     }
@@ -1138,7 +1163,7 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
         save_settings(settings_);
     }
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 330.0f * dpi_scale_);
-    ImGui::TextColored(col::Muted, "%s", T(L, "Mantém o Workbench visível sobre o jogo em modo janela ou sem borda.", "Keeps the Workbench visible over the game in windowed or borderless mode."));
+    wrapped_colored(col::Muted, "%s", T(L, "Mantém o Workbench visível sobre o jogo em modo janela ou sem borda.", "Keeps the Workbench visible over the game in windowed or borderless mode."));
     ImGui::PopTextWrapPos();
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
 
@@ -1159,7 +1184,7 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
         }
     }
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 330.0f * dpi_scale_);
-    ImGui::TextColored(col::Muted, "%s", T(L, "Multiplica a escala automática do Windows. Útil para 4K, ultrawide ou segundo monitor.", "Multiplies the automatic Windows scale. Useful for 4K, ultrawide or a second monitor."));
+    wrapped_colored(col::Muted, "%s", T(L, "Multiplica a escala automática do Windows. Útil para 4K, ultrawide ou segundo monitor.", "Multiplies the automatic Windows scale. Useful for 4K, ultrawide or a second monitor."));
     ImGui::PopTextWrapPos();
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
 
@@ -1180,7 +1205,7 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
     }
     ImGui::Spacing();
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 330.0f * dpi_scale_);
-    ImGui::TextColored(col::Muted, "%s", T(L, "O modo escuro é mantido. Só botões, seleção e realces mudam de cor.", "Dark mode is kept. Only buttons, selection and highlights change colour."));
+    wrapped_colored(col::Muted, "%s", T(L, "O modo escuro é mantido. Só botões, seleção e realces mudam de cor.", "Dark mode is kept. Only buttons, selection and highlights change colour."));
     ImGui::PopTextWrapPos();
     ImGui::EndPopup();
 }
@@ -1195,7 +1220,7 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
     if (st_.in_match) draw_pill(T(L, "● EM PARTIDA", "● IN MATCH"), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.18f), ImVec4(0.063f, 0.725f, 0.506f, 0.55f));
     else draw_pill(T(L, "● Fora de Partida", "● Not in Match"), col::Subtext, ImVec4(0.58f, 0.64f, 0.72f, 0.12f), col::Border);
 
-    ImGui::TextColored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.", "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
+    wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.", "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
     ImGui::Spacing();
 
     // 3 Responsive KPI Cards (equal height when 3-column, illuminated top accent + icon medallions)
@@ -1241,8 +1266,8 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
             if (btn_green("+10M##dt10")) { auto r = engine_.add_finance_delta(true, 100000); if (r.ok) { st_.finances = r; toasts_.push(T(L, "Orçamento atualizado!", "Budget updated!")); } else toast_code(r.code, true); }
             flow_next(calc_btn_w("+100M"));
             if (btn_green("+100M##dt100")) { auto r = engine_.add_finance_delta(true, 1000000); if (r.ok) { st_.finances = r; toasts_.push(T(L, "Orçamento atualizado!", "Budget updated!")); } else toast_code(r.code, true); }
-            flow_next(calc_btn_w(T(L, "Editar", "Edit")));
-            if (ImGui::Button(T(L, "Editar##etrf", "Edit##etrf"))) {
+            flow_next(icon_button_width(T(L, "Editar", "Edit")));
+            if (icon_btn_plain(Icon::Sliders, T(L, "Editar##etrf", "Edit##etrf"))) {
                 edit_inline_trf_ = true;
                 inline_trf_buf_[0] = '\0';
             }
@@ -1256,7 +1281,7 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
                 else toast_code(r.code, true);
             }
             ImGui::SameLine();
-            if (ImGui::Button("X##itrfx")) edit_inline_trf_ = false;
+            if (icon_only_button(Icon::Close, "##itrfx", col::BgCard, col::Border, col::Subtext, ImGui::GetFrameHeight())) edit_inline_trf_ = false;
         }
         end_studio_card();
 
@@ -1299,8 +1324,8 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
             if (btn_gold("+10M##ds10")) { auto r = engine_.add_finance_delta(false, 100000); if (r.ok) { st_.finances = r; toasts_.push(T(L, "Salários atualizados!", "Salary updated!")); } else toast_code(r.code, true); }
             flow_next(calc_btn_w("+50M"));
             if (btn_gold("+50M##ds50")) { auto r = engine_.add_finance_delta(false, 500000); if (r.ok) { st_.finances = r; toasts_.push(T(L, "Salários atualizados!", "Salary updated!")); } else toast_code(r.code, true); }
-            flow_next(calc_btn_w(T(L, "Editar", "Edit")));
-            if (ImGui::Button(T(L, "Editar##esal", "Edit##esal"))) {
+            flow_next(icon_button_width(T(L, "Editar", "Edit")));
+            if (icon_btn_plain(Icon::Sliders, T(L, "Editar##esal", "Edit##esal"))) {
                 edit_inline_sal_ = true;
                 inline_sal_buf_[0] = '\0';
             }
@@ -1314,7 +1339,7 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
                 else toast_code(r.code, true);
             }
             ImGui::SameLine();
-            if (ImGui::Button("X##isalx")) edit_inline_sal_ = false;
+            if (icon_only_button(Icon::Close, "##isalx", col::BgCard, col::Border, col::Subtext, ImGui::GetFrameHeight())) edit_inline_sal_ = false;
         }
         end_studio_card();
     }
@@ -1335,9 +1360,9 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
             ImGui::SetCursorPosY(row_y + std::max(0.0f, (msz - ImGui::GetTextLineHeight()) * 0.5f));
             card_header(T(L, "Atleta em Foco (Ao Vivo)", "Active Player (Live)"), bold);
             const char* open_lbl = T(L, "Abrir Editor", "Open Editor");
-            align_right_or_wrap(calc_btn_w(open_lbl));
+            align_right_or_wrap(icon_button_width(open_lbl));
             ImGui::SetCursorPosY(row_y + std::max(0.0f, (msz - ImGui::GetFrameHeight()) * 0.5f));
-            if (btn_primary(open_lbl)) switch_view(View::Player);
+            if (icon_btn_primary(Icon::Move, open_lbl)) switch_view(View::Player);
             ImGui::SetCursorPosY(std::max(ImGui::GetCursorPosY(), row_y + msz + 6.0f * dpi_scale_));
         }
         ImGui::Separator();
@@ -1357,18 +1382,18 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
             draw_stamina_bar(st_.player.stamina, 92.0f);
             ImGui::EndGroup();
             ImGui::Spacing();
-            if (btn_green(T(L, "100% Fôlego##dp", "100% Stamina##dp"))) {
+            if (icon_btn_green(Icon::Battery, T(L, "100% Fôlego##dp", "100% Stamina##dp"))) {
                 auto r = engine_.set_player_quick_condition(100, std::nullopt, false);
                 if (r.ok) { wake_poller(); toasts_.push(T(L, "Fôlego 100%!", "Stamina 100%!")); } else toast_code(r.code, true);
             }
-            flow_next(calc_btn_w(T(L, "Seta Azul", "Blue Arrow")));
-            if (btn_primary(T(L, "Seta Azul##dp", "Blue Arrow##dp"))) {
+            flow_next(icon_button_width(T(L, "Seta Azul", "Blue Arrow")));
+            if (icon_btn_primary(Icon::ArrowUp, T(L, "Seta Azul##dp", "Blue Arrow##dp"))) {
                 auto r = engine_.set_player_quick_condition(std::nullopt, 4, false, 0, true);
                 if (r.ok) { wake_poller(); toasts_.push(T(L, "Seta Azul aplicada!", "Blue Arrow applied!")); } else toast_code(r.code, true);
             }
-            flow_next(calc_btn_w(T(L, "Curar Lesão", "Heal Injury")));
+            flow_next(icon_button_width(T(L, "Curar Lesão", "Heal Injury")));
             ImGui::BeginDisabled(st_.player.injury == 0);
-            if (btn_green(T(L, "Curar Lesão##dp", "Heal Injury##dp"))) {
+            if (icon_btn_green(Icon::Cross, T(L, "Curar Lesão##dp", "Heal Injury##dp"))) {
                 auto r = engine_.set_player_quick_condition(std::nullopt, std::nullopt, true);
                 if (r.ok) { wake_poller(); toasts_.push(T(L, "Lesão curada!", "Injury healed!")); } else toast_code(r.code, true);
             }
@@ -1437,20 +1462,20 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
         card_header(T(L, "Comandante do Elenco (Ações em Massa)", "Squad Commander (Bulk Actions)"), bold);
         ImGui::SetCursorPosY(std::max(ImGui::GetCursorPosY(), row_y + msz + 4.0f * dpi_scale_));
     }
-    ImGui::TextColored(col::Subtext, "%s", T(L, "Aplica instantaneamente a todos os jogadores do seu clube.", "Applies instantly to every player in your club."));
+    wrapped_colored(col::Subtext, "%s", T(L, "Aplica instantaneamente a todos os jogadores do seu clube.", "Applies instantly to every player in your club."));
     ImGui::Spacing();
-    if (btn_green(T(L, "100% Fôlego (Elenco)", "100% Stamina (Squad)"))) run_squad_cmd("stamina");
-    flow_next(calc_btn_w(T(L, "Seta Azul (Elenco)", "Blue Arrow (Squad)")));
-    if (btn_primary(T(L, "Seta Azul (Elenco)", "Blue Arrow (Squad)"))) run_squad_cmd("arrow");
-    flow_next(calc_btn_w(T(L, "Curar Todas Lesões", "Heal All Injuries")));
-    if (btn_green(T(L, "Curar Todas Lesões", "Heal All Injuries"))) run_squad_cmd("heal");
-    flow_next(calc_btn_w(T(L, "Renovar Contratos +5 Anos", "Extend Contracts +5 Years")));
-    if (btn_gold(T(L, "Renovar Contratos +5 Anos", "Extend Contracts +5 Years"))) run_squad_cmd("contract");
-    flow_next(calc_btn_w(T(L, "+1 OVR no Elenco (DNA)", "+1 OVR to Squad (DNA)")));
-    if (ImGui::Button(T(L, "+1 OVR no Elenco (DNA)", "+1 OVR to Squad (DNA)"))) run_squad_cmd("ovr1");
+    if (icon_btn_green(Icon::Battery, T(L, "100% Fôlego (Elenco)", "100% Stamina (Squad)"))) run_squad_cmd("stamina");
+    flow_next(icon_button_width(T(L, "Seta Azul (Elenco)", "Blue Arrow (Squad)")));
+    if (icon_btn_primary(Icon::ArrowUp, T(L, "Seta Azul (Elenco)", "Blue Arrow (Squad)"))) run_squad_cmd("arrow");
+    flow_next(icon_button_width(T(L, "Curar Todas Lesões", "Heal All Injuries")));
+    if (icon_btn_green(Icon::Cross, T(L, "Curar Todas Lesões", "Heal All Injuries"))) run_squad_cmd("heal");
+    flow_next(icon_button_width(T(L, "Renovar Contratos +5 Anos", "Extend Contracts +5 Years")));
+    if (icon_btn_gold(Icon::Contract, T(L, "Renovar Contratos +5 Anos", "Extend Contracts +5 Years"))) run_squad_cmd("contract");
+    flow_next(icon_button_width(T(L, "+1 OVR no Elenco (DNA)", "+1 OVR to Squad (DNA)")));
+    if (icon_btn_plain(Icon::ArrowUp, T(L, "+1 OVR no Elenco (DNA)", "+1 OVR to Squad (DNA)"))) run_squad_cmd("ovr1");
     show_tip_if_hovered("+1 OVR (DNA)", T(L, "Sobe +1 OVR em cada atleta preservando o DNA de atributos e sincronizando a economia conforme o modo ativo.", "Raises every squad player by +1 OVR while preserving stat DNA and syncing economy per active mode."));
-    flow_next(calc_btn_w(T(L, "Recalibrar Economia (Elenco)", "Recalibrate Economy (Squad)")));
-    if (btn_gold(T(L, "Recalibrar Economia (Elenco)", "Recalibrate Economy (Squad)"))) run_squad_cmd("econ_recal");
+    flow_next(icon_button_width(T(L, "Recalibrar Economia (Elenco)", "Recalibrate Economy (Squad)")));
+    if (icon_btn_gold(Icon::Coins, T(L, "Recalibrar Economia (Elenco)", "Recalibrate Economy (Squad)"))) run_squad_cmd("econ_recal");
     show_tip_if_hovered(T(L, "Recalibrar Economia do Elenco", "Recalibrate Squad Economy"),
         T(L, "Recalcula valor de mercado, salario e rescisao de todos os atletas do elenco pela curva calibrada Transfermarkt 2025/26.",
              "Recalculates market value, salary and release fee for every squad player using the calibrated 2025/26 curve."));
@@ -1533,7 +1558,7 @@ void WorkbenchApp::render_history_popup(const FontBank& fonts) {
     ImGui::PushFont(bold);
     ImGui::TextColored(col::Text, "%s", T(L, "Histórico de alterações", "Edit history"));
     ImGui::PopFont();
-    ImGui::TextColored(col::Muted, "%s", T(L, "Do mais recente para o mais antigo. Desfazer até aqui reverte esta edição e todas as posteriores.",
+    wrapped_colored(col::Muted, "%s", T(L, "Do mais recente para o mais antigo. Desfazer até aqui reverte esta edição e todas as posteriores.",
                                               "Newest first. Undo to here reverts this edit and every later one."));
     ImGui::Spacing();
     if (journal_cache_.empty()) {
@@ -1592,12 +1617,12 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
     page_title(hdr, fonts, bold);
 
     float flt_w = std::round(190.0f * dpi_scale_);
-    float ref_w = calc_btn_w(T(L, "Atualizar", "Refresh"));
+    float ref_w = icon_button_width(T(L, "Atualizar", "Refresh"));
     align_right_or_wrap(flt_w + ref_w + 8.0f * dpi_scale_);
     ImGui::SetNextItemWidth(flt_w);
     ImGui::InputTextWithHint("##sq_flt", T(L, "Filtrar nome...", "Filter name..."), squad_search_, sizeof(squad_search_));
     ImGui::SameLine(0, 8.0f * dpi_scale_);
-    if (btn_primary(T(L, "Atualizar", "Refresh"))) reload_squad();
+    if (icon_btn_primary(Icon::Refresh, T(L, "Atualizar", "Refresh"))) reload_squad();
 
     ImGui::Spacing();
 
@@ -1651,27 +1676,27 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
     flt_btn(3, T(L, "Sub-23", "U23"), u23_c, false);
 
     ImGui::Spacing();
-    if (btn_green(T(L, "100% Fôlego##sq", "100% Stamina##sq"))) run_squad_cmd("stamina");
-    flow_next(calc_btn_w(T(L, "Seta Azul", "Blue Arrow")));
-    if (btn_primary(T(L, "Seta Azul##sq", "Blue Arrow##sq"))) run_squad_cmd("arrow");
-    flow_next(calc_btn_w(T(L, "Curar Lesões", "Heal Injuries")));
-    if (btn_green(T(L, "Curar Lesões##sq", "Heal Injuries##sq"))) run_squad_cmd("heal");
-    flow_next(calc_btn_w(T(L, "Contratos +5a", "Contracts +5y")));
-    if (btn_gold(T(L, "Contratos +5a##sq", "Contracts +5y##sq"))) run_squad_cmd("contract");
-    flow_next(calc_btn_w("+1 OVR"));
-    if (ImGui::Button("+1 OVR##sq")) run_squad_cmd("ovr1");
-    flow_next(calc_btn_w(T(L, "Recalibrar Economia", "Recalibrate Economy")));
-    if (btn_gold(T(L, "Recalibrar Economia##sq", "Recalibrate Economy##sq"))) run_squad_cmd("econ_recal");
+    if (icon_btn_green(Icon::Battery, T(L, "100% Fôlego##sq", "100% Stamina##sq"))) run_squad_cmd("stamina");
+    flow_next(icon_button_width(T(L, "Seta Azul", "Blue Arrow")));
+    if (icon_btn_primary(Icon::ArrowUp, T(L, "Seta Azul##sq", "Blue Arrow##sq"))) run_squad_cmd("arrow");
+    flow_next(icon_button_width(T(L, "Curar Lesões", "Heal Injuries")));
+    if (icon_btn_green(Icon::Cross, T(L, "Curar Lesões##sq", "Heal Injuries##sq"))) run_squad_cmd("heal");
+    flow_next(icon_button_width(T(L, "Contratos +5a", "Contracts +5y")));
+    if (icon_btn_gold(Icon::Contract, T(L, "Contratos +5a##sq", "Contracts +5y##sq"))) run_squad_cmd("contract");
+    flow_next(icon_button_width("+1 OVR"));
+    if (icon_btn_plain(Icon::ArrowUp, "+1 OVR##sq")) run_squad_cmd("ovr1");
+    flow_next(icon_button_width(T(L, "Recalibrar Economia", "Recalibrate Economy")));
+    if (icon_btn_gold(Icon::Coins, T(L, "Recalibrar Economia##sq", "Recalibrate Economy##sq"))) run_squad_cmd("econ_recal");
     show_tip_if_hovered(T(L, "Recalibrar Economia do Elenco", "Recalibrate Squad Economy"),
         T(L, "Recalcula mercado, salario e rescisao de todo o elenco pela curva Transfermarkt 2025/26.",
              "Recalculates market value, salary and release fee for the entire squad."));
-    flow_next(calc_btn_w(T(L, "Exportar Elenco", "Export Squad")));
-    if (btn_primary(T(L, "Exportar Elenco##sq", "Export Squad##sq"))) open_pack_studio(true, true);
+    flow_next(icon_button_width(T(L, "Exportar Elenco", "Export Squad")));
+    if (icon_btn_primary(Icon::Export, T(L, "Exportar Elenco##sq", "Export Squad##sq"))) open_pack_studio(true, true);
     show_tip_if_hovered(T(L, "Exportar Pack do Elenco", "Export Squad Pack"),
         T(L, "Salva OVR, atributos, posicoes, habilidades, estilo, bio e economia do elenco inteiro em JSON para reaplicar em outros saves.",
              "Saves OVR, stats, positions, skills, style, bio and economy of the whole squad to JSON for cross-save import."));
-    flow_next(calc_btn_w(T(L, "Importar / Cruzar Pack", "Import / Match Pack")));
-    if (btn_green(T(L, "Importar / Cruzar Pack##sq", "Import / Match Pack##sq"))) open_pack_studio(false, true);
+    flow_next(icon_button_width(T(L, "Importar / Cruzar Pack", "Import / Match Pack")));
+    if (icon_btn_green(Icon::Import, T(L, "Importar / Cruzar Pack##sq", "Import / Match Pack##sq"))) open_pack_studio(false, true);
     show_tip_if_hovered(T(L, "Importar e Cruzar Elenco", "Import & Match Squad Pack"),
         T(L, "Cruza um pack salvo contra o elenco atual ou base global por ID/nome, mostra preview completo e aplica seletivamente.",
              "Matches a saved pack against your current squad or global database by ID/name with full preview before applying."));
@@ -1730,28 +1755,28 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
 
         ImGui::Spacing();
         if (nsel == 0) {
-            ImGui::TextColored(col::Muted, "%s", T(L, "Marque atletas na tabela (caixa à esquerda do OVR) ou use os atalhos acima para liberar as ações em lote.",
+            wrapped_colored(col::Muted, "%s", T(L, "Marque atletas na tabela (caixa à esquerda do OVR) ou use os atalhos acima para liberar as ações em lote.",
                                                     "Tick players in the table (box left of OVR) or use the shortcuts above to unlock batch actions."));
         }
         if (nsel > 0) {
-        if (btn_gold(T(L, "Recalibrar Economia##selb", "Recalibrate Economy##selb"))) run_squad_cmd_sel("econ_recal");
+        if (icon_btn_gold(Icon::Coins, T(L, "Recalibrar Economia##selb", "Recalibrate Economy##selb"))) run_squad_cmd_sel("econ_recal");
         show_tip_if_hovered(T(L, "Recalibrar economia da seleção", "Recalibrate selection economy"),
             T(L, "Recalcula mercado, salário e rescisão só dos atletas marcados. Salva um backup JSON do elenco antes.", "Recalculates market, salary and release fee for the ticked players only. Saves a JSON squad backup first."));
-        flow_next(calc_btn_w("+1 OVR (DNA)"));
-        if (ImGui::Button("+1 OVR (DNA)##selb")) run_squad_cmd_sel("ovr1");
-        flow_next(calc_btn_w(T(L, "Fôlego 100%", "Stamina 100%")));
-        if (btn_green(T(L, "Fôlego 100%##selb", "Stamina 100%##selb"))) run_squad_cmd_sel("stamina");
-        flow_next(calc_btn_w(T(L, "Curar", "Heal")));
-        if (btn_green(T(L, "Curar##selb", "Heal##selb"))) run_squad_cmd_sel("heal");
-        flow_next(calc_btn_w(T(L, "Contrato +5a", "Contract +5y")));
-        if (btn_gold(T(L, "Contrato +5a##selb", "Contract +5y##selb"))) run_squad_cmd_sel("contract");
-        flow_next(calc_btn_w(T(L, "Seta azul piscando", "Blinking blue arrow")));
-        if (btn_primary(T(L, "Seta azul piscando##selb", "Blinking blue arrow##selb"))) run_squad_cmd_sel("arrow");
+        flow_next(icon_button_width("+1 OVR (DNA)"));
+        if (icon_btn_plain(Icon::ArrowUp, "+1 OVR (DNA)##selb")) run_squad_cmd_sel("ovr1");
+        flow_next(icon_button_width(T(L, "Fôlego 100%", "Stamina 100%")));
+        if (icon_btn_green(Icon::Battery, T(L, "Fôlego 100%##selb", "Stamina 100%##selb"))) run_squad_cmd_sel("stamina");
+        flow_next(icon_button_width(T(L, "Curar", "Heal")));
+        if (icon_btn_green(Icon::Cross, T(L, "Curar##selb", "Heal##selb"))) run_squad_cmd_sel("heal");
+        flow_next(icon_button_width(T(L, "Contrato +5a", "Contract +5y")));
+        if (icon_btn_gold(Icon::Contract, T(L, "Contrato +5a##selb", "Contract +5y##selb"))) run_squad_cmd_sel("contract");
+        flow_next(icon_button_width(T(L, "Seta azul piscando", "Blinking blue arrow")));
+        if (icon_btn_primary(Icon::ArrowUp, T(L, "Seta azul piscando##selb", "Blinking blue arrow##selb"))) run_squad_cmd_sel("arrow");
 
         ImGui::Spacing();
         render_preset_controls(fonts, true);
         ImGui::SameLine(0, 8.0f * dpi_scale_);
-        if (btn_primary(T(L, "Aplicar preset à seleção##selb", "Apply preset to selection##selb"))) apply_preset_cmd(true);
+        if (icon_btn_primary(Icon::Check, T(L, "Aplicar preset à seleção##selb", "Apply preset to selection##selb"))) apply_preset_cmd(true);
         }
         end_studio_card();
         ImGui::Spacing();
@@ -1768,7 +1793,7 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
     float w_frm = std::round(48.0f * dpi_scale_);
     float w_stm = std::round(108.0f * dpi_scale_);
     float w_hlt = std::round(54.0f * dpi_scale_);
-    float w_act = std::round(72.0f * dpi_scale_);
+    float w_act = std::round(118.0f * dpi_scale_);
     float pad_est = ImGui::GetStyle().CellPadding.x * 22.0f + ImGui::GetStyle().ScrollbarSize + 18.0f * dpi_scale_;
     float w_name = std::max(std::round(182.0f * dpi_scale_),
                             ImGui::GetContentRegionAvail().x - (w_ovr + w_pos + w_age + w_con + w_sal + w_frm + w_stm + w_hlt + w_act + pad_est));
@@ -1850,7 +1875,7 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
             }
             ImGui::TableSetColumnIndex(9);
             if (p->injury > 0) {
-                if (btn_green(T(L, "Curar", "Heal"))) {
+                if (icon_btn_green(Icon::Cross, T(L, "Curar", "Heal"))) {
                     engine_.set_player_quick_condition(std::nullopt, std::nullopt, true, p->addr);
                     need_reload_squad = true;
                 }
@@ -1875,7 +1900,7 @@ void WorkbenchApp::render_view_finances(const FontBank& fonts) {
     const char* ref_lbl = T(L, "Atualizar##fin", "Refresh##fin");
     align_right_or_wrap(calc_btn_w(ref_lbl));
     if (btn_primary(ref_lbl)) reload_finances();
-    ImGui::TextColored(col::Subtext, "%s", T(L, "Cálculo exato de Salários Disponíveis descontando folha ativa e pendentes (0x14156D170).",
+    wrapped_colored(col::Subtext, "%s", T(L, "Cálculo exato de Salários Disponíveis descontando folha ativa e pendentes (0x14156D170).",
                                                 "Exact Available Salary Budget deducting active squad wages and pending overrides (0x14156D170)."));
     ImGui::Spacing();
 
@@ -1899,8 +1924,8 @@ void WorkbenchApp::render_view_finances(const FontBank& fonts) {
         fk("##fk2", 2, T(L, "SALÁRIOS DISPONÍVEIS", "AVAILABLE SALARY"), fin_.salary_avail_raw,
            fin_.salary_avail_raw < 0 ? col::RedSoft : col::GoldSoft,
            fin_.salary_avail_raw < 0 ? col::Red : col::Gold);
-        fk("##fk3", 5, T(L, "FOLHA ANUAL ATIVA", "ACTIVE ANNUAL WAGES"), fin_.squad_wages_raw, col::Orange, col::Orange);
-        fk("##fk4", 0, T(L, "TETO SALARIAL BRUTO", "GROSS SALARY CAP"), fin_.salary_gross_raw, col::AccentSoft, col::Accent);
+        fk("##fk3", 7, T(L, "FOLHA ANUAL ATIVA", "ACTIVE ANNUAL WAGES"), fin_.squad_wages_raw, col::Orange, col::Orange);
+        fk("##fk4", 6, T(L, "TETO SALARIAL BRUTO", "GROSS SALARY CAP"), fin_.salary_gross_raw, col::AccentSoft, col::Accent);
     }
 
     ImGui::Spacing();
@@ -1954,7 +1979,7 @@ void WorkbenchApp::render_view_finances(const FontBank& fonts) {
     }
 
     ImGui::Spacing();
-    if (btn_primary(T(L, "Aplicar Valores", "Apply Values")) || e1 || e2) {
+    if (icon_btn_primary(Icon::Check, T(L, "Aplicar Valores", "Apply Values")) || e1 || e2) {
         auto r = engine_.set_finances(std::string_view(fin_trf_buf_), std::string_view(fin_sal_buf_));
         if (r.ok) { fin_ = r; reload_finances(); toasts_.push(T(L, "Finanças atualizadas!", "Finances updated!")); }
         else toast_code(r.code, true);
@@ -1994,38 +2019,38 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
     const char* exp_lbl = T(L, "Exportar JSON", "Export JSON");
     const char* imp_lbl = T(L, "Importar JSON", "Import JSON");
     const float act_gap = std::round(6.0f * dpi_scale_);
-    const float acts_total_w = calc_btn_w("-1 OVR") + calc_btn_w("+1 OVR") + calc_btn_w(fav_lbl) +
-                               calc_btn_w(exp_lbl) + calc_btn_w(imp_lbl) + act_gap * 4.0f;
+    const float acts_total_w = icon_button_width("-1 OVR") + icon_button_width("+1 OVR") + icon_button_width(fav_lbl) +
+                               icon_button_width(exp_lbl) + icon_button_width(imp_lbl) + act_gap * 4.0f;
     const bool hero_inline_acts = (hero_avail_w >= std::max(860.0f * dpi_scale_, acts_total_w + 460.0f * dpi_scale_));
 
     auto draw_hero_actions = [&](bool inline_row) {
-        if (ImGui::Button("-1 OVR##hero")) {
+        if (icon_btn_plain(Icon::ArrowDown, "-1 OVR##hero")) {
             auto r = engine_.step_player_ovr(-1);
             if (r.ok) { player_ = r; sync_player_form_buffers(); record_solver_action(r, "-1 OVR DNA", "-1 OVR DNA"); wake_poller(); }
             else toast_code(r.code, true);
         }
         show_tip_if_hovered("-1 OVR", T(L, "Desce 1 ponto de Overall geral mantendo o DNA de atributos.", "Lowers Overall by 1 while preserving stat DNA."));
-        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(calc_btn_w("+1 OVR"), act_gap);
-        if (btn_primary("+1 OVR##hero")) {
+        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(icon_button_width("+1 OVR"), act_gap);
+        if (icon_btn_primary(Icon::ArrowUp, "+1 OVR##hero")) {
             auto r = engine_.step_player_ovr(1);
             if (r.ok) { player_ = r; sync_player_form_buffers(); record_solver_action(r, "+1 OVR DNA", "+1 OVR DNA"); wake_poller(); }
             else toast_code(r.code, true);
         }
         show_tip_if_hovered("+1 OVR", T(L, "Sobe 1 ponto de Overall geral mantendo o DNA de atributos.", "Raises Overall by 1 while preserving stat DNA."));
-        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(calc_btn_w(fav_lbl), act_gap);
-        if (btn_green(fav_lbl)) {
+        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(icon_button_width(fav_lbl), act_gap);
+        if (icon_btn_green(Icon::List, fav_lbl)) {
             reload_scouts();
             ImGui::OpenPopup("##hero_lists");
         }
         show_tip_if_hovered(T(L, "Olheiros e Favoritos", "Scouts & Shortlist"),
             T(L, "Marca ou desmarca este atleta em Olheiro 1, 2, 3 ou Favoritos.", "Ticks or unticks this player in Scout 1, 2, 3 or Shortlist."));
         render_scout_list_menu("##hero_lists", player_.addr);
-        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(calc_btn_w(exp_lbl), act_gap);
-        if (ImGui::Button(exp_lbl)) {
+        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(icon_button_width(exp_lbl), act_gap);
+        if (icon_btn_plain(Icon::Export, exp_lbl)) {
             open_pack_studio(true, false);
         }
-        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(calc_btn_w(imp_lbl), act_gap);
-        if (ImGui::Button(imp_lbl)) {
+        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(icon_button_width(imp_lbl), act_gap);
+        if (icon_btn_plain(Icon::Import, imp_lbl)) {
             open_pack_studio(false, false);
         }
     };
@@ -2164,14 +2189,14 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
         ImGui::TextColored(col::AccentSoft, "%s (%s)",
             T(L, last_edit_.label_pt.c_str(), last_edit_.label_en.c_str()), last_edit_.time_str.c_str());
         const char* undo_s = T(L, "Desfazer##le_u", "Undo##le_u");
-        float right_w = (player_.undo_count > 0 ? calc_btn_w(undo_s) + 6.0f * dpi_scale_ : 0.0f) + calc_btn_w("X##le_x");
+        float right_w = (player_.undo_count > 0 ? calc_btn_w(undo_s) + 6.0f * dpi_scale_ : 0.0f) + ImGui::GetFrameHeight();
         align_right_or_wrap(right_w);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f * dpi_scale_, 2.0f * dpi_scale_));
         if (player_.undo_count > 0) {
             if (btn_gold(undo_s)) { trigger_undo(); last_edit_.active = false; }
             ImGui::SameLine(0, 5.0f * dpi_scale_);
         }
-        if (ImGui::Button("X##le_x")) last_edit_.active = false;
+        if (icon_only_button(Icon::Close, "##le_x", col::BgCard, col::Border, col::Subtext, ImGui::GetFrameHeight())) last_edit_.active = false;
         ImGui::PopStyleVar();
 
         bool first_chip = true;
@@ -2257,7 +2282,7 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
 
     int cols = (ImGui::GetContentRegionAvail().x < 820.0f * dpi_scale_) ? 1 : 2;
-    float top_min_h = (cols == 2) ? std::round(108.0f * dpi_scale_) : 0.0f;
+    float top_min_h = (cols == 2) ? std::round(214.0f * dpi_scale_) : 0.0f;
     if (ScopedCardGrid g{"##bio_top", cols, dpi_scale_}) {
         ImGui::TableNextColumn();
         begin_studio_card("##bio_stam", top_min_h, false, &col::Green);
@@ -2270,13 +2295,13 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
             draw_pill("OK", col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.16f), ImVec4(0.063f, 0.725f, 0.506f, 0.5f), true);
         }
         ImGui::Spacing();
-        if (btn_green(T(L, "100% Fôlego##bio", "100% Stamina##bio"))) {
+        if (icon_btn_green(Icon::Battery, T(L, "100% Fôlego##bio", "100% Stamina##bio"))) {
             auto r = engine_.set_player_quick_condition(100, std::nullopt, false);
             if (r.ok) { player_ = r; sync_player_form_buffers(); wake_poller(); toasts_.push(T(L, "Fôlego 100%!", "Stamina 100%!")); }
         }
-        flow_next(calc_btn_w(T(L, "Curar Lesão", "Heal Injury")));
+        flow_next(icon_button_width(T(L, "Curar Lesão", "Heal Injury")));
         ImGui::BeginDisabled(player_.injury == 0);
-        if (btn_green(T(L, "Curar Lesão##bio", "Heal Injury##bio"))) {
+        if (icon_btn_green(Icon::Cross, T(L, "Curar Lesão##bio", "Heal Injury##bio"))) {
             auto r = engine_.set_player_quick_condition(std::nullopt, std::nullopt, true);
             if (r.ok) { player_ = r; sync_player_form_buffers(); wake_poller(); toasts_.push(T(L, "Lesão curada!", "Injury healed!")); }
         }
@@ -2287,6 +2312,22 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
             auto r = engine_.set_player_quick_condition(quick_stam_, std::nullopt, false);
             if (r.ok) { player_ = r; sync_player_form_buffers(); wake_poller(); }
         }
+        ImGui::Spacing();
+        ImGui::TextColored(col::Subtext, "%s", T(L, "Atalhos de fôlego", "Stamina shortcuts"));
+        for (int sv : {25, 50, 75, 100}) {
+            char sb[24]; std::snprintf(sb, sizeof(sb), "%d%%##qs%d", sv, sv);
+            if (sv != 25) ImGui::SameLine(0, 6.0f * dpi_scale_);
+            if (styled_button(sb, col::BgInput, col::Border, col::Subtext, ImVec2(std::round(58.0f * dpi_scale_), 0))) {
+                quick_stam_ = sv;
+                auto r = engine_.set_player_quick_condition(sv, std::nullopt, false);
+                if (r.ok) { player_ = r; sync_player_form_buffers(); wake_poller(); }
+            }
+        }
+        ImGui::Spacing();
+        ImGui::PushTextWrapPos(0.0f);
+        wrapped_colored(col::Muted, "%s", T(L, "Fôlego baixo deixa o atleta mais lento e fraco na disputa de bola. Lesão ativa impede o atleta de jogar até curar.",
+                                                 "Low stamina makes the player slower and weaker in challenges. An active injury keeps him out until healed."));
+        ImGui::PopTextWrapPos();
         end_studio_card();
 
         ImGui::TableNextColumn();
@@ -2465,19 +2506,25 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
 
     const char* aff_lbl = T(L, "Afinidade:", "Affection:");
     float aff_slider_w = std::round(130.0f * dpi_scale_);
-    flow_next(ImGui::CalcTextSize(aff_lbl).x + aff_slider_w + 135.0f * dpi_scale_, 16.0f * dpi_scale_);
+    flow_next(ImGui::CalcTextSize(aff_lbl).x + aff_slider_w + 165.0f * dpi_scale_, 16.0f * dpi_scale_);
     ImGui::AlignTextToFramePadding();
     ImGui::TextColored(col::Subtext, "%s", aff_lbl);
     ImGui::SameLine(0, 6.0f * dpi_scale_);
     ImGui::SetNextItemWidth(aff_slider_w);
-    ImGui::SliderInt("##baff", &bio_affection_, 0, 100);
-    if (ImGui::IsItemDeactivatedAfterEdit()) {
-        BioUpdate cu; cu.affection = bio_affection_;
-        apply_contract_update(cu, "Afinidade Clube", "Club Affection");
-    }
+    const bool aff_edit_done = false;
+    ImGui::SliderInt("##baff", &bio_affection_, 0, 100, "");
+    const bool aff_committed = ImGui::IsItemDeactivatedAfterEdit();
     show_tip_if_hovered(T(L, "Afinidade Clube (0-100)", "Club Affection (0-100)"),
         T(L, "Afeta diretamente a Taxa de Rescisão nativa calculada pelo PES 2021.",
              "Directly affects PES 2021's native Release Fee formula."));
+    ImGui::SameLine(0, 6.0f * dpi_scale_);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(col::AccentSoft, "%3d", bio_affection_);
+    (void)aff_edit_done;
+    if (aff_committed) {
+        BioUpdate cu; cu.affection = bio_affection_;
+        apply_contract_update(cu, "Afinidade Clube", "Club Affection");
+    }
     for (int av : {50, 75, 100}) {
         ImGui::SameLine(0, 4.0f * dpi_scale_);
         char ab[16]; std::snprintf(ab, sizeof(ab), "%d##af", av);
@@ -2667,11 +2714,11 @@ void WorkbenchApp::render_ptab_stats(const FontBank& fonts) {
     card_header(T(L, "Evolução de OVR Geral (Mantendo DNA)", "Overall Evolution (DNA Preserving)"), bold,
         T(L, "Usa a fórmula exata da Konami com distribuição proporcional de Hamilton para evoluir o OVR sem distorcer o estilo do atleta.",
              "Uses Konami's exact formula with Hamilton proportional scaling to raise or lower OVR without breaking player identity."));
-    ImGui::TextColored(col::Subtext, "%s", T(L, "Sobe ou desce o Overall distribuindo pontos na proporção exata dos atributos do atleta.",
+    wrapped_colored(col::Subtext, "%s", T(L, "Sobe ou desce o Overall distribuindo pontos na proporção exata dos atributos do atleta.",
                                                 "Raises or lowers Overall by scaling stats in the exact natural proportion of the player."));
     ImGui::Spacing();
 
-    if (ImGui::Button("-1 OVR##dna")) {
+    if (icon_btn_plain(Icon::ArrowDown, "-1 OVR##dna")) {
         auto r = engine_.step_player_ovr(-1);
         if (r.ok) { player_ = r; sync_player_form_buffers(); record_solver_action(r, "-1 OVR DNA", "-1 OVR DNA"); wake_poller(); }
         else toast_code(r.code, true);
@@ -2679,7 +2726,7 @@ void WorkbenchApp::render_ptab_stats(const FontBank& fonts) {
     ImGui::SameLine(0, 6.0f * dpi_scale_);
     draw_ovr_badge(player_.ovr, std::round(44.0f * dpi_scale_), ImGui::GetFrameHeight(), bold);
     ImGui::SameLine(0, 6.0f * dpi_scale_);
-    if (btn_primary("+1 OVR##dna")) {
+    if (icon_btn_primary(Icon::ArrowUp, "+1 OVR##dna")) {
         auto r = engine_.step_player_ovr(1);
         if (r.ok) { player_ = r; sync_player_form_buffers(); record_solver_action(r, "+1 OVR DNA", "+1 OVR DNA"); wake_poller(); }
         else toast_code(r.code, true);
@@ -2738,7 +2785,7 @@ void WorkbenchApp::render_ptab_stats(const FontBank& fonts) {
     end_studio_card();
 
     ImGui::Spacing();
-    ImGui::TextColored(col::Muted, "%s", T(L, "Clique no número para digitar (40-99), arraste com precisão ou segure Shift para ajuste fino.",
+    wrapped_colored(col::Muted, "%s", T(L, "Clique no número para digitar (40-99), arraste com precisão ou segure Shift para ajuste fino.",
                                               "Click any number to type (40-99), drag smoothly, or hold Shift for ultra-fine control."));
     ImGui::Spacing();
 
@@ -3028,7 +3075,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
     auto render_poslab_table = [&]() {
         begin_studio_card("##poslab_card");
         card_header(T(L, "Lab de Posições (Precisão Cirúrgica)", "Position Lab (Surgical Precision)"), bold);
-        ImGui::TextColored(col::Subtext, "%s", T(L, "OVR já inclui bônus do Grau. +1/-1 move 1 por vez sem alterar a posição principal.",
+        wrapped_colored(col::Subtext, "%s", T(L, "OVR já inclui bônus do Grau. +1/-1 move 1 por vez sem alterar a posição principal.",
                                                     "OVR already includes Grade bonus. +1/-1 moves 1 step at a time without changing primary OVR."));
 
         if (horiz && !poslab_log_.empty() && !poslab_log_[0].diffs.empty()) {
@@ -3076,12 +3123,12 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
         const char* match_lbl = T(L, "Igualar", "Match");
         const char* setp_lbl  = T(L, "Principal", "Primary");
         float act_col_w = calc_btn_w(match_lbl) + calc_btn_w(setp_lbl) + 14.0f * dpi_scale_;
-        float step_col_w = calc_btn_w("-1 OVR") + calc_btn_w("+1 OVR") + 12.0f * dpi_scale_;
+        float step_col_w = icon_button_width("-1") + icon_button_width("+1") + 12.0f * dpi_scale_;
         float grade_btn_w = std::round(26.0f * dpi_scale_);
         float grade_col_w = grade_btn_w * 3.0f + 12.0f * dpi_scale_;
         float ovr_col_w = std::round(50.0f * dpi_scale_);
         float pad_est = ImGui::GetStyle().CellPadding.x * 10.0f + 12.0f * dpi_scale_;
-        float pos_col_w = std::max(std::round(220.0f * dpi_scale_),
+        float pos_col_w = std::max(std::round(176.0f * dpi_scale_),
                                    ImGui::GetContentRegionAvail().x - (ovr_col_w + grade_col_w + step_col_w + act_col_w + pad_est));
 
         ImGuiTableFlags tf = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX;
@@ -3144,14 +3191,14 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                 grade_btn(2, "A", col::Green, ImVec4(0.02f, 0.18f, 0.08f, 1.0f));
 
                 ImGui::TableSetColumnIndex(3);
-                if (ImGui::Button("-1 OVR")) {
+                if (icon_btn_plain(Icon::ArrowDown, "-1##pl")) {
                     highlighted_pos_ = pid;
                     auto r = engine_.step_position_ovr(pid, -1);
                     if (r.ok) { player_ = r; if (r.econ_delta.applied) sync_player_form_buffers(); record_solver_action(r, "-1 OVR", "-1 OVR"); wake_poller(); }
                     else toast_code(r.code, true);
                 }
                 ImGui::SameLine(0, 5);
-                if (btn_primary("+1 OVR")) {
+                if (icon_btn_primary(Icon::ArrowUp, "+1##pl")) {
                     highlighted_pos_ = pid;
                     auto r = engine_.step_position_ovr(pid, 1);
                     if (r.ok) { player_ = r; if (r.econ_delta.applied) sync_player_form_buffers(); record_solver_action(r, "+1 OVR", "+1 OVR"); wake_poller(); }
@@ -3232,7 +3279,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
     ImGui::Spacing();
     render_preset_controls(fonts, false);
     ImGui::SameLine(0, 8.0f * dpi_scale_);
-    if (btn_primary(T(L, "Aplicar preset##skp", "Apply preset##skp"))) apply_preset_cmd(false);
+    if (icon_btn_primary(Icon::Check, T(L, "Aplicar preset##skp", "Apply preset##skp"))) apply_preset_cmd(false);
     {
         const auto& cp = presets::kSkillPresets[static_cast<size_t>(std::clamp(preset_idx_, 0, static_cast<int>(presets::kSkillPresets.size()) - 1))];
         ImGui::Spacing();
@@ -3512,7 +3559,7 @@ void WorkbenchApp::render_ptab_role(const FontBank& fonts) {
     ImGui::PopStyleColor(2);
 
     ImGui::Spacing();
-    if (btn_primary(T(L, "Aplicar Função no time", "Apply Team Role"))) {
+    if (icon_btn_primary(Icon::Check, T(L, "Aplicar Função no time", "Apply Team Role"))) {
         auto r = engine_.set_team_role(edit_role_id_, edit_role_lvl_);
         if (r.ok) { player_ = r; sync_player_form_buffers(); toasts_.push(T(L, "Função no time salva!", "Team role saved!")); }
         else toast_code(r.code, true);
@@ -3581,7 +3628,7 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
     }
 
     ImGui::Spacing();
-    if (btn_primary(T(L, "Pesquisar", "Search")) || enter) run_search();
+    if (icon_btn_primary(Icon::Search, T(L, "Pesquisar", "Search")) || enter) run_search();
     flow_next(calc_btn_w(T(L, "Limpar", "Clear")));
     if (ImGui::Button(T(L, "Limpar", "Clear"))) {
         srch_query_[0] = '\0'; srch_pos_ = -1; srch_min_ovr_ = 75; srch_max_age_ = 45; srch_free_ = false;
@@ -3624,9 +3671,9 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
         if (styled_button(none_lbl, col::BgCard, col::Border, col::Subtext)) srch_sel_.clear();
         char send_sel[96];
         std::snprintf(send_sel, sizeof(send_sel), "%s (%d)##srs", T(L, "Enviar marcados", "Send ticked"), nsel);
-        flow_next(calc_btn_w(send_sel), 6.0f * dpi_scale_);
+        flow_next(icon_button_width(send_sel), 6.0f * dpi_scale_);
         ImGui::BeginDisabled(nsel == 0);
-        if (btn_green(send_sel)) {
+        if (icon_btn_green(Icon::Move, send_sel)) {
             std::vector<uint64_t> v;
             for (const auto& p : search_res_.players) if (srch_sel_.count(p.addr)) v.push_back(p.addr);
             auto r = engine_.add_many_to_scout_list(srch_target_scout_, v);
@@ -3646,11 +3693,11 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
     float s_age = std::round(56.0f * dpi_scale_);
     float s_con = std::round(78.0f * dpi_scale_);
     float s_sal = std::round(118.0f * dpi_scale_);
-    float s_act = std::round(146.0f * dpi_scale_);
+    float s_act = std::round(196.0f * dpi_scale_);
     float s_pad = ImGui::GetStyle().CellPadding.x * 18.0f + ImGui::GetStyle().ScrollbarSize + 24.0f * dpi_scale_;
-    float s_rem = std::max(std::round(340.0f * dpi_scale_), ImGui::GetContentRegionAvail().x - (s_ovr + s_pos + s_age + s_con + s_sal + s_act + s_pad));
-    float s_name = std::round(s_rem * 0.56f);
-    float s_club = std::max(std::round(150.0f * dpi_scale_), s_rem - s_name);
+    float s_rem = std::max(std::round(250.0f * dpi_scale_), ImGui::GetContentRegionAvail().x - (s_ovr + s_pos + s_age + s_con + s_sal + s_act + s_pad));
+    float s_name = std::round(s_rem * 0.52f);
+    float s_club = std::max(std::round(110.0f * dpi_scale_), s_rem - s_name);
     if (ImGui::BeginTable("##srch_tbl", 8, tf, ImVec2(0, tbl_h))) {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("OVR", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, s_ovr, 0);
@@ -3725,7 +3772,7 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
             ImGui::TableSetColumnIndex(5); if (p->exp_y) ImGui::Text("%d", p->exp_y); else ImGui::TextColored(col::Muted, "-");
             ImGui::TableSetColumnIndex(6); ImGui::Text("%s", fmt_money(p->salary_raw, settings_.currency_idx, L).c_str());
             ImGui::TableSetColumnIndex(7);
-            if (btn_primary(T(L, "Editar", "Edit"))) open_player_in_studio(p->addr);
+            if (icon_btn_primary(Icon::Sliders, T(L, "Editar", "Edit"))) open_player_in_studio(p->addr);
             ImGui::SameLine(0, 5);
             const bool in_target = (scout_mask_of(p->addr) & (1u << (srch_target_scout_ - 1))) != 0;
             ImGui::BeginDisabled(in_target);
@@ -3748,7 +3795,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
     const int exp_limit = std::max(2019, squad_.cur_year) + 1;
 
     page_title(T(L, "Olheiros & Favoritos", "Scouts & Shortlist"), fonts, bold);
-    ImGui::TextColored(col::Subtext, "%s", T(L, "Observe atletas nas 3 listas de olheiros e nos Favoritos. Grava só o ponteiro nativo da Master Liga, sem mexer em contrato ou cláusula.",
+    wrapped_colored(col::Subtext, "%s", T(L, "Observe atletas nas 3 listas de olheiros e nos Favoritos. Grava só o ponteiro nativo da Master Liga, sem mexer em contrato ou cláusula.",
                                                 "Watch players on the 3 scout lists and the Shortlist. Writes only the native handle into Master League RAM, no contract or clause changes."));
     ImGui::Spacing();
 
@@ -3848,7 +3895,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
     ImGui::Spacing();
     {
         const char* addl = T(L, "+ Adicionar atleta atual", "+ Add current player");
-        if (btn_green(addl)) op = OpAddCurrent;
+        if (icon_btn_green(Icon::Plus, addl)) op = OpAddCurrent;
         show_tip_if_hovered(T(L, "Atleta atual", "Current player"), T(L, "Adiciona o atleta destacado no jogo ou aberto no editor à lista ativa.", "Adds the player highlighted in game or open in the editor to the active list."));
         const char* sv = T(L, "Marcar visíveis##scv", "Tick visible##scv");
         flow_next(calc_btn_w(sv), 6.0f * dpi_scale_);
@@ -3873,38 +3920,38 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
                 ImGui::EndCombo();
             }
             char mv[64]; std::snprintf(mv, sizeof(mv), "%s (%d)##scm", T(L, "Mover", "Move"), nsel);
-            flow_next(calc_btn_w(mv), 6.0f * dpi_scale_);
-            if (btn_primary(mv)) op = OpMove;
+            flow_next(icon_button_width(mv), 6.0f * dpi_scale_);
+            if (icon_btn_primary(Icon::Move, mv)) op = OpMove;
             char cp[64]; std::snprintf(cp, sizeof(cp), "%s (%d)##scc", T(L, "Copiar", "Copy"), nsel);
-            flow_next(calc_btn_w(cp), 6.0f * dpi_scale_);
-            if (ImGui::Button(cp)) op = OpCopy;
+            flow_next(icon_button_width(cp), 6.0f * dpi_scale_);
+            if (icon_btn_plain(Icon::Copy, cp)) op = OpCopy;
             char rm[64]; std::snprintf(rm, sizeof(rm), "%s (%d)##scr", T(L, "Remover", "Remove"), nsel);
-            flow_next(calc_btn_w(rm), 6.0f * dpi_scale_);
-            if (btn_red(rm)) op = OpRemove;
+            flow_next(icon_button_width(rm), 6.0f * dpi_scale_);
+            if (icon_btn_red(Icon::Trash, rm)) op = OpRemove;
         }
     }
     ImGui::Spacing();
     {
         bool armed_clr = (clear_scout_armed_until_ > now);
         const char* clr_lbl = armed_clr ? T(L, "Confirmar limpeza?", "Confirm clear?") : T(L, "Limpar lista", "Clear list");
-        if (armed_clr ? btn_red(clr_lbl) : ImGui::Button(clr_lbl)) {
+        if (armed_clr ? icon_btn_red(Icon::Trash, clr_lbl) : icon_btn_plain(Icon::Trash, clr_lbl)) {
             if (!armed_clr) clear_scout_armed_until_ = now + 3.0; else { clear_scout_armed_until_ = 0.0; op = OpClear; }
         }
         int ud = engine_.scout_undo_depth();
         char ul[96];
         std::snprintf(ul, sizeof(ul), "%s (%d)##scu", T(L, "Desfazer alteração", "Undo change"), ud);
-        flow_next(calc_btn_w(ul), 6.0f * dpi_scale_);
+        flow_next(icon_button_width(ul), 6.0f * dpi_scale_);
         ImGui::BeginDisabled(ud == 0);
-        if (ImGui::Button(ul)) op = OpUndo;
+        if (icon_btn_plain(Icon::Undo, ul)) op = OpUndo;
         ImGui::EndDisabled();
         show_tip_if_hovered(T(L, "Desfazer nas listas", "Undo on lists"), T(L, "Volta as 4 listas ao estado anterior à última alteração (até 12 passos).", "Restores the 4 lists to the state before the last change (up to 12 steps)."));
         const char* exl = T(L, "Exportar listas", "Export lists");
-        flow_next(calc_btn_w(exl), 6.0f * dpi_scale_);
-        if (btn_primary(exl)) op = OpExport;
+        flow_next(icon_button_width(exl), 6.0f * dpi_scale_);
+        if (icon_btn_primary(Icon::Export, exl)) op = OpExport;
         show_tip_if_hovered(T(L, "Exportar listas", "Export lists"), T(L, "Salva as 4 listas em JSON (ID + nome) para reaplicar em outro save.", "Saves the 4 lists to JSON (ID + name) to reapply on another save."));
         const char* iml = T(L, "Importar listas", "Import lists");
-        flow_next(calc_btn_w(iml), 6.0f * dpi_scale_);
-        if (btn_green(iml)) op = OpImport;
+        flow_next(icon_button_width(iml), 6.0f * dpi_scale_);
+        if (icon_btn_green(Icon::Import, iml)) op = OpImport;
         show_tip_if_hovered(T(L, "Importar listas", "Import lists"), T(L, "Cruza o JSON salvo com o save atual por ID e, se preciso, por nome único. Adiciona nas vagas livres, sem apagar o que já existe.", "Matches the saved JSON against the current save by ID and, if needed, unique name. Fills free slots without erasing existing entries."));
     }
     end_studio_card();
@@ -3920,7 +3967,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
     float c_sal = std::round(96.0f * dpi_scale_);
     float c_frm = std::round(46.0f * dpi_scale_);
     float c_lst = std::round(112.0f * dpi_scale_);
-    float c_act = std::round(136.0f * dpi_scale_);
+    float c_act = std::round(186.0f * dpi_scale_);
     float c_club = std::round(140.0f * dpi_scale_);
     // Colunas opcionais somem em janelas estreitas (ordem: outras listas, forma, salario) para nunca cortar as acoes
     bool show_lst = true, show_frm = true, show_sal = true;
@@ -4023,9 +4070,9 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
                 if (!any) ImGui::TextColored(col::Muted, "-");
             }
             ImGui::TableSetColumnIndex(10);
-            if (btn_primary(T(L, "Editar", "Edit"))) open_player_in_studio(e->addr);
+            if (icon_btn_primary(Icon::Sliders, T(L, "Editar", "Edit"))) open_player_in_studio(e->addr);
             ImGui::SameLine(0, 5);
-            if (btn_red(T(L, "Remover", "Remove"))) remove_one_handle = e->handle;
+            if (icon_btn_red(Icon::Trash, T(L, "Remover", "Remove"))) remove_one_handle = e->handle;
             ImGui::PopID();
         }
         ImGui::EndTable();
@@ -4123,7 +4170,7 @@ void WorkbenchApp::render_view_match(const FontBank& fonts) {
     ImGui::SameLine(0, 12.0f * dpi_scale_);
     if (st_.in_match) draw_pill(T(L, "● EM PARTIDA", "● IN MATCH"), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.18f), ImVec4(0.063f, 0.725f, 0.506f, 0.55f));
     else draw_pill(T(L, "● Fora de Partida", "● Not in Match"), col::Subtext, ImVec4(0.58f, 0.64f, 0.72f, 0.12f), col::Border);
-    ImGui::TextColored(col::Subtext, "%s", T(L, "Controle exato do cronômetro, fôlego seletivo por time e preparo rápido do elenco em tempo real.",
+    wrapped_colored(col::Subtext, "%s", T(L, "Controle exato do cronômetro, fôlego seletivo por time e preparo rápido do elenco em tempo real.",
                                                 "Exact match clock control, selective per-team stamina, and live squad prep in real time."));
     ImGui::Spacing();
 
@@ -4153,7 +4200,7 @@ void WorkbenchApp::render_view_match(const FontBank& fonts) {
     ImGui::Separator();
     ImGui::Spacing();
     if (!st_.in_match) {
-        ImGui::TextColored(col::Muted, "%s", T(L, "Inicie uma partida no PES 2021 para ler e ajustar o cronômetro ao vivo (o hook de relógio arma automaticamente ao entrar em campo).",
+        wrapped_colored(col::Muted, "%s", T(L, "Inicie uma partida no PES 2021 para ler e ajustar o cronômetro ao vivo (o hook de relógio arma automaticamente ao entrar em campo).",
                                                   "Start a match in PES 2021 to read and adjust the live clock (the clock tap auto-arms as soon as you enter the pitch)."));
         ImGui::Spacing();
     }
@@ -4190,13 +4237,13 @@ void WorkbenchApp::render_view_match(const FontBank& fonts) {
     bool s_ent = ImGui::InputText("##m_sec", match_sec_buf_, sizeof(match_sec_buf_),
                                   ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine(0, 8.0f * dpi_scale_);
-    if (btn_primary(T(L, "Definir Tempo##mc", "Set Time##mc")) || m_ent || s_ent) {
+    if (icon_btn_primary(Icon::Stopwatch, T(L, "Definir Tempo##mc", "Set Time##mc")) || m_ent || s_ent) {
         int mv = std::clamp(std::atoi(match_min_buf_), 0, 130);
         int sv = std::clamp(std::atoi(match_sec_buf_), 0, 59);
         apply_exact_clock(mv, sv);
     }
     ImGui::SameLine(0, 6.0f * dpi_scale_);
-    if (ImGui::Button(T(L, "Ler Atual##mcs", "Read Live##mcs")) && st_.match_clock_valid) {
+    if (icon_btn_plain(Icon::Refresh, T(L, "Ler Atual##mcs", "Read Live##mcs")) && st_.match_clock_valid) {
         sync_clock_inputs(st_.match_min, st_.match_sec);
     }
 
@@ -4298,18 +4345,18 @@ void WorkbenchApp::render_view_match(const FontBank& fonts) {
         ImGui::Spacing();
         begin_studio_card("##match_squad_prep");
         card_header(T(L, "Preparo Rápido do Elenco (Carreira)", "Quick Squad Prep (Career)"), bold);
-        ImGui::TextColored(col::Subtext, "%s", T(L, "Aplica imediatamente no seu elenco ativo da carreira sem sair da aba de partida.",
+        wrapped_colored(col::Subtext, "%s", T(L, "Aplica imediatamente no seu elenco ativo da carreira sem sair da aba de partida.",
                                                     "Applies immediately to your active career squad without leaving the Live Match tab."));
         ImGui::Spacing();
-        if (btn_green(T(L, "Fôlego 100% Elenco##mqs", "Squad 100% Stamina##mqs"))) {
+        if (icon_btn_green(Icon::Battery, T(L, "Fôlego 100% Elenco##mqs", "Squad 100% Stamina##mqs"))) {
             run_squad_cmd("stamina");
         }
-        flow_next(calc_btn_w(T(L, "Seta Azul Elenco##mqa", "Squad Blue Arrows##mqa")), 8.0f * dpi_scale_);
-        if (btn_primary(T(L, "Seta Azul Elenco##mqa", "Squad Blue Arrows##mqa"))) {
+        flow_next(icon_button_width(T(L, "Seta Azul Elenco##mqa", "Squad Blue Arrows##mqa")), 8.0f * dpi_scale_);
+        if (icon_btn_primary(Icon::ArrowUp, T(L, "Seta Azul Elenco##mqa", "Squad Blue Arrows##mqa"))) {
             run_squad_cmd("arrow");
         }
-        flow_next(calc_btn_w(T(L, "Curar Lesões##mqh", "Heal Injuries##mqh")), 8.0f * dpi_scale_);
-        if (btn_gold(T(L, "Curar Lesões##mqh", "Heal Injuries##mqh"))) {
+        flow_next(icon_button_width(T(L, "Curar Lesões##mqh", "Heal Injuries##mqh")), 8.0f * dpi_scale_);
+        if (icon_btn_gold(Icon::Cross, T(L, "Curar Lesões##mqh", "Heal Injuries##mqh"))) {
             run_squad_cmd("heal");
         }
         end_studio_card();
@@ -4321,7 +4368,7 @@ void WorkbenchApp::render_view_training(const FontBank& fonts) {
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
 
     page_title(T(L, "Treino & Rumo ao Estrelato (BAL)", "Training & Become a Legend (BAL)"), fonts, bold);
-    ImGui::TextColored(col::Subtext, "%s", T(L, "Acelere a evolução de Sub-XP na Master League/BAL e desbloqueie o limite de 21 Pontos de Foco no BAL.",
+    wrapped_colored(col::Subtext, "%s", T(L, "Acelere a evolução de Sub-XP na Master League/BAL e desbloqueie o limite de 21 Pontos de Foco no BAL.",
                                                 "Accelerate Sub-XP growth in Master League/BAL and unlock the 21 Focus Points cap in BAL."));
     ImGui::Spacing();
 
@@ -4372,7 +4419,7 @@ void WorkbenchApp::render_view_training(const FontBank& fonts) {
     ImGui::SameLine(0, 14);
     if (toggle_switch("##sw_bal", T(L, "Travar valor", "Lock value"), &bal_lock_chk_)) bal_dirty_ = true;
     ImGui::SameLine(0, 14);
-    if (btn_primary(T(L, "Aplicar##bal", "Apply##bal"))) {
+    if (icon_btn_primary(Icon::Check, T(L, "Aplicar##bal", "Apply##bal"))) {
         auto r = engine_.set_bal_focus(bal_focus_inp_, bal_lock_chk_);
         if (r.ok) {
             bal_dirty_ = false;
@@ -4407,8 +4454,8 @@ void WorkbenchApp::render_modals(const FontBank& fonts) {
     ImGui::PushStyleColor(ImGuiCol_Border, col::BorderLit);
     if (ImGui::BeginPopupModal("##CmdPalette", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
         card_header(T(L, "Comandos Rápidos (Ctrl+K)", "Quick Commands (Ctrl+K)"), bold);
-        align_right_or_wrap(calc_btn_w("X##cmdx"));
-        if (ImGui::Button("X##cmdx")) ImGui::CloseCurrentPopup();
+        align_right_or_wrap(ImGui::GetFrameHeight());
+        if (icon_only_button(Icon::Close, "##cmdx", col::BgCard, col::Border, col::Subtext, ImGui::GetFrameHeight())) ImGui::CloseCurrentPopup();
 
         ImGui::Spacing();
         ImGui::SetNextItemWidth(-1.0f);
@@ -4503,8 +4550,8 @@ void WorkbenchApp::render_modals(const FontBank& fonts) {
     ImGui::PushStyleColor(ImGuiCol_Border, col::BorderLit);
     if (ImGui::BeginPopupModal("##JsonModal", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
         card_header(json_title_.c_str(), bold);
-        align_right_or_wrap(calc_btn_w("X##jmx"));
-        if (ImGui::Button("X##jmx")) ImGui::CloseCurrentPopup();
+        align_right_or_wrap(ImGui::GetFrameHeight());
+        if (icon_only_button(Icon::Close, "##jmx", col::BgCard, col::Border, col::Subtext, ImGui::GetFrameHeight())) ImGui::CloseCurrentPopup();
         ImGui::Separator();
         ImGui::Spacing();
 
@@ -4516,7 +4563,7 @@ void WorkbenchApp::render_modals(const FontBank& fonts) {
 
         ImGui::Spacing();
         if (json_is_export_) {
-            if (btn_primary(T(L, "Copiar JSON", "Copy JSON"))) {
+            if (icon_btn_primary(Icon::Copy, T(L, "Copiar JSON", "Copy JSON"))) {
                 ImGui::SetClipboardText(json_buf_.c_str());
                 toasts_.push(T(L, "JSON copiado para a área de transferência!", "JSON copied to clipboard!"));
                 ImGui::CloseCurrentPopup();
@@ -4526,7 +4573,7 @@ void WorkbenchApp::render_modals(const FontBank& fonts) {
                 if (const char* cb = ImGui::GetClipboardText()) json_buf_ = cb;
             }
             ImGui::SameLine(0, 8);
-            if (btn_primary(T(L, "Importar Backup", "Import Backup"))) {
+            if (icon_btn_primary(Icon::Import, T(L, "Importar Backup", "Import Backup"))) {
                 auto r = engine_.import_player_json(json_buf_);
                 if (r.ok) {
                     player_ = r;
@@ -4623,8 +4670,8 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
     if (ImGui::BeginPopupModal("##PackStudioModal", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
         // Header + Tabs + Close button
         card_header(T(L, "Central de Packs (Elenco & Atletas)", "Pack Studio (Squad & Players)"), bold);
-        align_right_or_wrap(calc_btn_w("X##pkx"));
-        if (ImGui::Button("X##pkx") || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+        align_right_or_wrap(ImGui::GetFrameHeight());
+        if (icon_only_button(Icon::Close, "##pkx", col::BgCard, col::Border, col::Subtext, ImGui::GetFrameHeight()) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
 
         ImGui::Spacing();
         const char* t_imp = T(L, "Importar & Cruzar Save##pkt0", "Import & Match Save##pkt0");
@@ -4736,8 +4783,8 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
                     }
                 }
             }
-            flow_next(calc_btn_w(T(L, "Copiar JSON", "Copy JSON")));
-            if (ImGui::Button(T(L, "Copiar JSON##pkcp", "Copy JSON##pkcp"))) {
+            flow_next(icon_button_width(T(L, "Copiar JSON", "Copy JSON")));
+            if (icon_btn_plain(Icon::Copy, T(L, "Copiar JSON##pkcp", "Copy JSON##pkcp"))) {
                 if (ensure_export_fresh()) {
                     ImGui::SetClipboardText(pack_export_json_.c_str());
                     toasts_.push(T(L, "JSON do pack copiado!", "Pack JSON copied!"));
@@ -4769,7 +4816,7 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
             ImGui::SetNextItemWidth(combo_w);
             if (ImGui::BeginCombo("##pk_lib_sel", lib_prev.c_str())) {
                 if (pack_library_.empty()) {
-                    ImGui::TextColored(col::Muted, "%s", T(L, "Nenhum pack salvo ainda em Documentos/PES 2021 Workbench/Packs", "No saved packs yet"));
+                    wrapped_colored(col::Muted, "%s", T(L, "Nenhum pack salvo ainda em Documentos/PES 2021 Workbench/Packs", "No saved packs yet"));
                 }
                 for (int i = 0; i < static_cast<int>(pack_library_.size()); ++i) {
                     const auto& it = pack_library_[i];

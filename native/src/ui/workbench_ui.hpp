@@ -5,6 +5,7 @@
 #include "i18n.hpp"
 #include "theme.hpp"
 #include "widgets.hpp"
+#include "icons.hpp"
 #include "../engine/pes_engine.hpp"
 
 #include <atomic>

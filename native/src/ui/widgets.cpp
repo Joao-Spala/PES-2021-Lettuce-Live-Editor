@@ -1,4 +1,5 @@
 #include "widgets.hpp"
+#include "icons.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -185,90 +186,8 @@ void draw_led_dot(ImDrawList* dl, ImVec2 center, float radius, const ImVec4& col
 }
 
 void draw_nav_icon(ImDrawList* dl, ImVec2 c, float s, int view_idx, ImU32 col) {
-    float r = s * 0.45f;
-    float t = std::max(1.35f, s * 0.095f);
-    switch (view_idx) {
-        case 0: { // Dashboard: 4 crisp rounded tiles
-            float g = s * 0.09f;
-            float w = (r * 2.0f - g) * 0.5f;
-            ImVec2 tl(c.x - r, c.y - r);
-            dl->AddRect(tl, ImVec2(tl.x + w, tl.y + w), col, 2.0f, 0, t);
-            dl->AddRect(ImVec2(tl.x + w + g, tl.y), ImVec2(tl.x + w * 2 + g, tl.y + w), col, 2.0f, 0, t);
-            dl->AddRect(ImVec2(tl.x, tl.y + w + g), ImVec2(tl.x + w, tl.y + w * 2 + g), col, 2.0f, 0, t);
-            dl->AddRectFilled(ImVec2(tl.x + w + g, tl.y + w + g), ImVec2(tl.x + w * 2 + g, tl.y + w * 2 + g), col, 2.0f);
-            break;
-        }
-        case 1: { // Squad: 3-player formation silhouettes
-            dl->AddCircle(ImVec2(c.x, c.y - r * 0.42f), r * 0.28f, col, 14, t);
-            dl->AddBezierCubic(
-                ImVec2(c.x - r * 0.52f, c.y + r * 0.65f),
-                ImVec2(c.x - r * 0.42f, c.y + r * 0.05f),
-                ImVec2(c.x + r * 0.42f, c.y + r * 0.05f),
-                ImVec2(c.x + r * 0.52f, c.y + r * 0.65f), col, t);
-            dl->AddCircle(ImVec2(c.x - r * 0.68f, c.y - r * 0.12f), r * 0.20f, col, 12, t * 0.9f);
-            dl->AddCircle(ImVec2(c.x + r * 0.68f, c.y - r * 0.12f), r * 0.20f, col, 12, t * 0.9f);
-            break;
-        }
-        case 2: { // Finances: rising chart bars + coin baseline
-            float bw = r * 0.36f;
-            float base_y = c.y + r * 0.78f;
-            dl->AddRectFilled(ImVec2(c.x - r * 0.82f, c.y + r * 0.10f), ImVec2(c.x - r * 0.82f + bw, base_y), col, 1.5f);
-            dl->AddRectFilled(ImVec2(c.x - bw * 0.5f, c.y - r * 0.30f), ImVec2(c.x + bw * 0.5f, base_y), col, 1.5f);
-            dl->AddRectFilled(ImVec2(c.x + r * 0.82f - bw, c.y - r * 0.72f), ImVec2(c.x + r * 0.82f, base_y), col, 1.5f);
-            dl->AddLine(ImVec2(c.x - r, base_y + 1.0f), ImVec2(c.x + r, base_y + 1.0f), col, t);
-            break;
-        }
-        case 3: { // Current Player: shield / jersey emblem
-            ImVec2 pts[5] = {
-                ImVec2(c.x, c.y - r * 0.92f),
-                ImVec2(c.x + r * 0.82f, c.y - r * 0.52f),
-                ImVec2(c.x + r * 0.66f, c.y + r * 0.36f),
-                ImVec2(c.x, c.y + r * 0.92f),
-                ImVec2(c.x - r * 0.66f, c.y + r * 0.36f),
-            };
-            ImVec2 pts6[6] = {pts[0], pts[1], pts[2], pts[3], pts[4], ImVec2(c.x - r * 0.82f, c.y - r * 0.52f)};
-            dl->AddPolyline(pts6, 6, col, ImDrawFlags_Closed, t);
-            dl->AddCircleFilled(ImVec2(c.x, c.y - r * 0.12f), r * 0.24f, col, 12);
-            break;
-        }
-        case 4: { // Search 30k+: magnifying glass
-            ImVec2 gc(c.x - r * 0.18f, c.y - r * 0.18f);
-            float gr = r * 0.62f;
-            dl->AddCircle(gc, gr, col, 18, t);
-            dl->AddLine(ImVec2(gc.x + gr * 0.72f, gc.y + gr * 0.72f),
-                        ImVec2(c.x + r * 0.92f, c.y + r * 0.92f), col, t * 1.25f);
-            break;
-        }
-        case 5: { // Scouts & Shortlist: crisp 5-point star / reticle
-            ImVec2 star[10];
-            for (int i = 0; i < 10; ++i) {
-                float a = -3.14159265f * 0.5f + i * 3.14159265f / 5.0f;
-                float rr = (i % 2 == 0) ? r * 0.95f : r * 0.42f;
-                star[i] = ImVec2(c.x + std::cos(a) * rr, c.y + std::sin(a) * rr);
-            }
-            dl->AddPolyline(star, 10, col, ImDrawFlags_Closed, t);
-            break;
-        }
-        case 6: { // Live Match: stopwatch / stadium clock
-            dl->AddCircle(ImVec2(c.x, c.y + r * 0.10f), r * 0.76f, col, 20, t);
-            dl->AddLine(ImVec2(c.x - r * 0.30f, c.y - r * 0.90f), ImVec2(c.x + r * 0.30f, c.y - r * 0.90f), col, t);
-            dl->AddLine(ImVec2(c.x, c.y + r * 0.10f), ImVec2(c.x, c.y - r * 0.34f), col, t);
-            dl->AddLine(ImVec2(c.x, c.y + r * 0.10f), ImVec2(c.x + r * 0.36f, c.y + r * 0.10f), col, t);
-            break;
-        }
-        default: { // Training & BAL: lightning bolt
-            ImVec2 bolt[6] = {
-                ImVec2(c.x + r * 0.12f, c.y - r * 0.92f),
-                ImVec2(c.x - r * 0.62f, c.y + r * 0.08f),
-                ImVec2(c.x - r * 0.02f, c.y + r * 0.08f),
-                ImVec2(c.x - r * 0.18f, c.y + r * 0.92f),
-                ImVec2(c.x + r * 0.62f, c.y - r * 0.10f),
-                ImVec2(c.x + r * 0.02f, c.y - r * 0.10f),
-            };
-            dl->AddPolyline(bolt, 6, col, ImDrawFlags_Closed, t);
-            break;
-        }
-    }
+    static const Icon kNav[8] = {Icon::Dashboard, Icon::Squad, Icon::Wallet, Icon::Jersey, Icon::Search, Icon::Eye, Icon::Stopwatch, Icon::Dumbbell};
+    draw_icon(dl, kNav[std::clamp(view_idx, 0, 7)], c, s, col);
 }
 
 void draw_kpi_medallion(int kind, float size, const ImVec4& accent) {
@@ -285,14 +204,9 @@ void draw_kpi_medallion(int kind, float size, const ImVec4& accent) {
                       IM_COL32(255, 255, 255, 14), rnd, ImDrawFlags_RoundCornersTop);
     dl->AddRect(p, p2, to_u32(accent, 0.42f), rnd, 0, 1.1f);
 
-    int map_view = 0;
-    if (kind == 0) map_view = 3;      // Club shield
-    else if (kind == 1) map_view = 2; // Transfer bars
-    else if (kind == 2) map_view = 5; // Salary star
-    else if (kind == 3) map_view = 1; // Player/squad
-    else if (kind == 4) map_view = 6; // Hooks clock/engine
-    else map_view = 7;                // Bolt commander
-    draw_nav_icon(dl, c, size * 0.58f, map_view, to_u32(accent));
+    // 0 clube, 1 orcamento, 2 salarios, 3 atleta, 4 recursos do motor, 5 comandante, 6 teto salarial, 7 folha ativa
+    static const Icon kMed[8] = {Icon::Crest, Icon::Coins, Icon::Banknote, Icon::Jersey, Icon::Pulse, Icon::Bolt, Icon::Lock, Icon::Contract};
+    draw_icon(dl, kMed[std::clamp(kind, 0, 7)], c, size * 0.60f, to_u32(accent));
 }
 
 bool styled_button(const char* label, const ImVec4& bg, const ImVec4& border, const ImVec4& text, ImVec2 size) {

@@ -58,6 +58,7 @@ $AppSources = @(
     "$NativeDir\src\engine\ovr_engine.cpp",
     "$NativeDir\src\engine\pes_engine.cpp",
     "$NativeDir\src\ui\theme.cpp",
+    "$NativeDir\src\ui\icons.cpp",
     "$NativeDir\src\ui\widgets.cpp",
     "$NativeDir\src\ui\workbench_ui.cpp",
     "$NativeDir\src\main.cpp"
