@@ -17,7 +17,7 @@
 
 <sub>Capturas com dados de exemplo.</sub>
 
-[English](README.md) · **Português**
+[English](README.md) · **Português** · [Apoie](#apoie-o-projeto)
 
 </div>
 
@@ -175,6 +175,22 @@ clang++ -std=c++20 -O2 -DUNICODE -D_UNICODE -Isrc -Ithird_party/json tests/test_
 ```
 
 O logo e o ícone são gerados por `native/assets/make_logo.ps1` (GDI+). As imagens deste README ficam em `docs/assets`.
+
+## Apoie o projeto
+
+<table>
+<tr>
+<td width="160" align="center"><img src="docs/assets/pix_qr.png" alt="QR Code Pix" width="140"></td>
+<td>
+
+Este editor é gratuito e de código aberto, e vai continuar assim. Se ele economizou seu tempo e você quiser me pagar um café, vou ficar muito agradecido. Um relato de bug ou um obrigado vale tanto quanto.
+
+**Pix:** escaneie o QR ou use a chave aleatória `925fd607-2011-4ca2-83a4-b3cf145b408b`<br>
+**De fora do Brasil:** [![Ko-fi](https://img.shields.io/badge/Ko--fi-Pague_um_caf%C3%A9-FF5E5B?style=flat&logo=ko-fi&logoColor=white)](https://ko-fi.com/AlfaceJao)
+
+</td>
+</tr>
+</table>
 
 ## Licença
 
