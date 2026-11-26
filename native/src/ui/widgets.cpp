@@ -118,14 +118,14 @@ bool widgets_is_animating() {
 
 ImVec4 ovr_color(int ovr) {
     if (ovr >= 90) return col::GreenSoft;
-    if (ovr >= 80) return col::AccentSoft;
+    if (ovr >= 80) return col::Sky;
     if (ovr >= 70) return col::GoldSoft;
-    return ImVec4(0.796f, 0.835f, 0.882f, 1.0f);
+    return ImVec4(col::Subtext.x * 0.55f + col::Text.x * 0.45f, col::Subtext.y * 0.55f + col::Text.y * 0.45f, col::Subtext.z * 0.55f + col::Text.z * 0.45f, 1.0f);
 }
 
 ImVec4 pos_color(int pos_id) {
     if (pos_id == 0) return col::GoldSoft;
-    if (pos_id >= 1 && pos_id <= 3) return col::AccentSoft;
+    if (pos_id >= 1 && pos_id <= 3) return col::Sky;
     if (pos_id >= 4 && pos_id <= 8) return col::GreenSoft;
     return col::RedSoft;
 }
@@ -266,19 +266,12 @@ void draw_workspace_ambient_glow(ImDrawList* dl, ImVec2 origin, ImVec2 size) {
         float cx = origin.x + size.x * 0.92f;
         float cy = origin.y + size.y * 0.50f;
         float cr = std::min(size.x, size.y) * 0.24f;
-        if (brand_is_lettuce()) {
             // Marca d'agua: cabeca de alface (tres folhas com nervuras) bem discreta
             ImU32 wm = to_u32(col::AccentSoft, 0.045f);
             float base_y = cy + cr * 1.05f;
             draw_leaf(dl, ImVec2(cx, base_y), -0.66f, cr * 1.55f, cr * 0.62f, 0, wm, 1.3f);
             draw_leaf(dl, ImVec2(cx, base_y),  0.66f, cr * 1.55f, cr * 0.62f, 0, wm, 1.3f);
             draw_leaf(dl, ImVec2(cx, base_y),  0.00f, cr * 1.95f, cr * 0.74f, 0, wm, 1.3f);
-        } else {
-            ImU32 wm = IM_COL32(148, 163, 184, 9);
-            dl->AddCircle(ImVec2(cx, cy), cr, wm, 48, 1.2f);
-            dl->AddCircle(ImVec2(cx, cy), 4.0f, wm, 16, 1.2f);
-            dl->AddLine(ImVec2(cx, origin.y + 24.0f), ImVec2(cx, origin.y + size.y - 24.0f), wm, 1.2f);
-        }
     }
 }
 
@@ -442,9 +435,19 @@ bool draw_titlebar_win_btn(const char* id, int kind, bool is_maximized, float w,
     return clicked;
 }
 
+namespace {
+ImTextureID g_logo_tex = static_cast<ImTextureID>(0);
+}
+void set_logo_texture(ImTextureID id) { g_logo_tex = id; }
+
 void draw_brand_emblem(ImVec2 pos, float size, ImFont* /*bold_font*/) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 p2(pos.x + size, pos.y + size);
+    if (g_logo_tex != static_cast<ImTextureID>(0)) {
+        // O logo vem da mesma imagem do icone do executavel (render em alta qualidade, com mipmaps)
+        dl->AddImage(g_logo_tex, pos, p2);
+        return;
+    }
     // Logo Lettuce Live Editor: medalhao verde-floresta, cabeca de alface em camadas e indicador "ao vivo"
     const float sr = size * 0.26f;
     dl->AddRectFilled(ImVec2(pos.x, pos.y + size * 0.014f), ImVec2(p2.x, p2.y + size * 0.014f), IM_COL32(0, 0, 0, 70), sr + 1.0f);

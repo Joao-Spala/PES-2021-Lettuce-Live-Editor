@@ -1,6 +1,8 @@
-# PES 2021 Workbench
+# Lettuce Live Editor
 
-![Native C++20](https://img.shields.io/badge/Native-C%2B%2B20_%2B_DX11_%2B_ImGui-38BDF8?style=for-the-badge)
+Editor de carreira em tempo real para o eFootball PES 2021, antes conhecido como PES 2021 Workbench.
+
+![Native C++20](https://img.shields.io/badge/Native-C%2B%2B20_%2B_DX11_%2B_ImGui-84CC16?style=for-the-badge)
 ![PES 2021](https://img.shields.io/badge/eFootball_PES_2021-v1.7.2.0_(DP_7.0)-0095D9?style=for-the-badge)
 ![Languages](https://img.shields.io/badge/Languages-PT--BR_%7C_English-2EA043?style=for-the-badge)
 ![Patches](https://img.shields.io/badge/Sider_7.3_%2F_BMPES_%2F_Football_Life-Compatible-F59E0B?style=for-the-badge)
@@ -12,55 +14,77 @@
 
 ## Portugues (PT-BR)
 
-Aplicativo desktop nativo em **C++20 + DirectX 11 + Dear ImGui** (~2.4 MB, standalone, zero dependencias externas) para edicao e gerenciamento de carreira em tempo real no **eFootball PES 2021 (`v1.7.2.0`)** e derivados (**Football Life 2023-2026**, **BMPES**, **SmokePatch**, **VirtuaRED**, **Dream Patch**), com compatibilidade total para **Sider 7.3+**.
+Aplicativo desktop nativo em **C++20 + DirectX 11 + Dear ImGui** (cerca de 2.6 MB, standalone, sem dependencias externas) para edicao e gerenciamento de carreira em tempo real no **eFootball PES 2021 (`v1.7.2.0`)** e derivados (**Football Life 2023-2026**, **BMPES**, **SmokePatch**, **VirtuaRED**, **Dream Patch**), com compatibilidade total com **Sider 7.3+**.
 
-Nao requer Cheat Engine nem runtimes externos. Basta abrir o jogo e executar o `PES 2021 Workbench Native.exe`.
+Nao requer Cheat Engine nem runtimes externos. Basta abrir o jogo e executar o `PES 2021 Workbench Native.exe` (o nome do arquivo foi mantido para nao quebrar atalhos).
 
 ### Como usar
 
-1. Compile o executavel (ou use o binario gerado em `dist/PES 2021 Workbench Native.exe`).
-2. Abra o **PES 2021** (ou **Football Life**) e entre na sua **Master League** ou **Rumo ao Estrelato (BAL)**.
-3. Execute o **PES 2021 Workbench Native** (como Administrador, se o jogo tambem estiver elevado).
+1. Compile o executavel ou use o binario em `dist/PES 2021 Workbench Native.exe`.
+2. Abra o **PES 2021** (ou o **Football Life**) e entre na **Master League** ou no **Rumo ao Estrelato (BAL)**.
+3. Execute o Lettuce Live Editor, como Administrador se o jogo tambem estiver elevado.
 4. A conexao com o processo e a captura automatica do atleta em foco acontecem em segundo plano.
 
 ### Funcionalidades
 
-- **Arquitetura de 8 Telas + 5 Sub-abas de Atleta**: `Visao Geral`, `Meu Elenco`, `Financas`, `Jogador Atual` (`Bio & Contrato`, `Atributos`, `Lab de Posicoes`, `Habilidades & COMP`, `Funcao no Time`), `Buscar Jogador (30k+)`, `Olheiros & Favoritos`, `Partida Ao Vivo` e `Treino & BAL`.
-- **Motor de OVR Konami (`0x141E640A0`) e Solver DNA**: `+1 OVR`, `-1 OVR`, `OVR Alvo (40-99)` e `Elenco +1 OVR` preservando o perfil natural de atributos do jogador. Benchmark C++ de 30.000 calculos em ~2.5 ms.
-- **Laboratorio de Posicoes (Isolamento Cirurgico)**: mapa tatico interativo de 13 posicoes, ajuste `+1/-1 OVR` isolado em posicoes secundarias sem alterar o OVR da posicao principal, `Igualar OVR`, `Tornar Principal` e edicao de Grau `A / B / C`.
-- **Modelo Economico Calibrado e Contrato Rapido**: sincronizacao automatica ou manual de Valor de Mercado, Salario e Multa Rescisoria Konami considerando OVR principal, idade, posicao, nacionalidade e versatilidade secundaria (teto de `+7%` no mercado e `+3.15%` no salario). Inclui card dedicado de `Contrato & Financas (Edicao Rapida)` na aba Bio.
-- **Partida Ao Vivo**: deteccao automatica ao entrar em campo (`Hook 5` armado automaticamente), leitura ao vivo de minuto/segundo/periodo, definicao de tempo exato (`MM:SS`), ajustes rapidos (`-10/-5/+5/+10 min`, `44:00`, `89:00`, `Reiniciar Tempo`, `Encerrar Tempo`), botao `Ler Atual`, congelamento de cronometro, 6 modos de folego seletivo e preparo rapido do elenco.
-- **Pack Studio (JSON v13)**: exportacao e importacao de atletas individuais ou elencos completos entre saves diferentes, com cruzamento automatico (ID exato, nome normalizado ou selecao manual), preview de diferencas e recalibracao economica opcional.
-- **Busca Global (30.000+ Atletas) e Olheiros na RAM Real**: pesquisa instantanea na base inteira da carreira e edicao direta das 3 listas de Olheiros (30 vagas cada) e da Shortlist (100 vagas) sem efeitos colaterais em contratos.
-- **Treino & Rumo ao Estrelato (BAL)**: multiplicador de Sub-XP restrito ao seu clube (`1x` ate `Instantaneo`) e desbloqueio do teto de 21 Pontos de Foco no BAL (ate 99, com opcao de travar valor).
-- **Interface Studio Pro**: dark mode nativo, Per-Monitor DPI, radar hexagonal de atributos, troca ao vivo de idioma (`PT-BR / EN`), moeda (`EUR / BRL / USD / GBP`) e fonte (7 familias), Command Palette (`Ctrl+K`), historico de navegacao (`Alt+Left`) e `Undo` de 10 niveis (`Ctrl+Z`).
+- **8 telas e 5 sub-abas de atleta**: `Visao Geral`, `Meu Elenco`, `Financas`, `Jogador Atual` (`Bio & Contrato`, `Atributos`, `Lab de Posicoes`, `Estilo & Habilidades`, `Funcao no Time`), `Buscar Jogador (30k+)`, `Olheiros & Favoritos`, `Partida Ao Vivo` e `Treino & BAL`.
+- **Motor de OVR Konami e solver DNA**: `+1 OVR`, `-1 OVR` e `OVR alvo (40-99)` preservando o perfil natural de atributos. Benchmark de 30.000 calculos em cerca de 2.5 ms.
+- **Laboratorio de Posicoes**: mapa tatico de 13 posicoes, ajuste isolado `+1/-1` em posicoes secundarias sem mexer na principal, `Igualar`, `Principal` e Grau `A / B / C`.
+- **Modelo economico calibrado**: valor de mercado, salario e multa Konami sincronizados com OVR, idade, posicao, nacionalidade e versatilidade, mais card de contrato rapido.
+- **Seta de forma e seta piscando**: as 5 setas de forma e a flag independente de seta piscando (bit 7 do byte `0x146`), com pulso animado nas tabelas e descricao baseada no manual oficial da Konami.
+- **Elenco em lote**: selecao por filtro ou por marcacao, recalibrar economia, `+1 OVR (DNA)`, folego, cura, contrato e seta nos atletas marcados. Antes de lotes que mexem em valores o app salva um backup JSON do elenco em `Documentos/PES 2021 Workbench/Packs/Backups`.
+- **Presets de habilidades**: 10 funcoes em campo (finalizador, ponta driblador, meia criativo, regista, zagueiro, goleiro e outras) respeitando o limite nativo de 10 habilidades.
+- **Historico de alteracoes**: linha do tempo global com desfazer ate qualquer ponto, alem do `Ctrl+Z` por atleta.
+- **Olheiros & Favoritos**: cartoes das 4 listas com estatisticas, filtros, mover, copiar e remover em lote, desfazer nas listas (12 passos), exportar e importar listas em JSON cruzando por ID e nome, e marcacao direta pela Busca e pelo editor do atleta.
+- **Partida Ao Vivo**: deteccao automatica, minuto e periodo ao vivo, tempo exato, ajustes rapidos, congelar cronometro e 6 modos de folego seletivo.
+- **Pack Studio (JSON v13)**: exporta e importa atletas e elencos entre saves, com cruzamento por ID, nome ou escolha manual, previa de diferencas e rollback do lote.
+- **Treino & BAL**: multiplicador de Sub-XP do seu clube e desbloqueio dos Pontos de Foco do BAL.
+
+### Identidade visual e interface
+
+- **Marca**: nome Lettuce Live Editor e logo de alface, o mesmo em todos os temas, no icone do executavel e na barra de titulo.
+- **Dois temas de cor**: `Alface` (verde-floresta, padrao) e `Azul` (azul-marinho). A troca e ao vivo, em `Ajustes`, e fica salva.
+- **Ajustes**: sempre no topo, escala da interface (90% a 150%), 6 cores de destaque, tamanho e posicao da janela lembrados.
+- **Icones vetoriais proprios**, Per-Monitor DPI, radar hexagonal, idioma `PT-BR / EN`, moeda `EUR / BRL / USD / GBP`, 7 fontes, Command Palette (`Ctrl+K`) e historico de navegacao (`Alt+Left`).
 
 ---
 
 ## English
 
-Native standalone desktop application built with **C++20 + DirectX 11 + Dear ImGui** (~2.4 MB, zero runtime dependencies) for real-time career editing in **eFootball PES 2021 (`v1.7.2.0`)** and derivatives (**Football Life 2023-2026**, **BMPES**, **SmokePatch**, **VirtuaRED**, **Dream Patch**), fully compatible with **Sider 7.3+**.
+Real-time career editor for eFootball PES 2021, formerly known as PES 2021 Workbench.
 
-No Cheat Engine or external runtimes required. Just launch the game and run `PES 2021 Workbench Native.exe`.
+Native standalone desktop application built with **C++20 + DirectX 11 + Dear ImGui** (about 2.6 MB, no runtime dependencies) for real-time career editing in **eFootball PES 2021 (`v1.7.2.0`)** and derivatives (**Football Life 2023-2026**, **BMPES**, **SmokePatch**, **VirtuaRED**, **Dream Patch**), fully compatible with **Sider 7.3+**.
+
+No Cheat Engine or external runtimes required. Launch the game and run `PES 2021 Workbench Native.exe` (the file name was kept so existing shortcuts keep working).
 
 ### Quick Start
 
-1. Build the executable (or launch `dist/PES 2021 Workbench Native.exe`).
+1. Build the executable or launch `dist/PES 2021 Workbench Native.exe`.
 2. Start **PES 2021** (or **Football Life**) and load your **Master League** or **Become a Legend (BAL)** save.
-3. Run **PES 2021 Workbench Native** (as Administrator if the game is elevated).
+3. Run Lettuce Live Editor, as Administrator if the game is elevated.
 4. Process attachment and active player capture run automatically in the background.
 
 ### Features
 
-- **8 Views + 5 Player Subtabs**: `Overview`, `My Squad`, `Finances`, `Current Player` (`Bio & Contract`, `Attributes`, `Position Lab`, `Skills & COM AI`, `Team Role`), `Search Player (30k+)`, `Scouts & Shortlist`, `Live Match`, and `Training & BAL`.
-- **Exact Konami OVR Engine (`0x141E640A0`) & DNA Solver**: `+1 OVR`, `-1 OVR`, `Target OVR (40-99)`, and `Squad +1 OVR` while preserving each player's natural stat DNA. C++ benchmark evaluates 30,000 OVR calculations in ~2.5 ms.
-- **Surgical Position Lab**: interactive 13-position tactical pitch, isolated `+1/-1 OVR` secondary position solver without shifting primary OVR, `Match Primary OVR`, `Set as Primary`, and `A / B / C` grade editing.
-- **Calibrated Economy Model & Quick Contract Card**: automatic or manual sync for Market Value, Salary, and Konami Release Clause based on primary OVR, age, position, nationality, and secondary versatility (capped at `+7%` market and `+3.15%` salary). Includes a dedicated `Contract & Finances (Quick Edit)` card in the Bio tab.
-- **Live Match Control**: automatic match detection (`Hook 5` auto-arms upon entering a match), live minute/second/period readout, exact clock setter (`MM:SS`), quick shifts (`-10/-5/+5/+10 min`, `44:00`, `89:00`, `Reset Half`, `End Half`), `Read Live` sync button, clock freeze, 6 selective stamina modes, and quick squad prep.
-- **Pack Studio (JSON v13)**: export and import single players or full squads across saves with automatic matching (Exact ID, normalized name, or manual pick), diff preview, and optional economy recalibration.
-- **Global Search (30,000+ Players) & Real-RAM Scouts**: instant full-career search and direct RAM editing for Scouts 1-3 (30 slots each) and Shortlist (100 slots) with zero contract side effects.
-- **Training & Become a Legend (BAL)**: user-club Sub-XP multiplier (`1x` to `Instant`) and BAL 21 Focus Points cap unlock (up to 99, with optional lock).
-- **Studio Pro UX**: native dark mode, Per-Monitor DPI scaling, hexagonal attribute radar, live `PT-BR / EN` language switch, currency selector (`EUR / BRL / USD / GBP`), 7 selectable fonts, Command Palette (`Ctrl+K`), navigation history (`Alt+Left`), and 10-level `Undo` (`Ctrl+Z`).
+- **8 views and 5 player subtabs**: `Overview`, `My Squad`, `Finances`, `Current Player` (`Bio & Contract`, `Attributes`, `Position Lab`, `Style & Skills`, `Team Role`), `Search Player (30k+)`, `Scouts & Shortlist`, `Live Match` and `Training & BAL`.
+- **Exact Konami OVR engine and DNA solver**: `+1 OVR`, `-1 OVR` and `Target OVR (40-99)` while preserving each player's stat DNA. A benchmark of 30,000 calculations takes about 2.5 ms.
+- **Position Lab**: 13-position tactical pitch, isolated `+1/-1` on secondary positions without moving the primary one, `Match`, `Primary` and `A / B / C` grades.
+- **Calibrated economy model**: market value, salary and Konami release clause synced with OVR, age, position, nationality and versatility, plus a quick contract card.
+- **Form arrow and blinking arrow**: the 5 form arrows and the independent blinking-arrow flag (bit 7 of byte `0x146`), with an animated pulse in tables and a description based on Konami's official manual.
+- **Batch squad tools**: pick by filter or by ticking, then recalibrate economy, `+1 OVR (DNA)`, stamina, heal, contract and arrow on the ticked players. Before value-changing batches the app saves a JSON squad backup in `Documents/PES 2021 Workbench/Packs/Backups`.
+- **Skill presets**: 10 on-pitch roles (poacher, dribbling winger, playmaker, deep-lying playmaker, centre-back, goalkeeper and more) respecting the native cap of 10 skills.
+- **Edit history**: a global timeline with undo to any point, besides per-player `Ctrl+Z`.
+- **Scouts & Shortlist**: cards for the 4 lists with stats, filters, batch move, copy and remove, list-level undo (12 steps), JSON export and import matched by ID and name, and direct tagging from Search and from the player editor.
+- **Live Match**: automatic detection, live minute and period, exact clock, quick shifts, clock freeze and 6 selective stamina modes.
+- **Pack Studio (JSON v13)**: export and import players and squads across saves with matching by ID, name or manual pick, diff preview and batch rollback.
+- **Training & BAL**: user-club Sub-XP multiplier and BAL Focus Points unlock.
+
+### Visual identity and interface
+
+- **Brand**: the Lettuce Live Editor name and lettuce logo are the same in every theme, in the executable icon and in the title bar.
+- **Two colour themes**: `Lettuce` (forest green, default) and `Blue` (navy). Switching is live, in `Settings`, and persisted.
+- **Settings**: always on top, UI scale (90% to 150%), 6 accent colours, remembered window size and position.
+- **Own vector icons**, Per-Monitor DPI, hexagonal radar, `PT-BR / EN`, currency `EUR / BRL / USD / GBP`, 7 fonts, Command Palette (`Ctrl+K`) and navigation history (`Alt+Left`).
 
 ---
 
@@ -69,17 +93,18 @@ No Cheat Engine or external runtimes required. Just launch the game and run `PES
 Requer `clang++` (LLVM-MinGW UCRT x86_64) e Python 3 para gerar `native/src/data/game_data.hpp`:
 
 ```powershell
-cd native
-powershell -ExecutionPolicy Bypass -File .\build.ps1
+powershell -ExecutionPolicy Bypass -File native\build.ps1
 ```
 
 Saida: `dist/PES 2021 Workbench Native.exe`.
 
-Testes unitarios da engine C++ (OVR solver, Position Lab, parser monetario, UTF-8 folding, Team Roles e Economy Model):
+O logo e o icone sao gerados por um script (`native/assets/make_logo.ps1`, GDI+) que escreve `native/assets/app_icon_lettuce.ico` e `native/src/ui/logo_data.inc`.
+
+Testes unitarios da engine C++ (OVR solver, Position Lab, parser monetario, UTF-8 folding, Team Roles, presets de habilidades e Economy Model):
 
 ```powershell
 cd native
-clang++ -std=c++20 -O2 -DUNICODE -D_UNICODE -Isrc -Ivendor/nlohmann tests/test_engine.cpp src/engine/ovr_engine.cpp src/engine/pes_engine.cpp src/engine/hooks.cpp src/engine/win32_mem.cpp -lpsapi -o tests/test_engine.exe
+clang++ -std=c++20 -O2 -DUNICODE -D_UNICODE -Isrc -Ithird_party/json tests/test_engine.cpp src/engine/ovr_engine.cpp src/engine/pes_engine.cpp src/engine/hooks.cpp src/engine/win32_mem.cpp -lole32 -lshell32 -luser32 -o tests/test_engine.exe
 .\tests\test_engine.exe
 ```
 

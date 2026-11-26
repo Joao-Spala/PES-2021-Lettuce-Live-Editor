@@ -16,7 +16,7 @@ struct AppSettings {
     bool sidebar_collapsed = false;
     int theme_idx = 1;      // 0 = Estudio (azul), 1 = Alface (Lettuce)
     int ui_scale_idx = 1;   // indice em kUiScales (90%, 100%, 115%, 130%, 150%)
-    int accent_idx = 0;     // 0=Cobalto, 1=Rubro, 2=Esmeralda, 3=Ouro, 4=Ciano
+    int accent_idx = 5;     // 0=Cobalto, 1=Rubro, 2=Esmeralda, 3=Ouro, 4=Ciano, 5=Alface
     bool topmost = false;   // Always-on-Top
     int win_x = 0, win_y = 0, win_w = 0, win_h = 0; // geometria restaurada (0 = padrao)
     bool win_max = false;
@@ -65,6 +65,7 @@ namespace col {
     inline constexpr ImVec4 Cyan       = ImVec4(0.024f, 0.714f, 0.831f, 1.0f); // #06b6d4 (--cyan)
     inline constexpr ImVec4 Orange     = ImVec4(0.984f, 0.573f, 0.235f, 1.0f); // #fb923c
     inline constexpr ImVec4 Yellow     = ImVec4(0.980f, 0.800f, 0.082f, 1.0f); // #facc15
+    inline constexpr ImVec4 Sky        = ImVec4(0.490f, 0.780f, 0.980f, 1.0f); // azul-celeste fixo (OVR 80+, defensores, grau C)
 
     // Derivadas do tema visual (preenchidas por apply_visual_theme)
     inline ImVec4 PopupBg       = ImVec4(0.059f, 0.086f, 0.141f, 0.98f);
@@ -87,7 +88,6 @@ void apply_studio_theme(float dpi_scale = 1.0f);
 // Tema visual (paleta + marca). Chame antes de criar a janela e sempre que o usuario trocar o tema.
 void apply_visual_theme(int idx);
 int current_visual_theme();
-bool brand_is_lettuce();
 const char* brand_title();            // "Lettuce Live Editor" ou "PES 2021 Workbench"
 const char* brand_tag();              // etiqueta ao lado do titulo
 const char* theme_name(int idx, bool en);

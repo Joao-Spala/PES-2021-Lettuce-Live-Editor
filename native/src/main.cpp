@@ -171,10 +171,48 @@ COLORREF to_colorref(const ImVec4& c) {
 }
 
 // A borda DWM acompanha a paleta do tema ativo (nome e icone sao sempre os do Lettuce)
-void apply_window_identity(HWND hwnd, HINSTANCE) {
+void apply_window_identity(HWND hwnd) {
     COLORREF border_col = to_colorref(pes::ui::col::Border);
     DwmSetWindowAttribute(hwnd, 34, &border_col, sizeof(border_col));
 }
+
+#include "ui/logo_data.inc"
+
+ID3D11ShaderResourceView* g_logo_srv = nullptr;
+HBRUSH g_bg_brush = nullptr;
+
+void create_logo_texture() {
+    if (!g_pd3dDevice || !g_pd3dDeviceContext) return;
+    D3D11_TEXTURE2D_DESC td{};
+    td.Width = kLogoSize;
+    td.Height = kLogoSize;
+    td.MipLevels = 0; // cadeia completa de mipmaps (o logo aparece em 20 a 60 px)
+    td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    td.SampleDesc.Count = 1;
+    td.Usage = D3D11_USAGE_DEFAULT;
+    td.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    td.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+    ID3D11Texture2D* tex = nullptr;
+    if (FAILED(g_pd3dDevice->CreateTexture2D(&td, nullptr, &tex)) || !tex) return;
+    g_pd3dDeviceContext->UpdateSubresource(tex, 0, nullptr, kLogoRgba, kLogoSize * 4, 0);
+    D3D11_SHADER_RESOURCE_VIEW_DESC sd{};
+    sd.Format = td.Format;
+    sd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    sd.Texture2D.MipLevels = static_cast<UINT>(-1);
+    if (SUCCEEDED(g_pd3dDevice->CreateShaderResourceView(tex, &sd, &g_logo_srv)) && g_logo_srv) {
+        g_pd3dDeviceContext->GenerateMips(g_logo_srv);
+        pes::ui::set_logo_texture(reinterpret_cast<ImTextureID>(g_logo_srv));
+    }
+    tex->Release();
+}
+
+void release_logo_texture() {
+    pes::ui::set_logo_texture(static_cast<ImTextureID>(0));
+    if (g_logo_srv) { g_logo_srv->Release(); g_logo_srv = nullptr; }
+}
+
+bool g_dpi_changed = false;
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
@@ -290,6 +328,18 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if ((wParam & 0xfff0) == SC_KEYMENU) return 0; // disable Alt menu beep
             break;
 
+        case WM_DPICHANGED: {
+            // Janela arrastada para um monitor com outra escala: aplica o retangulo sugerido e reconstroi fontes e estilo
+            const RECT* sugg = reinterpret_cast<const RECT*>(lParam);
+            if (sugg) {
+                SetWindowPos(hWnd, nullptr, sugg->left, sugg->top, sugg->right - sugg->left, sugg->bottom - sugg->top, SWP_NOZORDER | SWP_NOACTIVATE);
+            }
+            g_dpi_changed = true;
+            g_dirty_frames = 6;
+            PostMessageW(hWnd, kWmStatusUpdated, 0, 0);
+            return 0;
+        }
+
         case WM_CLOSE:
 #ifndef PES_QA_DUMP
             save_window_state(hWnd);
@@ -359,7 +409,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     wc.hIcon = hIconBig ? hIconBig : LoadIconW(nullptr, IDI_APPLICATION);
     wc.hIconSm = hIconSmall ? hIconSmall : wc.hIcon;
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    wc.hbrBackground = CreateSolidBrush(RGB(static_cast<BYTE>(pes::ui::col::BgCanvas.x * 255.0f + 0.5f), static_cast<BYTE>(pes::ui::col::BgCanvas.y * 255.0f + 0.5f), static_cast<BYTE>(pes::ui::col::BgCanvas.z * 255.0f + 0.5f)));
+    g_bg_brush = CreateSolidBrush(RGB(static_cast<BYTE>(pes::ui::col::BgCanvas.x * 255.0f + 0.5f), static_cast<BYTE>(pes::ui::col::BgCanvas.y * 255.0f + 0.5f), static_cast<BYTE>(pes::ui::col::BgCanvas.z * 255.0f + 0.5f)));
+    wc.hbrBackground = g_bg_brush;
     wc.lpszClassName = kWndClass;
     RegisterClassExW(&wc);
 
@@ -459,6 +510,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
 
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+    create_logo_texture();
 
     // 4. Initialize engine & crash-safe teardown hooks
     pes::PESEngine engine;
@@ -594,6 +646,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
         }
         g_app_ptr = nullptr;
         g_engine_ptr = nullptr;
+        release_logo_texture();
         ImGui_ImplDX11_Shutdown();
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
@@ -645,7 +698,23 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
             CreateRenderTarget();
         }
 
-        if (app.take_theme_rebuild()) {
+        const bool dpi_moved = g_dpi_changed;
+        g_dpi_changed = false;
+        if (dpi_moved) {
+            dpi = ImGui_ImplWin32_GetDpiScaleForHwnd(hwnd);
+            if (dpi < 0.75f || dpi > 3.0f) dpi = 1.0f;
+            g_dpi_scale = dpi;
+        }
+        if (app.take_theme_rebuild() || dpi_moved) {
+            // A paleta so muda aqui, entre quadros: nenhum quadro mistura cores velhas e novas
+            pes::ui::apply_visual_theme(app.settings().theme_idx);
+            pes::ui::set_accent_theme(app.settings().accent_idx);
+            if (g_bg_brush) {
+                HBRUSH nb = CreateSolidBrush(to_colorref(pes::ui::col::BgCanvas));
+                SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, reinterpret_cast<LONG_PTR>(nb));
+                DeleteObject(g_bg_brush);
+                g_bg_brush = nb;
+            }
             // Escala da UI ou cor de destaque mudou: reconstroi atlas de fontes e estilo entre frames
             const float new_dpi = dpi * pes::ui::kUiScales[std::clamp(app.settings().ui_scale_idx, 0, 4)];
             ImGui_ImplDX11_InvalidateDeviceObjects();
@@ -654,7 +723,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
             pes::ui::build_font_bank(fonts, new_dpi);
             pes::ui::apply_studio_theme(new_dpi);
             app.set_window_handle(hwnd, new_dpi);
-            apply_window_identity(hwnd, hInstance);
+            apply_window_identity(hwnd);
             g_dirty_frames = 6;
         }
 
@@ -680,6 +749,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     engine.shutdown();
     g_engine_ptr = nullptr;
 
+    release_logo_texture();
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();

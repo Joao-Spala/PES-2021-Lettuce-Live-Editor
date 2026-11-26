@@ -178,7 +178,7 @@ std::string pick_open_json_dialog(HWND owner, const std::string& init_dir) {
     OPENFILENAMEW ofn{};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = owner;
-    ofn.lpstrFilter = L"PES Workbench Pack (*.json)\0*.json\0All Files (*.*)\0*.*\0";
+    ofn.lpstrFilter = L"Lettuce Pack (*.json)\0*.json\0All Files (*.*)\0*.*\0";
     ofn.lpstrFile = buf;
     ofn.nMaxFile = static_cast<DWORD>(std::size(buf));
     ofn.lpstrInitialDir = wdir.empty() ? nullptr : wdir.c_str();
@@ -199,7 +199,7 @@ std::string pick_save_json_dialog(HWND owner, const std::string& init_dir, const
     OPENFILENAMEW ofn{};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = owner;
-    ofn.lpstrFilter = L"PES Workbench Pack (*.json)\0*.json\0All Files (*.*)\0*.*\0";
+    ofn.lpstrFilter = L"Lettuce Pack (*.json)\0*.json\0All Files (*.*)\0*.*\0";
     ofn.lpstrDefExt = L"json";
     ofn.lpstrFile = buf;
     ofn.nMaxFile = static_cast<DWORD>(std::size(buf));
@@ -808,7 +808,7 @@ void WorkbenchApp::render_titlebar(const FontBank& fonts, float tb_h) {
 
     // Left: Emblem + App Title + NATIVE badge
     float emb_sz = std::round(22.0f * dpi_scale_);
-    float emb_y = wp.y + (tb_h - emb_sz) * 0.5f;
+    float emb_y = std::round(wp.y + (tb_h - emb_sz) * 0.5f);
     draw_brand_emblem(ImVec2(wp.x + 12.0f, emb_y), emb_sz, bold);
 
     float tx = wp.x + 12.0f + emb_sz + 10.0f;
@@ -1160,9 +1160,19 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
     ImGui::SetNextWindowSizeConstraints(ImVec2(300.0f * dpi_scale_, 0.0f), ImVec2(420.0f * dpi_scale_, 600.0f * dpi_scale_));
     if (!ImGui::BeginPopup("##prefs_popup")) return;
 
-    ImGui::PushFont(bold);
-    ImGui::TextColored(col::Text, "%s", T(L, "Ajustes do aplicativo", "Application settings"));
-    ImGui::PopFont();
+    {
+        const float es = std::round(30.0f * dpi_scale_);
+        ImVec2 ep = ImGui::GetCursorScreenPos();
+        draw_brand_emblem(ImVec2(std::round(ep.x), std::round(ep.y)), es, bold);
+        ImGui::Dummy(ImVec2(es, es));
+        ImGui::SameLine(0, 10.0f * dpi_scale_);
+        ImGui::BeginGroup();
+        ImGui::PushFont(bold);
+        ImGui::TextColored(col::Text, "%s", brand_title());
+        ImGui::PopFont();
+        ImGui::TextColored(col::Muted, "%s", T(L, "Ajustes do aplicativo", "Application settings"));
+        ImGui::EndGroup();
+    }
     ImGui::Spacing();
 
     // Tema visual: cartoes de pre-visualizacao clicaveis
@@ -1193,11 +1203,11 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
             ImVec2 tsz = ImGui::CalcTextSize(tn);
             tdl->AddText(ImVec2(tp.x + 14.0f * dpi_scale_, tp.y + th - 8.0f * dpi_scale_ - tsz.y - 2.0f), ImGui::GetColorU32(ImVec4(0.93f, 0.96f, 0.92f, 1.0f)), tn);
             tdl->AddRect(tp, ImVec2(tp.x + tw, tp.y + th), tact ? ImGui::GetColorU32(pv[3]) : ImGui::GetColorU32(thov ? col::BorderLit : col::Border), trnd, 0, tact ? 2.0f : 1.0f);
+            if (tact) draw_icon(tdl, Icon::Check, ImVec2(tp.x + tw - 15.0f * dpi_scale_, tp.y + 15.0f * dpi_scale_), 14.0f * dpi_scale_, ImGui::GetColorU32(pv[3]));
             if (tclick && !tact) {
+                // Mantem a cor de destaque escolhida pelo usuario; so troca se ainda era o padrao do tema anterior
+                if (settings_.accent_idx == theme_default_accent(settings_.theme_idx)) settings_.accent_idx = theme_default_accent(i);
                 settings_.theme_idx = i;
-                settings_.accent_idx = theme_default_accent(i);
-                apply_visual_theme(i);
-                set_accent_theme(settings_.accent_idx);
                 save_settings(settings_);
                 theme_rebuild_ = true;
             }
@@ -1216,7 +1226,7 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
         save_settings(settings_);
     }
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 330.0f * dpi_scale_);
-    wrapped_colored(col::Muted, "%s", T(L, "Mantém o Workbench visível sobre o jogo em modo janela ou sem borda.", "Keeps the Workbench visible over the game in windowed or borderless mode."));
+    wrapped_colored(col::Muted, "%s", T(L, "Mantém o Lettuce Live Editor visível sobre o jogo em modo janela ou sem borda.", "Keeps Lettuce Live Editor visible over the game in windowed or borderless mode."));
     ImGui::PopTextWrapPos();
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
 
@@ -1243,16 +1253,22 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
 
     // Accent colour
     ImGui::TextColored(col::Subtext, "%s", T(L, "Cor de destaque", "Accent colour"));
+    const float sw_w = std::max(26.0f * dpi_scale_, (ImGui::GetContentRegionAvail().x - gap * static_cast<float>(kAccentCount - 1)) / static_cast<float>(kAccentCount));
     for (int i = 0; i < kAccentCount; ++i) {
         if (i > 0) ImGui::SameLine(0, gap);
         char lbl[32];
-        std::snprintf(lbl, sizeof(lbl), "%s##acc%d", accent_name(i, L == Lang::EN), i);
+        std::snprintf(lbl, sizeof(lbl), "##acc%d", i);
         bool act = (settings_.accent_idx == i);
         ImVec4 sw = accent_swatch(i);
-        if (styled_button(lbl, ImVec4(sw.x, sw.y, sw.z, act ? 0.85f : 0.28f), act ? col::Text : sw, col::Text, ImVec2(0, bh)) && !act) {
+        const bool sw_click = styled_button(lbl, ImVec4(sw.x, sw.y, sw.z, act ? 1.0f : 0.55f), act ? col::Text : sw, col::Text, ImVec2(sw_w, bh));
+        show_tip_if_hovered(accent_name(i, L == Lang::EN), T(L, "Cor de destaque", "Accent colour"));
+        if (act) {
+            ImVec2 a0 = ImGui::GetItemRectMin(), a1 = ImGui::GetItemRectMax();
+            draw_icon(ImGui::GetWindowDrawList(), Icon::Check, ImVec2((a0.x + a1.x) * 0.5f, (a0.y + a1.y) * 0.5f), bh * 0.5f, ImGui::GetColorU32(ImVec4(1, 1, 1, 1)));
+        }
+        if (sw_click && !act) {
             settings_.accent_idx = i;
             save_settings(settings_);
-            set_accent_theme(i);
             theme_rebuild_ = true;
         }
     }
@@ -1268,10 +1284,10 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
 
     // Page header
-    page_title(T(L, "Visão Geral do Workbench", "Workbench Overview"), fonts, bold);
+    page_title(T(L, "Visão Geral", "Overview"), fonts, bold);
     ImGui::SameLine(0, 12);
     if (st_.in_match) draw_pill(T(L, "● EM PARTIDA", "● IN MATCH"), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.18f), ImVec4(0.063f, 0.725f, 0.506f, 0.55f));
-    else draw_pill(T(L, "● Fora de Partida", "● Not in Match"), col::Subtext, ImVec4(0.58f, 0.64f, 0.72f, 0.12f), col::Border);
+    else draw_pill(T(L, "● Fora de Partida", "● Not in Match"), col::Subtext, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f), col::Border);
 
     wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.", "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
     ImGui::Spacing();
@@ -1591,6 +1607,12 @@ const char* journal_action_label(const std::string& code, bool en) {
         {"batch_arrow", "Lote: seta azul piscando", "Batch: blinking blue arrow"}, {"batch_heal", "Lote: curar lesões", "Batch: heal injuries"},
         {"batch_contract", "Lote: contrato +5 anos", "Batch: contract +5 years"},
         {"squad_econ_recal", "Recalibrar economia (elenco)", "Recalibrate economy (squad)"},
+        {"squad_stamina", "Fôlego 100%", "Stamina 100%"}, {"squad_arrow", "Seta azul piscando", "Blinking blue arrow"},
+        {"squad_heal", "Curar lesões", "Heal injuries"}, {"squad_contract", "Contrato +5 anos", "Contract +5 years"},
+        {"bio", "Bio e contrato", "Bio and contract"}, {"import_json", "Importar JSON", "Import JSON"},
+        {"pos_grade", "Grau de posição", "Position grade"}, {"pos_ovr", "OVR de posição", "Position OVR"},
+        {"reg_pos", "Posição principal", "Primary position"}, {"stat", "Atributo", "Attribute"},
+        {"stats_batch", "Atributos em lote", "Attributes batch"}, {"team_role", "Função no time", "Team role"},
     };
     for (const auto& m : k) if (code == m.c) return en ? m.en : m.pt;
     return code.c_str();
@@ -2571,7 +2593,7 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
         : std::string(T(L, "Sem Multa", "No Clause"));
     flow_next(ImGui::CalcTextSize(rf_pill.c_str()).x + 24.0f * dpi_scale_, 14.0f * dpi_scale_);
     draw_pill(rf_pill.c_str(), bio_has_rf_ ? col::GoldSoft : col::Muted,
-              bio_has_rf_ ? ImVec4(0.961f, 0.620f, 0.043f, 0.14f) : ImVec4(0.58f, 0.64f, 0.72f, 0.12f),
+              bio_has_rf_ ? ImVec4(0.961f, 0.620f, 0.043f, 0.14f) : ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f),
               bio_has_rf_ ? ImVec4(0.961f, 0.620f, 0.043f, 0.45f) : col::Border);
 
     const char* aff_lbl = T(L, "Afinidade:", "Affection:");
@@ -3252,7 +3274,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                         } else toast_code(r.code, true);
                     }
                 };
-                grade_btn(0, "C", col::Accent, ImVec4(1, 1, 1, 1));
+                grade_btn(0, "C", col::Sky, ImVec4(0.03f, 0.12f, 0.20f, 1.0f));
                 ImGui::SameLine(0, 3.0f * dpi_scale_);
                 grade_btn(1, "B", col::Gold, ImVec4(0.15f, 0.08f, 0.0f, 1.0f));
                 ImGui::SameLine(0, 3.0f * dpi_scale_);
@@ -3587,7 +3609,7 @@ void WorkbenchApp::render_ptab_role(const FontBank& fonts) {
                       col::GoldSoft, ImVec4(0.961f, 0.620f, 0.043f, 0.20f), ImVec4(0.961f, 0.620f, 0.043f, 0.55f));
         } else {
             draw_pill(T(L, "Sem bônus de capitão", "No captain bonus"),
-                      col::Subtext, ImVec4(0.58f, 0.64f, 0.72f, 0.12f), col::Border);
+                      col::Subtext, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f), col::Border);
         }
         auto tag_pill = [&](uint8_t bit, const char* pt, const char* en) {
             if (cur_role.tag_mask & bit) {
@@ -3860,7 +3882,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
     Lang L = settings_.lang;
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
     double now = ImGui::GetTime();
-    const int exp_limit = std::max(2019, squad_.cur_year) + 1;
+    const int exp_limit = std::max(2019, scouts_.cur_year) + 1;
 
     page_title(T(L, "Olheiros & Favoritos", "Scouts & Shortlist"), fonts, bold);
     wrapped_colored(col::Subtext, "%s", T(L, "Observe atletas nas 3 listas de olheiros e nos Favoritos. Grava só o ponteiro nativo da Master Liga, sem mexer em contrato ou cláusula.",
@@ -4237,7 +4259,7 @@ void WorkbenchApp::render_view_match(const FontBank& fonts) {
     page_title(T(L, "Partida Ao Vivo", "Live Match"), fonts, bold);
     ImGui::SameLine(0, 12.0f * dpi_scale_);
     if (st_.in_match) draw_pill(T(L, "● EM PARTIDA", "● IN MATCH"), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.18f), ImVec4(0.063f, 0.725f, 0.506f, 0.55f));
-    else draw_pill(T(L, "● Fora de Partida", "● Not in Match"), col::Subtext, ImVec4(0.58f, 0.64f, 0.72f, 0.12f), col::Border);
+    else draw_pill(T(L, "● Fora de Partida", "● Not in Match"), col::Subtext, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f), col::Border);
     wrapped_colored(col::Subtext, "%s", T(L, "Controle exato do cronômetro, fôlego seletivo por time e preparo rápido do elenco em tempo real.",
                                                 "Exact match clock control, selective per-team stamina, and live squad prep in real time."));
     ImGui::Spacing();
@@ -4250,7 +4272,7 @@ void WorkbenchApp::render_view_match(const FontBank& fonts) {
 
     ImGui::SameLine(0, 10.0f * dpi_scale_);
     if (!st_.in_match) {
-        draw_pill(T(L, "FORA DE PARTIDA", "NOT IN MATCH"), col::Muted, ImVec4(0.58f, 0.64f, 0.72f, 0.12f), col::Border, true);
+        draw_pill(T(L, "FORA DE PARTIDA", "NOT IN MATCH"), col::Muted, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f), col::Border, true);
     } else {
         if (st_.match_clock_valid) {
             char clk_txt[48];
@@ -5000,7 +5022,7 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
                 ImGui::SameLine(0, 6.0f * dpi_scale_);
                 draw_pill(s2, col::GoldSoft, ImVec4(0.961f, 0.620f, 0.043f, 0.16f), ImVec4(0.961f, 0.620f, 0.043f, 0.48f), true);
                 ImGui::SameLine(0, 6.0f * dpi_scale_);
-                draw_pill(s3, col::Subtext, ImVec4(0.58f, 0.64f, 0.72f, 0.12f), col::Border, true);
+                draw_pill(s3, col::Subtext, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f), col::Border, true);
 
                 const char* m_all = T(L, "Marcar Encontrados##pka", "Select Matched##pka");
                 const char* m_non = T(L, "Desmarcar##pkn", "Clear##pkn");
@@ -5061,7 +5083,7 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
                                 break;
                             }
                         } else {
-                            draw_pill(T(L, "Fora", "Miss"), col::Muted, ImVec4(0.58f, 0.64f, 0.72f, 0.10f), col::Border, true);
+                            draw_pill(T(L, "Fora", "Miss"), col::Muted, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.10f), col::Border, true);
                         }
 
                         ImGui::TableSetColumnIndex(2);

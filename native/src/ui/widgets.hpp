@@ -48,6 +48,8 @@ bool toggle_switch(const char* id, const char* label, bool* v);
 bool draw_titlebar_win_btn(const char* id, int kind, bool is_maximized, float w = 44.0f, float h = 38.0f);
 
 // Vector Brand Emblem (cobalt-to-cyan gradient matching Python .brand-icon)
+// Textura do logo (RGBA 128, mipmaps) criada pelo main; sem ela o emblema vetorial e usado
+void set_logo_texture(ImTextureID id);
 void draw_brand_emblem(ImVec2 pos, float size, ImFont* bold_font);
 
 // Elevated Studio Card container (multi-layer drop shadow, vertical gradient, specular top highlight)

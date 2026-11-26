@@ -1995,6 +1995,21 @@ ActionResult PESEngine::apply_skill_preset(int preset_id, const std::vector<uint
     for (uint64_t p : list) {
         uint8_t cur[data::PLAYER_RECORD_SIZE]{};
         if (!mem_.read_into(p, cur, sizeof(cur)) || !is_sane_player_buf(cur)) continue;
+        // Limite nativo do jogo: 10 habilidades por atleta (nao ultrapassa em modo "adicionar")
+        int have = 0;
+        for (const auto& sk : data::PLAYER_SKILLS) {
+            if (get_bits_buf(cur, sizeof(cur), sk.offset, sk.bit, 1) != 0 && !replace) ++have;
+        }
+        std::vector<const data::SkillDef*> to_add;
+        for (const auto* sk : wanted) {
+            bool on = get_bits_buf(cur, sizeof(cur), sk->offset, sk->bit, 1) != 0 && !replace;
+            if (on) continue;
+            if (have >= 10) break;
+            to_add.push_back(sk);
+            ++have;
+        }
+        if (!replace && to_add.empty()) continue; // ja tem as habilidades (ou esta no limite): nada a gravar
+
         BatchUndoItem bi;
         bi.addr = p;
         std::memcpy(bi.bytes.data(), cur, data::PLAYER_RECORD_SIZE);
@@ -2005,18 +2020,7 @@ ActionResult PESEngine::apply_skill_preset(int preset_id, const std::vector<uint
         if (replace) {
             for (const auto& sk : data::PLAYER_SKILLS) mem_.set_bits(p + sk.offset, sk.bit, 1, 0u);
         }
-        // Limite nativo do jogo: 10 habilidades por atleta (nao ultrapassa em modo "adicionar")
-        int have = 0;
-        for (const auto& sk : data::PLAYER_SKILLS) {
-            if (get_bits_buf(cur, sizeof(cur), sk.offset, sk.bit, 1) != 0 && !replace) ++have;
-        }
-        for (const auto* sk : wanted) {
-            bool on = get_bits_buf(cur, sizeof(cur), sk->offset, sk->bit, 1) != 0 && !replace;
-            if (on) continue;
-            if (have >= 10) break;
-            mem_.set_bits(p + sk->offset, sk->bit, 1, 1u);
-            ++have;
-        }
+        for (const auto* sk : to_add) mem_.set_bits(p + sk->offset, sk->bit, 1, 1u);
         ++changed;
     }
     if (changed > 0) {
@@ -2026,7 +2030,7 @@ ActionResult PESEngine::apply_skill_preset(int preset_id, const std::vector<uint
         }
         wage_cache_time_ = 0.0;
     }
-    return {changed > 0, changed > 0 ? "ok" : "read_failed", changed, 0, !backup_path.empty(), backup_path};
+    return {changed > 0, changed > 0 ? "ok" : "preset_noop", changed, 0, !backup_path.empty(), backup_path};
 }
 
 SearchResult PESEngine::search_players(std::string_view query, int pos_filter, int min_ovr, int max_age, bool free_only, int limit) {
@@ -2121,6 +2125,10 @@ ScoutListsResult PESEngine::get_scout_lists() {
 
     ScoutListsResult res;
     res.ok = true;
+    {
+        int cy = static_cast<int>(mem_.read_u16(career + 0x01642A24ULL));
+        res.cur_year = (cy >= 2019 && cy <= 2150) ? cy : 2026;
+    }
     for (const auto& sl : data::SCOUT_LISTS) {
         ScoutListState st;
         st.slot = sl.slot;

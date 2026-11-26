@@ -247,6 +247,7 @@ struct ScoutListState {
 struct ScoutListsResult {
     bool ok = false;
     std::string code;
+    int cur_year = 2026;
     std::vector<ScoutListState> lists;
 };
 

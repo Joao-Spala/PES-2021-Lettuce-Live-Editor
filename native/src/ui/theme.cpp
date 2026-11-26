@@ -49,8 +49,6 @@ struct Palette {
     int default_accent;
     const char* name_pt;
     const char* name_en;
-    const char* brand;
-    const char* tag;
 };
 
 const Palette kPalettes[kThemeCount] = {
@@ -63,17 +61,17 @@ const Palette kPalettes[kThemeCount] = {
      ImVec4(0.118f, 0.176f, 0.282f, 0.55f), ImVec4(0.075f, 0.114f, 0.192f, 0.98f),
      ImVec4(0.133f, 0.196f, 0.322f, 1), ImVec4(0.055f, 0.082f, 0.141f, 1), ImVec4(0.118f, 0.188f, 0.322f, 1), ImVec4(0.059f, 0.090f, 0.153f, 1),
      ImVec4(0.145f, 0.388f, 0.922f, 1), ImVec4(0.063f, 0.725f, 0.506f, 1), ImVec4(0.016f, 0.027f, 0.055f, 0.80f),
-     0, "Azul", "Blue", "Lettuce Live Editor", "PES 2021"},
+     0, "Azul", "Blue"},
     // 1: Alface (verde-floresta com folhas de alface, o visual Lettuce Live Editor)
     {ImVec4(0.039f, 0.078f, 0.047f, 1), ImVec4(0.024f, 0.051f, 0.031f, 1), ImVec4(0.043f, 0.086f, 0.055f, 1), ImVec4(0.043f, 0.086f, 0.055f, 1),
      ImVec4(0.059f, 0.114f, 0.075f, 1), ImVec4(0.078f, 0.157f, 0.102f, 1), ImVec4(0.047f, 0.094f, 0.063f, 1), ImVec4(0.071f, 0.145f, 0.102f, 1),
      ImVec4(0.094f, 0.192f, 0.137f, 1), ImVec4(0.031f, 0.071f, 0.043f, 1),
-     ImVec4(0.118f, 0.227f, 0.153f, 1), ImVec4(0.176f, 0.353f, 0.235f, 1), ImVec4(0.933f, 0.969f, 0.910f, 1), ImVec4(0.643f, 0.733f, 0.627f, 1), ImVec4(0.424f, 0.533f, 0.439f, 1),
-     ImVec4(0.043f, 0.090f, 0.055f, 0.98f), ImVec4(0.160f, 0.300f, 0.190f, 0.90f), ImVec4(0.230f, 0.420f, 0.270f, 1.0f), ImVec4(0.055f, 0.106f, 0.071f, 1.0f),
+     ImVec4(0.118f, 0.227f, 0.153f, 1), ImVec4(0.176f, 0.353f, 0.235f, 1), ImVec4(0.933f, 0.969f, 0.910f, 1), ImVec4(0.643f, 0.733f, 0.627f, 1), ImVec4(0.500f, 0.610f, 0.510f, 1),
+     ImVec4(0.043f, 0.090f, 0.055f, 0.98f), ImVec4(0.160f, 0.300f, 0.190f, 0.90f), ImVec4(0.230f, 0.420f, 0.270f, 1.0f), ImVec4(0.078f, 0.145f, 0.098f, 1.0f),
      ImVec4(0.118f, 0.227f, 0.153f, 0.55f), ImVec4(0.075f, 0.145f, 0.094f, 0.98f),
      ImVec4(0.133f, 0.275f, 0.169f, 1), ImVec4(0.047f, 0.102f, 0.063f, 1), ImVec4(0.118f, 0.267f, 0.157f, 1), ImVec4(0.043f, 0.098f, 0.059f, 1),
      ImVec4(0.520f, 0.800f, 0.090f, 1), ImVec4(0.120f, 0.720f, 0.450f, 1), ImVec4(0.012f, 0.035f, 0.016f, 0.80f),
-     5, "Alface", "Lettuce", "Lettuce Live Editor", "PES 2021"},
+     5, "Alface", "Lettuce"},
 };
 int g_visual_theme = 1;
 } // namespace
@@ -91,7 +89,6 @@ void apply_visual_theme(int idx) {
     col::GlowA = p.glow_a; col::GlowB = p.glow_b; col::Dim = p.dim;
 }
 int current_visual_theme() { return g_visual_theme; }
-bool brand_is_lettuce() { return true; } // a marca nao muda com o tema de cores
 const char* brand_title() { return "Lettuce Live Editor"; }
 const char* brand_tag() { return "PES 2021"; }
 const char* theme_name(int idx, bool en) {
@@ -103,12 +100,12 @@ int theme_default_accent(int idx) { return kPalettes[std::clamp(idx, 0, kThemeCo
 namespace {
 struct AccentDef { const char* pt; const char* en; ImVec4 main; ImVec4 soft; };
 const AccentDef kAccents[kAccentCount] = {
-    {"Cobalto",   "Cobalt",   ImVec4(0.231f, 0.510f, 0.965f, 1.0f), ImVec4(0.576f, 0.773f, 0.992f, 1.0f)},
-    {"Rubro",     "Crimson",  ImVec4(0.906f, 0.298f, 0.337f, 1.0f), ImVec4(0.988f, 0.647f, 0.667f, 1.0f)},
-    {"Esmeralda", "Emerald",  ImVec4(0.063f, 0.725f, 0.506f, 1.0f), ImVec4(0.431f, 0.906f, 0.718f, 1.0f)},
-    {"Ouro",      "Gold",     ImVec4(0.918f, 0.675f, 0.082f, 1.0f), ImVec4(0.992f, 0.878f, 0.455f, 1.0f)},
-    {"Ciano",     "Cyan",     ImVec4(0.086f, 0.710f, 0.831f, 1.0f), ImVec4(0.500f, 0.898f, 0.965f, 1.0f)},
-    {"Alface",    "Lettuce",  ImVec4(0.310f, 0.561f, 0.078f, 1.0f), ImVec4(0.639f, 0.902f, 0.208f, 1.0f)},
+    {"Cobalto",   "Cobalt",   ImVec4(0.170f, 0.400f, 0.900f, 1.0f), ImVec4(0.576f, 0.773f, 0.992f, 1.0f)},
+    {"Rubro",     "Crimson",  ImVec4(0.780f, 0.170f, 0.220f, 1.0f), ImVec4(0.988f, 0.647f, 0.667f, 1.0f)},
+    {"Esmeralda", "Emerald",  ImVec4(0.030f, 0.480f, 0.330f, 1.0f), ImVec4(0.431f, 0.906f, 0.718f, 1.0f)},
+    {"Ouro",      "Gold",     ImVec4(0.620f, 0.400f, 0.020f, 1.0f), ImVec4(0.992f, 0.878f, 0.455f, 1.0f)},
+    {"Ciano",     "Cyan",     ImVec4(0.030f, 0.480f, 0.620f, 1.0f), ImVec4(0.500f, 0.898f, 0.965f, 1.0f)},
+    {"Alface",    "Lettuce",  ImVec4(0.250f, 0.460f, 0.060f, 1.0f), ImVec4(0.639f, 0.902f, 0.208f, 1.0f)},
 };
 } // namespace
 
@@ -306,7 +303,8 @@ AppSettings load_settings() {
         else if (k == "win_max") s.win_max = (v == "1");
     }
     // Arquivo anterior aos temas: adota tambem a cor de destaque do tema padrao (identidade completa)
-    if (!has_theme) s.accent_idx = theme_default_accent(s.theme_idx);
+    // (so migra quem ainda usava o destaque padrao antigo: uma cor escolhida de proposito e mantida)
+    if (!has_theme && s.accent_idx == 0) s.accent_idx = theme_default_accent(s.theme_idx);
     return s;
 }
 
