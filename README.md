@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="Lettuce Live Editor" width="144" height="144">
+<img src="docs/assets/logo.png" alt="PES 2021 - Lettuce Live Editor" width="144" height="144">
 
-# Lettuce Live Editor
+# PES 2021 - Lettuce Live Editor
 
 **Editor de carreira em tempo real para o eFootball PES 2021**<br>
 **Real-time career editor for eFootball PES 2021**
