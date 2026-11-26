@@ -54,7 +54,7 @@ Não requer Cheat Engine nem runtimes externos. Abra o jogo e execute o `PES 202
 ### Identidade visual e interface
 
 - **Marca:** nome Lettuce Live Editor e logo de alface, o mesmo em todos os temas, no ícone do executável e na barra de título.
-- **Dois temas de cor:** `Alface` (verde-floresta, padrão) e `Azul` (azul-marinho). A troca é ao vivo, em `Ajustes`, e fica salva.
+- **Dois temas de cor:** `Azul` (azul-marinho, padrão, com destaque verde Alface) e `Alface` (verde-floresta). A troca é ao vivo, em `Ajustes`, e fica salva.
 - **Ajustes:** sempre no topo, escala da interface (90% a 150%), 6 cores de destaque, tamanho e posição da janela lembrados.
 - **Extras:** ícones vetoriais próprios, Per-Monitor DPI, radar hexagonal, idioma `PT-BR / EN`, moeda `EUR / BRL / USD / GBP`, 7 fontes, Command Palette (`Ctrl+K`) e histórico de navegação (`Alt+Left`).
 
@@ -93,7 +93,7 @@ No Cheat Engine or external runtimes required. Launch the game and run `PES 2021
 ### Visual identity and interface
 
 - **Brand:** the Lettuce Live Editor name and lettuce logo are the same in every theme, in the executable icon and in the title bar.
-- **Two colour themes:** `Lettuce` (forest green, default) and `Blue` (navy). Switching is live, in `Settings`, and persisted.
+- **Two colour themes:** `Blue` (navy, default, with the Lettuce green accent) and `Lettuce` (forest green). Switching is live, in `Settings`, and persisted.
 - **Settings:** always on top, UI scale (90% to 150%), 6 accent colours, remembered window size and position.
 - **Extras:** own vector icons, Per-Monitor DPI, hexagonal radar, `PT-BR / EN`, currency `EUR / BRL / USD / GBP`, 7 fonts, Command Palette (`Ctrl+K`) and navigation history (`Alt+Left`).
 

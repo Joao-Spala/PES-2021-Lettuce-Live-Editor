@@ -14,7 +14,7 @@ struct AppSettings {
     int font_idx = 0;       // 0=Segoe UI, 1=Bahnschrift, 2=Calibri, 3=Consolas
     int econ_sync_mode = 1; // 0=Off, 1=All, 2=Market+Release, 3=SalaryOnly
     bool sidebar_collapsed = false;
-    int theme_idx = 1;      // 0 = Estudio (azul), 1 = Alface (Lettuce)
+    int theme_idx = 0;      // 0 = Azul (padrao), 1 = Alface (Lettuce)
     int ui_scale_idx = 1;   // indice em kUiScales (90%, 100%, 115%, 130%, 150%)
     int accent_idx = 5;     // 0=Cobalto, 1=Rubro, 2=Esmeralda, 3=Ouro, 4=Ciano, 5=Alface
     bool topmost = false;   // Always-on-Top
