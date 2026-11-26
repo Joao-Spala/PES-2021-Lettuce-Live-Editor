@@ -21,6 +21,7 @@ All notable changes to this project are documented in this file.
 - Batch undo keeps per-player stacks in step, and destructive batches abort if the safety backup cannot be written.
 - Card accent bars follow the corner radius, narrow windows collapse the top bar and hide optional table columns, long descriptions wrap.
 - Settings are written atomically, and logo mipmaps are sampled correctly.
+- Layout shift removed: a hidden settle pass runs before each visible frame, the workspace scrollbar is always reserved, the last-edit strips and batch action rows keep a fixed slot (disabled instead of appearing), and Blue with the Lettuce accent is the default look.
 
 ---
 
