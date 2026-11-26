@@ -727,6 +727,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
             g_dirty_frames = 6;
         }
 
+        // Passe de assentamento: o ImGui calcula larguras de coluna, altura de cards e presenca de barra de rolagem
+        // a partir do quadro anterior. Rodar um quadro oculto antes do visivel faz o layout ja nascer no estado final
+        // (sem o "pulo" de um quadro apos navegar, trocar tema, redimensionar ou receber dados novos).
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+        app.render_frame(fonts);
+        ImGui::EndFrame();
+
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();

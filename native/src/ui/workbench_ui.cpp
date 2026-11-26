@@ -728,8 +728,9 @@ bool WorkbenchApp::render_frame(const FontBank& fonts) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, col::BgCanvas);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(ws_pad_x, ws_pad_y));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0.0f);
+    // Barra de rolagem sempre reservada: a largura util nunca muda quando o conteudo cresce ou encolhe
     ImGui::BeginChild("##MainWorkspace", ImVec2(right_w, std::max(100.0f, body_h - top_h)),
-                      ImGuiChildFlags_AlwaysUseWindowPadding);
+                      ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_AlwaysVerticalScrollbar);
     draw_workspace_ambient_glow(ImGui::GetWindowDrawList(), ImGui::GetWindowPos(), ImGui::GetWindowSize());
 
     // Dual-Workbench hook conflict warning banner
@@ -1778,10 +1779,12 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
         T(L, "Cruza um pack salvo contra o elenco atual ou base global por ID/nome, mostra preview completo e aplica seletivamente.",
              "Matches a saved pack against your current squad or global database by ID/name with full preview before applying."));
     int batch_cnt = engine_.last_batch_undo_count();
-    if (batch_cnt > 0) {
+    {
+        // Sempre presente (desativado sem lote): evita uma nova linha surgindo depois de uma acao em massa
         char blbl[64];
         std::snprintf(blbl, sizeof(blbl), T(L, "Desfazer Lote (%d)###sqbu", "Undo Batch (%d)###sqbu"), batch_cnt);
         flow_next(calc_btn_w(blbl));
+        ImGui::BeginDisabled(batch_cnt <= 0);
         if (btn_red(blbl)) {
             auto r = engine_.undo_last_batch();
             if (r.ok) {
@@ -1793,6 +1796,7 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
                 wake_poller();
             } else toast_code(r.code, true);
         }
+        ImGui::EndDisabled();
     }
 
     ImGui::Spacing();
@@ -1831,11 +1835,11 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
         if (sel_btn(T(L, "Só lesionados##ssel", "Injured only##ssel"), false)) { squad_sel_.clear(); for (const auto& p : squad_.players) if (p.injury > 0) squad_sel_.insert(p.addr); }
 
         ImGui::Spacing();
-        if (nsel == 0) {
-            wrapped_colored(col::Muted, "%s", T(L, "Marque atletas na tabela (caixa à esquerda do OVR) ou use os atalhos acima para liberar as ações em lote.",
-                                                    "Tick players in the table (box left of OVR) or use the shortcuts above to unlock batch actions."));
-        }
-        if (nsel > 0) {
+        // Acoes sempre visiveis (desativadas sem selecao): marcar atletas nao muda a altura do card nem desloca a tabela
+        wrapped_colored(col::Muted, "%s", T(L, "Marque atletas na tabela (caixa à esquerda do OVR) ou use os atalhos acima para liberar as ações em lote.",
+                                                "Tick players in the table (box left of OVR) or use the shortcuts above to unlock batch actions."));
+        ImGui::BeginDisabled(nsel == 0);
+        {
         if (icon_btn_gold(Icon::Coins, T(L, "Recalibrar Economia##selb", "Recalibrate Economy##selb"))) run_squad_cmd_sel("econ_recal");
         show_tip_if_hovered(T(L, "Recalibrar economia da seleção", "Recalibrate selection economy"),
             T(L, "Recalcula mercado, salário e rescisão só dos atletas marcados. Salva um backup JSON do elenco antes.", "Recalculates market, salary and release fee for the ticked players only. Saves a JSON squad backup first."));
@@ -1855,6 +1859,7 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
         flow_next(icon_button_width(T(L, "Aplicar preset à seleção##selb", "Apply preset to selection##selb")), 8.0f * dpi_scale_);
         if (icon_btn_primary(Icon::Check, T(L, "Aplicar preset à seleção##selb", "Apply preset to selection##selb"))) apply_preset_cmd(true);
         }
+        ImGui::EndDisabled();
         end_studio_card();
         ImGui::Spacing();
     }
@@ -2260,15 +2265,24 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
     }
 
     // Compact Persistent Inline Last-Edit Delta Strip (stays visible until dismissed or player changes!)
-    if (last_edit_.active && last_edit_.player_addr == player_.addr) {
+    {
+        const bool le_on = last_edit_.active && last_edit_.player_addr == player_.addr;
+        // Faixa sempre presente com altura fixa: aparecer ou sumir depois de uma edicao nao desloca o resto da pagina
+        const float le_h = std::round(3.0f * (ImGui::GetFrameHeight() + 4.0f * dpi_scale_) + 12.0f * dpi_scale_);
         ImGui::Spacing();
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(col::BgInput.x, col::BgInput.y, col::BgInput.z, 0.92f));
-        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.45f));
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(col::BgInput.x, col::BgInput.y, col::BgInput.z, le_on ? 0.92f : 0.45f));
+        ImGui::PushStyleColor(ImGuiCol_Border, le_on ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.45f) : col::Border);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(11.0f * dpi_scale_), std::round(6.0f * dpi_scale_)));
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, std::round(8.0f * dpi_scale_));
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(std::round(6.0f * dpi_scale_), std::round(4.0f * dpi_scale_)));
-        ImGui::BeginChild("##p_last_edit_strip", ImVec2(-1.0f, 0.0f),
-                          ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding);
+        ImGui::BeginChild("##p_last_edit_strip", ImVec2(-1.0f, le_h),
+                          ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding);
+        if (!le_on) {
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored(col::Muted, "%s", T(L, "Nenhuma alteração recente. O que você mudar aparece aqui.",
+                                                       "No recent change. Whatever you edit shows up here."));
+        }
+        if (le_on) {
         {
             ImVec2 bp = ImGui::GetWindowPos();
             ImVec2 bsz = ImGui::GetWindowSize();
@@ -2335,6 +2349,7 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
             push_delta_pill(mb, col::Subtext);
         }
         if (fonts.small_bold) ImGui::PopFont();
+        }
         ImGui::EndChild();
         ImGui::PopStyleVar(3);
         ImGui::PopStyleColor(2);
@@ -3168,15 +3183,23 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
         wrapped_colored(col::Subtext, "%s", T(L, "OVR já inclui bônus do Grau. +1/-1 move 1 por vez sem alterar a posição principal.",
                                                     "OVR already includes Grade bonus. +1/-1 moves 1 step at a time without changing primary OVR."));
 
-        if (horiz && !poslab_log_.empty() && !poslab_log_[0].diffs.empty()) {
-            const auto& last = poslab_log_[0];
+        if (horiz) {
+            const bool ll_on = !poslab_log_.empty() && !poslab_log_[0].diffs.empty();
+            // Faixa de ultima alteracao com altura fixa (nao empurra a tabela quando surge)
+            const float ll_h = std::round(2.0f * (ImGui::GetFrameHeight() + 4.0f * dpi_scale_) + 16.0f * dpi_scale_);
             ImGui::Spacing();
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, col::BgInput);
-            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.45f));
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ll_on ? col::BgInput : ImVec4(col::BgInput.x, col::BgInput.y, col::BgInput.z, 0.45f));
+            ImGui::PushStyleColor(ImGuiCol_Border, ll_on ? ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.45f) : col::Border);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(12.0f * dpi_scale_), std::round(8.0f * dpi_scale_)));
             ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, std::round(8.0f * dpi_scale_));
-            ImGui::BeginChild("##poslab_last_strip", ImVec2(-1.0f, 0),
-                              ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding);
+            ImGui::BeginChild("##poslab_last_strip", ImVec2(-1.0f, ll_h),
+                              ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding);
+            if (!ll_on) {
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextColored(col::Muted, "%s", T(L, "Nenhuma alteração ainda. O último ajuste aparece aqui.",
+                                                           "No change yet. The latest adjustment shows up here."));
+            } else {
+            const auto& last = poslab_log_[0];
             ImGui::TextColored(col::AccentSoft, "%s:", T(L, "Última alteração", "Last change"));
             ImGui::SameLine(0, 6.0f * dpi_scale_);
             if (last.pos_id >= 0) draw_pos_chip(L, last.pos_id, std::round(36.0f * dpi_scale_), std::round(20.0f * dpi_scale_), bold);
@@ -3197,6 +3220,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                 ImVec4 fg = (d > 0) ? col::GreenSoft : col::Orange;
                 draw_pill(cp, fg, ImVec4(fg.x, fg.y, fg.z, 0.16f), ImVec4(fg.x, fg.y, fg.z, 0.48f));
                 if (sd) show_tip_if_hovered(sn, L == Lang::EN ? sd->desc_en : sd->desc_pt);
+            }
             }
             ImGui::EndChild();
             ImGui::PopStyleVar(2);
@@ -3994,7 +4018,9 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
         flow_next(calc_btn_w(sn), 6.0f * dpi_scale_);
         if (styled_button(sn, col::BgCard, col::Border, col::Subtext)) scout_sel_.clear();
 
-        if (nsel > 0) {
+        {
+            // Acoes de lote sempre presentes (desativadas sem selecao) para a linha nao mudar de altura
+            ImGui::BeginDisabled(nsel == 0);
             // Destino: qualquer lista diferente da ativa
             if (scout_move_target_ == active_scout_slot_) scout_move_target_ = (active_scout_slot_ % 4) + 1;
             const char* tgt_lbl = "";
@@ -4018,6 +4044,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
             char rm[64]; std::snprintf(rm, sizeof(rm), "%s (%d)###scr", T(L, "Remover", "Remove"), nsel);
             flow_next(icon_button_width(rm), 6.0f * dpi_scale_);
             if (icon_btn_red(Icon::Trash, rm)) op = OpRemove;
+            ImGui::EndDisabled();
         }
     }
     ImGui::Spacing();
