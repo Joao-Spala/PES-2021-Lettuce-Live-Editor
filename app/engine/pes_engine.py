@@ -16,7 +16,7 @@ from .hooks import HookManager
 from . import econ_model
 from .pes_data import (
     OVR_DATA,
-    BMPES_TEAMS,
+    CLUB_TEAMS,
     SCOUT_LISTS,
     SCOUT_EMPTY_SENTINEL,
     FID_LOC,
@@ -439,7 +439,7 @@ class PESEngine:
                     res = (team_id, f"{live_name} [{abbr}]" if abbr else live_name)
                     self._club_name_cache[key] = res
                     return res
-        name = BMPES_TEAMS.get(team_id) or f"Club #{team_id}"
+        name = CLUB_TEAMS.get(team_id) or f"Club #{team_id}"
         res = (team_id, name)
         self._club_name_cache[key] = res
         return res

@@ -10,7 +10,7 @@
 ![Native C++20](https://img.shields.io/badge/Native-C%2B%2B20_%2B_DX11_%2B_ImGui-84CC16?style=for-the-badge)
 ![PES 2021](https://img.shields.io/badge/eFootball_PES_2021-v1.7.2.0_(DP_7.0)-0095D9?style=for-the-badge)
 ![Languages](https://img.shields.io/badge/Languages-PT--BR_%7C_English-2EA043?style=for-the-badge)
-![Patches](https://img.shields.io/badge/Sider_7.3_%2F_BMPES_%2F_Football_Life-Compatible-F59E0B?style=for-the-badge)
+![Patches](https://img.shields.io/badge/Sider_7.3_%2F_Football_Life-Compatible-F59E0B?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-8B5CF6?style=for-the-badge)
 
 **[Português (PT-BR)](#português-pt-br)** · **[English](#english)** · **[Build & Testes / Build & Tests](#build--testes--build--tests)**
@@ -23,7 +23,7 @@
 
 ## Português (PT-BR)
 
-Aplicativo desktop nativo em **C++20 + DirectX 11 + Dear ImGui** (cerca de 2,6 MB, standalone, sem dependências externas) para edição e gerenciamento de carreira em tempo real no **eFootball PES 2021 (`v1.7.2.0`)** e derivados (**Football Life 2023-2026**, **BMPES**, **SmokePatch**, **VirtuaRED**, **Dream Patch**), compatível com o **Sider 7.3+**.
+Aplicativo desktop nativo em **C++20 + DirectX 11 + Dear ImGui** (cerca de 2,6 MB, standalone, sem dependências externas) para edição e gerenciamento de carreira em tempo real no **eFootball PES 2021 (`v1.7.2.0`)** e derivados (**Football Life 2023-2026**, **SmokePatch**, **VirtuaRED**, **Dream Patch**), compatível com o **Sider 7.3+**.
 
 Não requer Cheat Engine nem runtimes externos. Abra o jogo e execute o `PES 2021 Workbench Native.exe` (o nome do arquivo foi mantido para não quebrar atalhos).
 
@@ -62,7 +62,7 @@ Não requer Cheat Engine nem runtimes externos. Abra o jogo e execute o `PES 202
 
 ## English
 
-Native standalone desktop application built with **C++20 + DirectX 11 + Dear ImGui** (about 2.6 MB, no runtime dependencies) for real-time career editing in **eFootball PES 2021 (`v1.7.2.0`)** and derivatives (**Football Life 2023-2026**, **BMPES**, **SmokePatch**, **VirtuaRED**, **Dream Patch**), compatible with **Sider 7.3+**.
+Native standalone desktop application built with **C++20 + DirectX 11 + Dear ImGui** (about 2.6 MB, no runtime dependencies) for real-time career editing in **eFootball PES 2021 (`v1.7.2.0`)** and derivatives (**Football Life 2023-2026**, **SmokePatch**, **VirtuaRED**, **Dream Patch**), compatible with **Sider 7.3+**.
 
 No Cheat Engine or external runtimes required. Launch the game and run `PES 2021 Workbench Native.exe` (the file name was kept so existing shortcuts keep working).
 

@@ -1,5 +1,5 @@
 -- ============================================================================
--- PES 2021 - v12.0 ULTIMATE STUDIO OVERHAUL (BMPES 16.0 / SIDER READY)
+-- PES 2021 - v12.0 ULTIMATE STUDIO OVERHAUL (SIDER READY)
 -- Bilingual Core Engine (PT-BR & EN) + Konami Exact OVR DNA Solver + Canvas GUI
 -- + Visual Studio Modals (Radar 30K, Position Lab, Team Role, Real-RAM Scouts)
 -- + 10-Level Automatic Player Undo Stack
@@ -184,8 +184,8 @@ function PES10.toggleLang()
 end
 
 -- Static fallback dictionaries + Native Konami OVR tables
-PES10.BMPES_TEAMS = __BMPES_TEAMS_LUA__
-PES10.BMPES_COMPS = __BMPES_COMPS_LUA__
+PES10.CLUB_TEAMS = __CLUB_TEAMS_LUA__
+PES10.CLUB_COMPS = __CLUB_COMPS_LUA__
 PES10.OVR_DATA    = __KONAMI_OVR_LUA__
 
 -- Shared state block layout ($1000 bytes allocated near PES2021.exe)
@@ -512,7 +512,7 @@ function PES10.decodeClubHandle(rawU32)
     end
   end
 
-  local fallback = PES10.BMPES_TEAMS[teamId]
+  local fallback = PES10.CLUB_TEAMS[teamId]
   if fallback then
     return teamId, slot, string.format("%s (ID %d)", fallback, teamId)
   end

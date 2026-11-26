@@ -23,14 +23,14 @@ def _load_json(filename: str) -> Any:
 
 
 OVR_DATA = _load_json("konami_ovr_tables.json")
-BMPES_DICTS = _load_json("bmpes_dicts.json")
+CLUB_DICTS = _load_json("club_dicts.json")
 PLAYER_SCHEMA = _load_json("player_schema.json")
 
-BMPES_TEAMS: Dict[int, str] = {
-    int(k): v for k, v in BMPES_DICTS.get("teams", {}).items()
+CLUB_TEAMS: Dict[int, str] = {
+    int(k): v for k, v in CLUB_DICTS.get("teams", {}).items()
 }
-BMPES_COMPS: Dict[int, str] = {
-    int(k): v for k, v in BMPES_DICTS.get("comps", {}).items()
+CLUB_COMPS: Dict[int, str] = {
+    int(k): v for k, v in CLUB_DICTS.get("comps", {}).items()
 }
 
 

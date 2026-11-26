@@ -552,7 +552,7 @@ inline constexpr std::array<IdNamePair, 221> NATIONALITIES = {{
     {312, "South Sudan"},
 }};
 
-inline constexpr std::array<IdNamePair, 360> BMPES_TEAMS = {{
+inline constexpr std::array<IdNamePair, 359> CLUB_TEAMS = {{
     {1, "Irlanda"},
     {6, "Portugal"},
     {14, "Alemanha"},
@@ -898,7 +898,6 @@ inline constexpr std::array<IdNamePair, 360> BMPES_TEAMS = {{
     {8012, "Cruzeiro"},
     {8014, "Atlético Mineiro"},
     {8059, "Red Bull Bragantino"},
-    {9001, "BMPES"},
     {9094, "Botafogo"},
     {9154, "Santos"},
     {9334, "Pacaembu"},
@@ -915,14 +914,14 @@ inline constexpr std::array<IdNamePair, 360> BMPES_TEAMS = {{
     {69709, "Al-Sadd"},
 }};
 
-inline const char* lookup_bmpes_team(int team_id) {
-    size_t lo = 0, hi = BMPES_TEAMS.size();
+inline const char* lookup_club_team(int team_id) {
+    size_t lo = 0, hi = CLUB_TEAMS.size();
     while (lo < hi) {
         size_t mid = lo + (hi - lo) / 2;
-        if (BMPES_TEAMS[mid].id < team_id) lo = mid + 1;
+        if (CLUB_TEAMS[mid].id < team_id) lo = mid + 1;
         else hi = mid;
     }
-    if (lo < BMPES_TEAMS.size() && BMPES_TEAMS[lo].id == team_id) return BMPES_TEAMS[lo].name;
+    if (lo < CLUB_TEAMS.size() && CLUB_TEAMS[lo].id == team_id) return CLUB_TEAMS[lo].name;
     return nullptr;
 }
 

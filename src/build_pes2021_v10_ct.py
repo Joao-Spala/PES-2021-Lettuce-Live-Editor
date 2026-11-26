@@ -15,8 +15,8 @@ OUTPUT_EN = DIST_DIR / "PES 2021 - v12.0 Ultimate Studio (EN).CT"
 with open(DATA_DIR / "player_schema.json", "r", encoding="utf-8") as f:
     legacy = json.load(f)
 
-with open(DATA_DIR / "bmpes_dicts.json", "r", encoding="utf-8") as f:
-    bmpes = json.load(f)
+with open(DATA_DIR / "club_dicts.json", "r", encoding="utf-8") as f:
+    club_dicts = json.load(f)
 
 with open(DATA_DIR / "konami_ovr_tables.json", "r", encoding="utf-8") as f:
     ovr_tables = json.load(f)
@@ -607,14 +607,14 @@ def serialize_ovr_tables_lua(data: dict) -> str:
 KONAMI_OVR_LUA_STR = serialize_ovr_tables_lua(ovr_tables)
 
 TEAMS_LUA_LINES = ["{"]
-for tid_str, tname in sorted(bmpes["teams"].items(), key=lambda kv: int(kv[0])):
+for tid_str, tname in sorted(club_dicts["teams"].items(), key=lambda kv: int(kv[0])):
     safe_name = tname.replace("\\", "\\\\").replace('"', '\\"')
     TEAMS_LUA_LINES.append(f'  [{int(tid_str)}] = "{safe_name}",')
 TEAMS_LUA_LINES.append("}")
 TEAMS_LUA_STR = "\n".join(TEAMS_LUA_LINES)
 
 COMPS_LUA_LINES = ["{"]
-for cid_str, cname in sorted(bmpes["comps"].items(), key=lambda kv: int(kv[0])):
+for cid_str, cname in sorted(club_dicts["comps"].items(), key=lambda kv: int(kv[0])):
     safe_name = cname.replace("\\", "\\\\").replace('"', '\\"')
     COMPS_LUA_LINES.append(f'  [{int(cid_str)}] = "{safe_name}",')
 COMPS_LUA_LINES.append("}")
@@ -1447,8 +1447,8 @@ PES10.SCORE_SYNC_IDS = {score_map_lua}
     final_lua = (
         lua_template
         .replace("__DEFAULT_LANG__", lang)
-        .replace("__BMPES_TEAMS_LUA__", TEAMS_LUA_STR)
-        .replace("__BMPES_COMPS_LUA__", COMPS_LUA_STR)
+        .replace("__CLUB_TEAMS_LUA__", TEAMS_LUA_STR)
+        .replace("__CLUB_COMPS_LUA__", COMPS_LUA_STR)
         .replace("__KONAMI_OVR_LUA__", KONAMI_OVR_LUA_STR)
         .replace("-- __PES10_CONFIG_INJECTION__", lua_config_injection)
     )

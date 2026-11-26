@@ -590,7 +590,7 @@ def audit_edition(ct_path: pathlib.Path, expected_lang: str, render_dir: pathlib
     PES10.dashboardForm = nil
     PES10.dashboardState = nil
 
-    -- Attach to simulated BMPES 16.0 Master League Save (Flamengo PID 24840)
+    -- Attach to simulated Master League Save (Flamengo PID 24840)
     MOCK_PID = 24840
     assert(PES10.initProcessState() == true)
     -- Fire auto-arm 900ms timer and verify all 6 hooks activate automatically!

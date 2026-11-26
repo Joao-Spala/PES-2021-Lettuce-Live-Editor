@@ -859,7 +859,7 @@ std::pair<int, std::string> PESEngine::decode_club_handle(uint32_t raw_u32, uint
             }
         }
     }
-    const char* mapped = data::lookup_bmpes_team(team_id);
+    const char* mapped = data::lookup_club_team(team_id);
     res = {team_id, mapped ? std::string(mapped) : ("Club #" + std::to_string(team_id))};
     club_name_cache_[key] = res;
     return res;
