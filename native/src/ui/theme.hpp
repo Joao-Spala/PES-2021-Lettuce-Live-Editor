@@ -14,7 +14,15 @@ struct AppSettings {
     int font_idx = 0;       // 0=Segoe UI, 1=Bahnschrift, 2=Calibri, 3=Consolas
     int econ_sync_mode = 1; // 0=Off, 1=All, 2=Market+Release, 3=SalaryOnly
     bool sidebar_collapsed = false;
+    int ui_scale_idx = 1;   // indice em kUiScales (90%, 100%, 115%, 130%, 150%)
+    int accent_idx = 0;     // 0=Cobalto, 1=Rubro, 2=Esmeralda, 3=Ouro, 4=Ciano
+    bool topmost = false;   // Always-on-Top
+    int win_x = 0, win_y = 0, win_w = 0, win_h = 0; // geometria restaurada (0 = padrao)
+    bool win_max = false;
 };
+
+inline constexpr float kUiScales[5] = {0.90f, 1.00f, 1.15f, 1.30f, 1.50f};
+inline constexpr int kAccentCount = 5;
 
 struct FontBank {
     ImFont* regular[4]{};
@@ -44,8 +52,8 @@ namespace col {
     inline constexpr ImVec4 Text       = ImVec4(0.945f, 0.961f, 0.976f, 1.0f); // #f1f5f9 (--text)
     inline constexpr ImVec4 Subtext    = ImVec4(0.580f, 0.639f, 0.722f, 1.0f); // #94a3b8 (--subtext)
     inline constexpr ImVec4 Muted      = ImVec4(0.392f, 0.455f, 0.545f, 1.0f); // #64748b (--muted)
-    inline constexpr ImVec4 Accent     = ImVec4(0.231f, 0.510f, 0.965f, 1.0f); // #3b82f6 (--accent)
-    inline constexpr ImVec4 AccentSoft = ImVec4(0.576f, 0.773f, 0.992f, 1.0f); // #93c5fd (active nav/soft blue)
+    inline ImVec4 Accent     = ImVec4(0.231f, 0.510f, 0.965f, 1.0f); // #3b82f6 (--accent), mutavel pelo tema de destaque
+    inline ImVec4 AccentSoft = ImVec4(0.576f, 0.773f, 0.992f, 1.0f); // #93c5fd (active nav/soft blue)
     inline constexpr ImVec4 Green      = ImVec4(0.063f, 0.725f, 0.506f, 1.0f); // #10b981 (--green)
     inline constexpr ImVec4 GreenSoft  = ImVec4(0.204f, 0.827f, 0.600f, 1.0f); // #34d399
     inline constexpr ImVec4 Gold       = ImVec4(0.961f, 0.620f, 0.043f, 1.0f); // #f59e0b (--gold)
@@ -58,6 +66,10 @@ namespace col {
 }
 
 void apply_studio_theme(float dpi_scale = 1.0f);
+// Define a cor de destaque (chame apply_studio_theme em seguida para atualizar o ImGuiStyle)
+void set_accent_theme(int idx);
+const char* accent_name(int idx, bool en);
+ImVec4 accent_swatch(int idx);
 void build_font_bank(FontBank& bank, float dpi_scale = 1.0f);
 
 AppSettings load_settings();

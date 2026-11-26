@@ -34,6 +34,28 @@ bool file_exists(const char* path) {
 
 } // namespace
 
+namespace {
+struct AccentDef { const char* pt; const char* en; ImVec4 main; ImVec4 soft; };
+const AccentDef kAccents[kAccentCount] = {
+    {"Cobalto",   "Cobalt",   ImVec4(0.231f, 0.510f, 0.965f, 1.0f), ImVec4(0.576f, 0.773f, 0.992f, 1.0f)},
+    {"Rubro",     "Crimson",  ImVec4(0.906f, 0.298f, 0.337f, 1.0f), ImVec4(0.988f, 0.647f, 0.667f, 1.0f)},
+    {"Esmeralda", "Emerald",  ImVec4(0.063f, 0.725f, 0.506f, 1.0f), ImVec4(0.431f, 0.906f, 0.718f, 1.0f)},
+    {"Ouro",      "Gold",     ImVec4(0.918f, 0.675f, 0.082f, 1.0f), ImVec4(0.992f, 0.878f, 0.455f, 1.0f)},
+    {"Ciano",     "Cyan",     ImVec4(0.086f, 0.710f, 0.831f, 1.0f), ImVec4(0.500f, 0.898f, 0.965f, 1.0f)},
+};
+} // namespace
+
+void set_accent_theme(int idx) {
+    const auto& a = kAccents[std::clamp(idx, 0, kAccentCount - 1)];
+    col::Accent = a.main;
+    col::AccentSoft = a.soft;
+}
+const char* accent_name(int idx, bool en) {
+    const auto& a = kAccents[std::clamp(idx, 0, kAccentCount - 1)];
+    return en ? a.en : a.pt;
+}
+ImVec4 accent_swatch(int idx) { return kAccents[std::clamp(idx, 0, kAccentCount - 1)].main; }
+
 void apply_studio_theme(float dpi_scale) {
     float s = std::clamp(dpi_scale, 0.85f, 2.5f);
     ImGuiStyle& st = ImGui::GetStyle();
@@ -201,6 +223,14 @@ AppSettings load_settings() {
         else if (k == "font") s.font_idx = std::clamp(std::atoi(v.c_str()), 0, 3);
         else if (k == "econ_sync") s.econ_sync_mode = std::clamp(std::atoi(v.c_str()), 0, 3);
         else if (k == "sidebar_collapsed") s.sidebar_collapsed = (v == "1");
+        else if (k == "ui_scale") s.ui_scale_idx = std::clamp(std::atoi(v.c_str()), 0, 4);
+        else if (k == "accent") s.accent_idx = std::clamp(std::atoi(v.c_str()), 0, kAccentCount - 1);
+        else if (k == "topmost") s.topmost = (v == "1");
+        else if (k == "win_x") s.win_x = std::atoi(v.c_str());
+        else if (k == "win_y") s.win_y = std::atoi(v.c_str());
+        else if (k == "win_w") s.win_w = std::atoi(v.c_str());
+        else if (k == "win_h") s.win_h = std::atoi(v.c_str());
+        else if (k == "win_max") s.win_max = (v == "1");
     }
     return s;
 }
@@ -213,6 +243,12 @@ void save_settings(const AppSettings& s) {
     f << "font=" << s.font_idx << "\n";
     f << "econ_sync=" << s.econ_sync_mode << "\n";
     f << "sidebar_collapsed=" << (s.sidebar_collapsed ? 1 : 0) << "\n";
+    f << "ui_scale=" << s.ui_scale_idx << "\n";
+    f << "accent=" << s.accent_idx << "\n";
+    f << "topmost=" << (s.topmost ? 1 : 0) << "\n";
+    f << "win_x=" << s.win_x << "\n" << "win_y=" << s.win_y << "\n";
+    f << "win_w=" << s.win_w << "\n" << "win_h=" << s.win_h << "\n";
+    f << "win_max=" << (s.win_max ? 1 : 0) << "\n";
 }
 
 } // namespace pes::ui

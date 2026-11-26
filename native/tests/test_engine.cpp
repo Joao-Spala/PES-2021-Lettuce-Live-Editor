@@ -1,5 +1,6 @@
 #include "../src/engine/ovr_engine.hpp"
 #include "../src/engine/pes_engine.hpp"
+#include "../src/engine/skill_presets.hpp"
 #include "../src/data/game_data.hpp"
 
 #include <cassert>
@@ -92,6 +93,22 @@ int main() {
     }
     assert(cap_cnt == 13);
     std::printf("Team Roles table (%zu roles, %d captain roles): PASS\n", TEAM_ROLES.size(), cap_cnt);
+
+    // Skill presets: todo nome precisa existir em PLAYER_SKILLS, sem repeticao e dentro do limite nativo de 10
+    for (const auto& pr : presets::kSkillPresets) {
+        int n = 0;
+        for (size_t i = 0; i < pr.skills.size(); ++i) {
+            if (pr.skills[i].empty()) continue;
+            bool found = false;
+            for (const auto& sk : PLAYER_SKILLS) if (pr.skills[i] == std::string_view(sk.key)) { found = true; break; }
+            if (!found) std::printf("Preset '%s': skill desconhecida '%.*s'\n", pr.en, static_cast<int>(pr.skills[i].size()), pr.skills[i].data());
+            assert(found);
+            for (size_t j = i + 1; j < pr.skills.size(); ++j) assert(pr.skills[i].empty() || pr.skills[i] != pr.skills[j]);
+            ++n;
+        }
+        assert(n >= 3 && n <= 10);
+    }
+    std::printf("Skill presets (%zu presets, nomes validos, sem repeticao): PASS\n", presets::kSkillPresets.size());
 
     // Economy Model tests: monotonicity, exact reversibility, age/nation/position factors, Release Fee
     assert(econ::scale_economy_value(100000, 77, 26, 1, 146, 77, 26, 1, 146, false) == 100000);

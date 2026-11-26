@@ -1,4 +1,7 @@
 #include "pes_engine.hpp"
+#include "skill_presets.hpp"
+#include <unordered_set>
+#include <filesystem>
 
 #include "../../third_party/json/json.hpp"
 
@@ -16,6 +19,8 @@
 #include <sstream>
 
 namespace pes {
+
+static std::filesystem::path fs_path_from_utf8(std::string_view s);
 
 namespace {
 
@@ -170,6 +175,7 @@ PackPlayerData extract_pack_player_from_buf(const uint8_t* buf, std::string_view
     p.inj_res = static_cast<int>(get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x22, 6, 2)) + 1;
     p.stamina = static_cast<int>(get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x146, 0, 7));
     p.arrow = std::min(4, static_cast<int>(get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x147, 0, 3)));
+    p.blink = get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x146, 7, 1) != 0;
     p.injury = buf[0x148];
     uint16_t cyr = 0;
     std::memcpy(&cyr, buf + 0x138, 2);
@@ -276,7 +282,7 @@ void apply_pack_player_to_buf(
         set_bits_in_buf(dst, data::PLAYER_RECORD_SIZE, 0x146, 0, 7, static_cast<uint32_t>(std::clamp(pp.stamina, 0, 100)));
         int a = std::clamp(pp.arrow, 0, 4);
         set_bits_in_buf(dst, data::PLAYER_RECORD_SIZE, 0x147, 0, 3, static_cast<uint32_t>(a));
-        set_bits_in_buf(dst, data::PLAYER_RECORD_SIZE, 0x146, 7, 1, a == 4 ? 1u : 0u);
+        set_bits_in_buf(dst, data::PLAYER_RECORD_SIZE, 0x146, 7, 1, pp.blink ? 1u : 0u);
         dst[0x148] = static_cast<uint8_t>(std::clamp(pp.injury, 0, 255));
     }
 
@@ -670,10 +676,120 @@ void PESEngine::push_undo(uint64_t p_addr, const char* action_code, const uint8_
     if (ait != econ_anchors_.end()) {
         e.prev_anchor = ait->second;
     }
+    const std::string action_copy = e.action;
     auto& st = undo_stack_[p_addr];
     st.push_back(std::move(e));
     if (static_cast<int>(st.size()) > kUndoMaxDepth) {
         st.erase(st.begin());
+    }
+    // Linha do tempo global: um lote vira uma unica entrada
+    if (journal_batch_open_ && !journal_.empty()) {
+        journal_.back().addrs.push_back(p_addr);
+    } else {
+        JournalEntry je;
+        je.seq = ++journal_seq_;
+        je.time = static_cast<long long>(std::time(nullptr));
+        je.action = action_copy;
+        je.addrs.push_back(p_addr);
+        journal_.push_back(std::move(je));
+        if (journal_.size() > 300) journal_.erase(journal_.begin());
+    }
+    ++journal_rev_;
+}
+
+void PESEngine::journal_begin_batch(const std::string& action) {
+    JournalEntry je;
+    je.seq = ++journal_seq_;
+    je.time = static_cast<long long>(std::time(nullptr));
+    je.action = action;
+    journal_.push_back(std::move(je));
+    journal_batch_open_ = true;
+}
+
+void PESEngine::journal_end_batch() {
+    journal_batch_open_ = false;
+    if (!journal_.empty() && journal_.back().addrs.empty()) journal_.pop_back();
+    if (journal_.size() > 300) journal_.erase(journal_.begin());
+    ++journal_rev_;
+}
+
+void PESEngine::journal_drop_addr(uint64_t addr) {
+    for (size_t i = journal_.size(); i-- > 0;) {
+        auto& a = journal_[i].addrs;
+        auto it = std::find(a.begin(), a.end(), addr);
+        if (it == a.end()) continue;
+        a.erase(it);
+        if (a.empty()) journal_.erase(journal_.begin() + static_cast<std::ptrdiff_t>(i));
+        break;
+    }
+    ++journal_rev_;
+}
+
+std::vector<JournalRow> PESEngine::get_journal() {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    std::vector<JournalRow> out;
+    out.reserve(journal_.size());
+    const long long now = static_cast<long long>(std::time(nullptr));
+    for (size_t i = journal_.size(); i-- > 0;) {
+        const auto& je = journal_[i];
+        JournalRow r;
+        r.seq = je.seq;
+        r.time = je.time;
+        r.action = je.action;
+        r.players = static_cast<int>(je.addrs.size());
+        r.age_sec = static_cast<uint32_t>(std::max(0LL, now - je.time));
+        if (je.addrs.size() == 1) {
+            uint8_t nb[0x2E]{};
+            if (mem_.read_into(je.addrs[0] + 0x38ULL, nb, sizeof(nb))) r.label = extract_cstr(nb, sizeof(nb));
+            if (r.label.empty()) r.label = "?";
+        }
+        out.push_back(std::move(r));
+    }
+    return out;
+}
+
+ActionResult PESEngine::undo_journal_to(uint64_t seq) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (!ensure_attached()) return {false, "not_connected"};
+    int restored = 0;
+    int entries = 0;
+    while (!journal_.empty() && journal_.back().seq >= seq) {
+        JournalEntry je = journal_.back(); // copia: undo_last() mexe na linha do tempo
+        for (uint64_t a : je.addrs) {
+            auto r = undo_last(a);
+            if (r.ok) ++restored;
+        }
+        if (!journal_.empty() && journal_.back().seq == je.seq) journal_.pop_back(); // pilha vazia (limite de profundidade)
+        ++entries;
+    }
+    ++journal_rev_;
+    return {restored > 0, restored > 0 ? "ok" : "nothing_to_undo", restored, entries};
+}
+
+std::string PESEngine::backup_squad_locked(std::string_view tag) {
+    auto r = export_squad_pack_json(tag);
+    if (!r.ok || r.text.empty()) return {};
+    try {
+        std::filesystem::path dir = fs_path_from_utf8(get_packs_directory()) / L"Backups";
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        std::time_t t = std::time(nullptr);
+        std::tm lt{};
+        localtime_s(&lt, &t);
+        char stamp[32];
+        std::strftime(stamp, sizeof(stamp), "%Y-%m-%d_%H-%M-%S", &lt);
+        std::string tg(tag);
+        for (char& ch : tg) if (!std::isalnum(static_cast<unsigned char>(ch))) ch = '_';
+        std::string fname = "Backup_" + tg + "_" + stamp + ".json";
+        std::filesystem::path file = dir / fs_path_from_utf8(fname);
+        std::ofstream f(file, std::ios::binary | std::ios::trunc);
+        if (!f) return {};
+        f.write(r.text.data(), static_cast<std::streamsize>(r.text.size()));
+        f.close();
+        auto u8 = file.u8string();
+        return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+    } catch (...) {
+        return {};
     }
 }
 
@@ -694,6 +810,7 @@ ActionResult PESEngine::undo_last(uint64_t addr) {
         econ_anchors_.erase(p);
     }
     wage_cache_time_ = 0.0;
+    journal_drop_addr(p);
     return {true, "ok", static_cast<int>(it->second.size()), 0, false, e.action};
 }
 
@@ -985,6 +1102,7 @@ StatusSnapshot PESEngine::get_status() {
             st.player.age = buf[0x1C] & 0x3F;
             st.player.stamina = static_cast<int>(get_bits_buf(buf, sizeof(buf), 0x146, 0, 7));
             st.player.arrow = std::min(4, static_cast<int>(get_bits_buf(buf, sizeof(buf), 0x147, 0, 3)));
+            st.player.blink = get_bits_buf(buf, sizeof(buf), 0x146, 7, 1) != 0;
             st.player.injury = buf[0x148];
             uint32_t club_h = 0;
             std::memcpy(&club_h, buf + 0x12C, 4);
@@ -1023,6 +1141,7 @@ PlayerDetails PESEngine::build_player_details_from_buf(uint64_t p, uint64_t care
     d.inj_res = static_cast<int>(get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x22, 6, 2)) + 1;
     d.stamina = static_cast<int>(get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x146, 0, 7));
     d.arrow = std::min(4, static_cast<int>(get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x147, 0, 3)));
+    d.blink = get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x146, 7, 1) != 0;
     d.injury = buf[0x148];
     uint16_t cyr = 0;
     std::memcpy(&cyr, buf + 0x138, 2);
@@ -1073,7 +1192,7 @@ PlayerDetails PESEngine::get_player_details(uint64_t addr) {
     return build_player_details_from_buf(p, career, buf);
 }
 
-PlayerDetails PESEngine::set_player_quick_condition(std::optional<int> stamina, std::optional<int> arrow, bool heal, uint64_t addr) {
+PlayerDetails PESEngine::set_player_quick_condition(std::optional<int> stamina, std::optional<int> arrow, bool heal, uint64_t addr, std::optional<bool> blink) {
     std::lock_guard<std::recursive_mutex> g(lock_);
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
@@ -1085,8 +1204,8 @@ PlayerDetails PESEngine::set_player_quick_condition(std::optional<int> stamina, 
     if (arrow.has_value()) {
         int a = std::clamp(*arrow, 0, 4);
         mem_.set_bits(p + 0x147ULL, 0, 3, static_cast<uint32_t>(a));
-        mem_.set_bits(p + 0x146ULL, 7, 1, a == 4 ? 1u : 0u);
     }
+    if (blink.has_value()) mem_.set_bits(p + 0x146ULL, 7, 1, *blink ? 1u : 0u);
     if (heal) mem_.write_u8(p + 0x148ULL, 0);
     return get_player_details(p);
 }
@@ -1669,6 +1788,7 @@ SquadRoster PESEngine::get_squad_roster() {
         std::memcpy(&row.salary_raw, buf + 0x15C, 4);
         row.stamina = static_cast<int>(get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x146, 0, 7));
         row.arrow = std::min(4, static_cast<int>(get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x147, 0, 3)));
+        row.blink = get_bits_buf(buf, data::PLAYER_RECORD_SIZE, 0x146, 7, 1) != 0;
         row.injury = buf[0x148];
         r.players.push_back(std::move(row));
     }
@@ -1682,7 +1802,7 @@ SquadRoster PESEngine::get_squad_roster() {
     return r;
 }
 
-ActionResult PESEngine::run_squad_commander(std::string_view mode) {
+ActionResult PESEngine::run_squad_commander(std::string_view mode, const std::vector<uint64_t>* only) {
     std::lock_guard<std::recursive_mutex> g(lock_);
     if (mode != "stamina" && mode != "arrow" && mode != "heal" && mode != "contract" && mode != "ovr1" && mode != "econ_recal") {
         return {false, "invalid_arg"};
@@ -1696,9 +1816,25 @@ ActionResult PESEngine::run_squad_commander(std::string_view mode) {
     if (cur_year < 2019 || cur_year > 2150) cur_year = 2026;
 
     std::vector<uint8_t> raw_table;
-    const auto addrs = get_user_squad_addresses(career, true, &raw_table);
+    const auto all_addrs = get_user_squad_addresses(career, true, &raw_table);
+    std::vector<uint64_t> addrs;
+    if (only) {
+        std::unordered_set<uint64_t> want(only->begin(), only->end());
+        for (uint64_t a : all_addrs) if (want.count(a)) addrs.push_back(a);
+        if (addrs.empty()) return {false, "no_player"};
+    } else {
+        addrs = all_addrs;
+    }
     std::vector<BatchUndoItem> batch_backup;
     batch_backup.reserve(addrs.size());
+
+    // Backup automatico do elenco inteiro antes de qualquer lote que mexe em valores
+    std::string backup_path;
+    if (mode == "econ_recal" || mode == "ovr1" || mode == "contract") {
+        backup_path = backup_squad_locked(std::string("antes_") + std::string(mode));
+    }
+    journal_begin_batch(std::string("batch_") + std::string(mode));
+    struct JGuard { PESEngine* e; ~JGuard() { e->journal_end_batch(); } } jguard{this};
 
     auto save_batch_item = [&](uint64_t p, const uint8_t* snap) {
         if (!snap) return;
@@ -1794,7 +1930,75 @@ ActionResult PESEngine::run_squad_commander(std::string_view mode) {
         last_batch_undo_ = std::move(batch_backup);
         last_batch_label_ = std::string(mode);
     }
-    return {true, "ok", static_cast<int>(addrs.size())};
+    return {true, "ok", static_cast<int>(addrs.size()), 0, !backup_path.empty(), backup_path};
+}
+
+ActionResult PESEngine::apply_skill_preset(int preset_id, const std::vector<uint64_t>* targets, bool replace) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (preset_id < 0 || preset_id >= static_cast<int>(presets::kSkillPresets.size())) return {false, "invalid_arg"};
+    if (!ensure_attached()) return {false, "not_connected"};
+    uint64_t career = 0, p_cur = 0, ms = 0;
+    sync_pointers(career, p_cur, ms);
+
+    std::vector<uint64_t> list;
+    if (targets) list = *targets;
+    else if (p_cur > 0x10000ULL) list.push_back(p_cur);
+    if (list.empty()) return {false, "no_player"};
+
+    // Resolve os nomes do preset para as definicoes de habilidade reais
+    const auto& pr = presets::kSkillPresets[static_cast<size_t>(preset_id)];
+    std::vector<const data::SkillDef*> wanted;
+    for (auto nm : pr.skills) {
+        if (nm.empty()) continue;
+        for (const auto& sk : data::PLAYER_SKILLS) {
+            if (nm == std::string_view(sk.key)) { wanted.push_back(&sk); break; }
+        }
+    }
+    if (wanted.empty()) return {false, "invalid_arg"};
+
+    std::string backup_path;
+    if (list.size() > 1 || replace) backup_path = backup_squad_locked("antes_preset_habilidades");
+
+    std::vector<BatchUndoItem> batch_backup;
+    journal_begin_batch("skill_preset");
+    struct JGuard3 { PESEngine* e; ~JGuard3() { e->journal_end_batch(); } } jguard3{this};
+
+    int changed = 0;
+    for (uint64_t p : list) {
+        uint8_t cur[data::PLAYER_RECORD_SIZE]{};
+        if (!mem_.read_into(p, cur, sizeof(cur)) || !is_sane_player_buf(cur)) continue;
+        BatchUndoItem bi;
+        bi.addr = p;
+        std::memcpy(bi.bytes.data(), cur, data::PLAYER_RECORD_SIZE);
+        auto ait = econ_anchors_.find(p);
+        if (ait != econ_anchors_.end()) bi.prev_anchor = ait->second;
+        batch_backup.push_back(std::move(bi));
+        push_undo(p, "skill_preset", cur);
+        if (replace) {
+            for (const auto& sk : data::PLAYER_SKILLS) mem_.set_bits(p + sk.offset, sk.bit, 1, 0u);
+        }
+        // Limite nativo do jogo: 10 habilidades por atleta (nao ultrapassa em modo "adicionar")
+        int have = 0;
+        for (const auto& sk : data::PLAYER_SKILLS) {
+            if (get_bits_buf(cur, sizeof(cur), sk.offset, sk.bit, 1) != 0 && !replace) ++have;
+        }
+        for (const auto* sk : wanted) {
+            bool on = get_bits_buf(cur, sizeof(cur), sk->offset, sk->bit, 1) != 0 && !replace;
+            if (on) continue;
+            if (have >= 10) break;
+            mem_.set_bits(p + sk->offset, sk->bit, 1, 1u);
+            ++have;
+        }
+        ++changed;
+    }
+    if (changed > 0) {
+        if (list.size() > 1) {
+            last_batch_undo_ = std::move(batch_backup);
+            last_batch_label_ = "skill_preset";
+        }
+        wage_cache_time_ = 0.0;
+    }
+    return {changed > 0, changed > 0 ? "ok" : "read_failed", changed, 0, !backup_path.empty(), backup_path};
 }
 
 SearchResult PESEngine::search_players(std::string_view query, int pos_filter, int min_ovr, int max_age, bool free_only, int limit) {
@@ -1916,11 +2120,20 @@ ScoutListsResult PESEngine::get_scout_lists() {
                                 e.slot_idx = idx;
                                 e.handle = h;
                                 e.addr = p_addr;
+                                std::memcpy(&e.pid, buf + 0x30, 4);
                                 e.name = extract_cstr(buf + 0x38, 0x2E);
                                 e.ovr = ovr;
                                 e.pos = reg_pos;
                                 e.age = buf[0x1C] & 0x3F;
                                 e.club = decode_club_handle(club_h, career).second;
+                                uint16_t exp_y = 0;
+                                std::memcpy(&exp_y, buf + 0x138, 2);
+                                e.exp_y = (exp_y >= 2019 && exp_y <= 2150) ? static_cast<int>(exp_y) : 0;
+                                std::memcpy(&e.market_raw, buf + 0x174, 4);
+                                std::memcpy(&e.salary_raw, buf + 0x15C, 4);
+                                e.arrow = std::min(4, static_cast<int>(get_bits_buf(buf, sizeof(buf), 0x147, 0, 3)));
+                                e.blink = get_bits_buf(buf, sizeof(buf), 0x146, 7, 1) != 0;
+                                e.injury = buf[0x148];
                                 st.entries.push_back(std::move(e));
                             }
                         }
@@ -1957,6 +2170,7 @@ ActionResult PESEngine::add_to_scout_list(int slot_num, uint64_t player_addr) {
         if (free_idx == -1 && (handles[i] == 0 || (handles[i] & 0xFFFFULL) == data::SCOUT_EMPTY_SENTINEL)) free_idx = i;
     }
     if (free_idx == -1) return {false, "scout_full", 0, slot_num};
+    scout_snapshot_push(career, "add");
     mem_.write_u64(career + sl->base + static_cast<uint64_t>(free_idx) * 8ULL, p_handle);
     return {true, "scout_added", 0, slot_num};
 }
@@ -1974,6 +2188,7 @@ ActionResult PESEngine::remove_from_scout_list(int slot_num, uint64_t handle) {
     if (!mem_.read_into(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t))) return {false, "read_failed"};
     for (int i = 0; i < sl->cap; ++i) {
         if (handles[i] == handle) {
+            scout_snapshot_push(career, "remove");
             mem_.write_u64(career + sl->base + static_cast<uint64_t>(i) * 8ULL, data::SCOUT_EMPTY_SENTINEL);
             return {true, "ok"};
         }
@@ -1989,9 +2204,254 @@ ActionResult PESEngine::clear_scout_list(int slot_num) {
     const data::ScoutListDef* sl = nullptr;
     for (const auto& s : data::SCOUT_LISTS) if (s.slot == slot_num) { sl = &s; break; }
     if (!career || !sl) return {false, "invalid_arg"};
+    scout_snapshot_push(career, "clear");
     std::vector<uint64_t> empty_buf(static_cast<size_t>(sl->cap), data::SCOUT_EMPTY_SENTINEL);
     mem_.write_from(career + sl->base, empty_buf.data(), empty_buf.size() * sizeof(uint64_t));
     return {true, "ok", 0, slot_num};
+}
+
+namespace {
+inline bool scout_slot_free(uint64_t h) { return h == 0 || (h & 0xFFFFULL) == data::SCOUT_EMPTY_SENTINEL; }
+const data::ScoutListDef* find_scout_def(int slot) {
+    for (const auto& s : data::SCOUT_LISTS) if (s.slot == slot) return &s;
+    return nullptr;
+}
+} // namespace
+
+bool PESEngine::scout_snapshot_push(uint64_t career, const char* label) {
+    ScoutSnap snap;
+    snap.label = label ? label : "";
+    for (size_t i = 0; i < data::SCOUT_LISTS.size(); ++i) {
+        const auto& sl = data::SCOUT_LISTS[i];
+        snap.lists[i].assign(static_cast<size_t>(sl.cap), data::SCOUT_EMPTY_SENTINEL);
+        if (!mem_.read_into(career + sl.base, snap.lists[i].data(), snap.lists[i].size() * sizeof(uint64_t))) return false;
+    }
+    scout_undo_.push_back(std::move(snap));
+    if (scout_undo_.size() > 12) scout_undo_.erase(scout_undo_.begin());
+    return true;
+}
+
+ActionResult PESEngine::undo_scout_change() {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (!ensure_attached()) return {false, "not_connected"};
+    uint64_t career = 0, cur_p = 0, ms = 0;
+    sync_pointers(career, cur_p, ms);
+    if (!career) return {false, "no_career"};
+    if (scout_undo_.empty()) return {false, "nothing_to_undo"};
+    ScoutSnap snap = std::move(scout_undo_.back());
+    scout_undo_.pop_back();
+    for (size_t i = 0; i < data::SCOUT_LISTS.size(); ++i) {
+        const auto& sl = data::SCOUT_LISTS[i];
+        if (snap.lists[i].size() != static_cast<size_t>(sl.cap)) continue;
+        mem_.write_from(career + sl.base, snap.lists[i].data(), snap.lists[i].size() * sizeof(uint64_t));
+    }
+    return {true, "ok", static_cast<int>(scout_undo_.size()), 0, false, snap.label};
+}
+
+ActionResult PESEngine::add_many_to_scout_list(int slot_num, const std::vector<uint64_t>& player_addrs) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (!ensure_attached()) return {false, "not_connected"};
+    uint64_t career = 0, cur_p = 0, ms = 0;
+    sync_pointers(career, cur_p, ms);
+    if (!career) return {false, "no_career"};
+    const auto* sl = find_scout_def(slot_num);
+    if (!sl || player_addrs.empty()) return {false, "invalid_arg"};
+
+    std::vector<uint64_t> handles(static_cast<size_t>(sl->cap), 0);
+    if (!mem_.read_into(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t))) return {false, "read_failed"};
+    scout_snapshot_push(career, "add_many");
+
+    int added = 0, skipped = 0;
+    bool full = false;
+    for (uint64_t p : player_addrs) {
+        if (p <= 0x10000ULL) { ++skipped; continue; }
+        uint64_t h = mem_.read_u64(p + 0x2CULL);
+        if (!h || (h >> 32) == 0) { ++skipped; continue; }
+        if (std::find(handles.begin(), handles.end(), h) != handles.end()) { ++skipped; continue; }
+        int free_idx = -1;
+        for (int i = 0; i < sl->cap; ++i) if (scout_slot_free(handles[i])) { free_idx = i; break; }
+        if (free_idx < 0) { full = true; ++skipped; continue; }
+        handles[free_idx] = h;
+        mem_.write_u64(career + sl->base + static_cast<uint64_t>(free_idx) * 8ULL, h);
+        ++added;
+    }
+    if (added == 0) scout_undo_.pop_back(); // nada mudou: nao polui o desfazer
+    return {added > 0, added > 0 ? "ok" : (full ? "scout_full" : "scout_dup"), added, skipped, full};
+}
+
+ActionResult PESEngine::remove_many_from_scout_list(int slot_num, const std::vector<uint64_t>& handles_to_remove) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (!ensure_attached()) return {false, "not_connected"};
+    uint64_t career = 0, cur_p = 0, ms = 0;
+    sync_pointers(career, cur_p, ms);
+    if (!career) return {false, "no_career"};
+    const auto* sl = find_scout_def(slot_num);
+    if (!sl || handles_to_remove.empty()) return {false, "invalid_arg"};
+
+    std::vector<uint64_t> handles(static_cast<size_t>(sl->cap), 0);
+    if (!mem_.read_into(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t))) return {false, "read_failed"};
+    scout_snapshot_push(career, "remove_many");
+    int removed = 0;
+    for (uint64_t h : handles_to_remove) {
+        for (int i = 0; i < sl->cap; ++i) {
+            if (handles[i] == h) {
+                handles[i] = data::SCOUT_EMPTY_SENTINEL;
+                mem_.write_u64(career + sl->base + static_cast<uint64_t>(i) * 8ULL, data::SCOUT_EMPTY_SENTINEL);
+                ++removed;
+                break;
+            }
+        }
+    }
+    if (removed == 0) scout_undo_.pop_back();
+    return {removed > 0, removed > 0 ? "ok" : "not_found", removed, static_cast<int>(handles_to_remove.size()) - removed};
+}
+
+ActionResult PESEngine::move_scout_entries(int from_slot, int to_slot, const std::vector<uint64_t>& handles_in, bool copy) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (!ensure_attached()) return {false, "not_connected"};
+    uint64_t career = 0, cur_p = 0, ms = 0;
+    sync_pointers(career, cur_p, ms);
+    if (!career) return {false, "no_career"};
+    const auto* src = find_scout_def(from_slot);
+    const auto* dst = find_scout_def(to_slot);
+    if (!src || !dst || from_slot == to_slot || handles_in.empty()) return {false, "invalid_arg"};
+
+    std::vector<uint64_t> sh(static_cast<size_t>(src->cap), 0), dh(static_cast<size_t>(dst->cap), 0);
+    if (!mem_.read_into(career + src->base, sh.data(), sh.size() * sizeof(uint64_t))) return {false, "read_failed"};
+    if (!mem_.read_into(career + dst->base, dh.data(), dh.size() * sizeof(uint64_t))) return {false, "read_failed"};
+    scout_snapshot_push(career, copy ? "copy" : "move");
+
+    int done = 0, skipped = 0;
+    bool full = false;
+    for (uint64_t h : handles_in) {
+        int sidx = -1;
+        for (int i = 0; i < src->cap; ++i) if (sh[i] == h) { sidx = i; break; }
+        if (sidx < 0) { ++skipped; continue; }
+        bool already = std::find(dh.begin(), dh.end(), h) != dh.end();
+        if (!already) {
+            int free_idx = -1;
+            for (int i = 0; i < dst->cap; ++i) if (scout_slot_free(dh[i])) { free_idx = i; break; }
+            if (free_idx < 0) { full = true; ++skipped; continue; }
+            dh[free_idx] = h;
+            mem_.write_u64(career + dst->base + static_cast<uint64_t>(free_idx) * 8ULL, h);
+        }
+        // Mover remove da origem tambem quando o atleta ja estava no destino (evita duplicata entre listas)
+        if (!copy) {
+            sh[sidx] = data::SCOUT_EMPTY_SENTINEL;
+            mem_.write_u64(career + src->base + static_cast<uint64_t>(sidx) * 8ULL, data::SCOUT_EMPTY_SENTINEL);
+        }
+        if (!already || !copy) ++done; else ++skipped;
+    }
+    if (done == 0) scout_undo_.pop_back();
+    return {done > 0, done > 0 ? "ok" : (full ? "scout_full" : "scout_dup"), done, skipped, full};
+}
+
+ActionResult PESEngine::export_scout_lists_json() {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    auto lists = get_scout_lists();
+    if (!lists.ok) return {false, lists.code};
+    using json = nlohmann::json;
+    json root;
+    root["version"] = "13.0";
+    root["kind"] = "scouts";
+    root["created_at"] = cur_iso_datetime();
+    root["lists"] = json::array();
+    int total = 0;
+    for (const auto& l : lists.lists) {
+        json jl;
+        jl["slot"] = l.slot;
+        jl["name"] = l.en;
+        jl["entries"] = json::array();
+        for (const auto& e : l.entries) {
+            jl["entries"].push_back({{"pid", e.pid}, {"name", e.name}, {"ovr", e.ovr}, {"pos", e.pos}, {"age", e.age}, {"club", e.club}});
+            ++total;
+        }
+        root["lists"].push_back(std::move(jl));
+    }
+    return {true, "ok", total, 0, false, root.dump(2)};
+}
+
+ActionResult PESEngine::import_scout_lists_json(std::string_view json_str, bool replace) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (!ensure_attached()) return {false, "not_connected"};
+    uint64_t career = 0, cur_p = 0, ms = 0;
+    sync_pointers(career, cur_p, ms);
+    if (!career) return {false, "no_career"};
+
+    using json = nlohmann::json;
+    json root = json::parse(json_str.begin(), json_str.end(), nullptr, false);
+    if (root.is_discarded() || !root.is_object() || root.value("kind", "") != "scouts" || !root.contains("lists") || !root["lists"].is_array()) {
+        return {false, "invalid_json"};
+    }
+
+    uint32_t count = mem_.read_u32(career + 0x00D0BCE8ULL);
+    if (count == 0 || count > 30001u) count = 30000u;
+    std::vector<uint8_t> raw(static_cast<size_t>(count) * data::PLAYER_RECORD_SIZE);
+    if (!mem_.read_into(career, raw.data(), raw.size())) return {false, "read_failed"};
+
+    // Indices por ID do atleta e por nome normalizado (so vale se o nome for unico)
+    std::unordered_map<uint32_t, uint32_t> by_pid;
+    std::unordered_map<std::string, std::pair<uint32_t, int>> by_name;
+    by_pid.reserve(count * 2);
+    for (uint32_t i = 0; i < count; ++i) {
+        const uint8_t* rec = raw.data() + static_cast<size_t>(i) * data::PLAYER_RECORD_SIZE;
+        uint32_t pid = 0;
+        std::memcpy(&pid, rec + 0x30, 4);
+        if (pid == 0) continue;
+        by_pid.emplace(pid, i);
+        std::string nm = norm_text_utf8(extract_cstr(rec + 0x38, 0x2E));
+        if (nm.empty()) continue;
+        auto it = by_name.find(nm);
+        if (it == by_name.end()) by_name.emplace(std::move(nm), std::make_pair(i, 1));
+        else ++it->second.second;
+    }
+
+    scout_snapshot_push(career, "import");
+    int added = 0, unmatched = 0, dup = 0;
+    bool full = false;
+    std::string unmatched_names;
+    for (const auto& jl : root["lists"]) {
+        const auto* sl = find_scout_def(jl.value("slot", 0));
+        if (!sl || !jl.contains("entries") || !jl["entries"].is_array()) continue;
+        std::vector<uint64_t> handles(static_cast<size_t>(sl->cap), 0);
+        if (!mem_.read_into(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t))) continue;
+        if (replace) {
+            std::fill(handles.begin(), handles.end(), data::SCOUT_EMPTY_SENTINEL);
+            mem_.write_from(career + sl->base, handles.data(), handles.size() * sizeof(uint64_t));
+        }
+        for (const auto& je : jl["entries"]) {
+            uint32_t pid = je.value("pid", 0u);
+            std::string name = je.value("name", std::string());
+            int64_t idx = -1;
+            auto pit = by_pid.find(pid);
+            if (pid != 0 && pit != by_pid.end()) {
+                // Confere o nome para nao cruzar IDs reaproveitados entre saves diferentes
+                const uint8_t* rec = raw.data() + static_cast<size_t>(pit->second) * data::PLAYER_RECORD_SIZE;
+                if (name.empty() || norm_text_utf8(extract_cstr(rec + 0x38, 0x2E)) == norm_text_utf8(name)) idx = pit->second;
+            }
+            if (idx < 0 && !name.empty()) {
+                auto nit = by_name.find(norm_text_utf8(name));
+                if (nit != by_name.end() && nit->second.second == 1) idx = nit->second.first;
+            }
+            if (idx < 0) {
+                ++unmatched;
+                if (unmatched_names.size() < 600) { if (!unmatched_names.empty()) unmatched_names += ", "; unmatched_names += name.empty() ? "?" : name; }
+                continue;
+            }
+            const uint8_t* rec = raw.data() + static_cast<size_t>(idx) * data::PLAYER_RECORD_SIZE;
+            uint64_t h = 0;
+            std::memcpy(&h, rec + 0x2C, 8);
+            if (!h || (h >> 32) == 0) { ++unmatched; continue; }
+            if (std::find(handles.begin(), handles.end(), h) != handles.end()) { ++dup; continue; }
+            int free_idx = -1;
+            for (int i = 0; i < sl->cap; ++i) if (scout_slot_free(handles[i])) { free_idx = i; break; }
+            if (free_idx < 0) { full = true; continue; }
+            handles[free_idx] = h;
+            mem_.write_u64(career + sl->base + static_cast<uint64_t>(free_idx) * 8ULL, h);
+            ++added;
+        }
+    }
+    return {true, "ok", added, unmatched, full || dup > 0, unmatched_names};
 }
 
 ActionResult PESEngine::set_training_mode(int mode) {
@@ -2233,6 +2693,7 @@ std::string serialize_roster_pack_json(const RosterPack& pack) {
         jp["inj_res"] = pp.inj_res;
         jp["stamina"] = pp.stamina;
         jp["arrow"] = pp.arrow;
+        jp["blink"] = pp.blink;
         jp["injury"] = pp.injury;
         jp["contract_yr"] = pp.contract_yr;
         jp["salary_raw"] = pp.salary_raw;
@@ -2321,6 +2782,7 @@ bool parse_roster_pack_json(std::string_view json_str, RosterPack& out_pack) {
             pp.inj_res = std::clamp(jp.value("inj_res", 2), 1, 3);
             pp.stamina = std::clamp(jp.value("stamina", 100), 0, 100);
             pp.arrow = std::clamp(jp.value("arrow", 2), 0, 4);
+            pp.blink = jp.value("blink", pp.arrow == 4);
             pp.injury = std::clamp(jp.value("injury", 0), 0, 255);
             pp.contract_yr = jp.value("contract_yr", 2026);
             pp.salary_raw = jp.value("salary_raw", 0);
@@ -2815,6 +3277,8 @@ ActionResult PESEngine::apply_pack_import(const PackPreviewResult& preview, cons
 
     std::vector<BatchUndoItem> batch_backup;
     int applied = 0;
+    journal_begin_batch("pack_import");
+    struct JGuard2 { PESEngine* e; ~JGuard2() { e->journal_end_batch(); } } jguard2{this};
 
     for (const auto& row : preview.rows) {
         if (!row.selected || row.match_kind == PackMatchKind::None || row.target_addr <= 0x10000ULL) continue;
@@ -2865,6 +3329,7 @@ ActionResult PESEngine::undo_last_batch() {
         mem_.write_from(bi.addr, bi.bytes.data(), bi.bytes.size());
         if (bi.prev_anchor.has_value()) econ_anchors_[bi.addr] = *bi.prev_anchor;
         else econ_anchors_.erase(bi.addr);
+        journal_drop_addr(bi.addr);
         ++restored;
     }
     std::string lbl = last_batch_label_;

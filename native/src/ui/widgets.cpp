@@ -617,16 +617,22 @@ void draw_pos_chip(Lang lang, int pos_id, float min_w, float h, ImFont* bold_fon
     if (bold_font) ImGui::PopFont();
 }
 
-void draw_arrow_badge(int arrow, float h) {
+void draw_arrow_badge(int arrow, float h, bool blink) {
     int a = std::clamp(arrow, 0, 4);
     ImVec4 fg = arrow_color(a);
     float w = h * 1.18f;
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::Dummy(ImVec2(w, h));
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), to_u32(fg, 0.18f), 6.0f);
-    dl->AddRect(p, ImVec2(p.x + w, p.y + h), to_u32(fg, 0.55f), 6.0f, 0, 1.1f);
-    draw_arrow_vector(dl, ImVec2(p.x + w * 0.5f, p.y + h * 0.5f), h * 0.30f, a, to_u32(fg));
+    float pulse = 1.0f;
+    if (blink) {
+        // Pisca em onda suave (~1,25 Hz), mantendo o frame loop ativo apenas enquanto houver seta piscando visivel
+        pulse = 0.35f + 0.65f * (0.5f + 0.5f * std::sin(static_cast<float>(ImGui::GetTime()) * 7.85f));
+        g_anim_active = true;
+    }
+    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), to_u32(fg, 0.18f + (blink ? 0.22f * pulse : 0.0f)), 6.0f);
+    dl->AddRect(p, ImVec2(p.x + w, p.y + h), to_u32(fg, blink ? 0.40f + 0.60f * pulse : 0.55f), 6.0f, 0, blink ? 1.6f : 1.1f);
+    draw_arrow_vector(dl, ImVec2(p.x + w * 0.5f, p.y + h * 0.5f), h * 0.30f, a, to_u32(fg, pulse));
 }
 
 void draw_pill(const char* text, const ImVec4& fg, const ImVec4& bg, const ImVec4& border, bool compact) {

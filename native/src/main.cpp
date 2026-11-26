@@ -279,8 +279,13 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     // 1. Single-instance protection
+#ifdef PES_QA_DUMP
+    HANDLE hMutex = nullptr; // build de QA nao disputa a instancia unica com o app aberto
+    if (false) {
+#else
     HANDLE hMutex = CreateMutexW(nullptr, TRUE, kMutexName);
     if (hMutex && GetLastError() == ERROR_ALREADY_EXISTS) {
+#endif
         if (HWND existing = FindWindowW(kWndClass, nullptr)) {
             if (IsIconic(existing)) ShowWindow(existing, SW_RESTORE);
             SetForegroundWindow(existing);
@@ -310,6 +315,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     wc.hbrBackground = CreateSolidBrush(RGB(8, 13, 23));
     wc.lpszClassName = kWndClass;
     RegisterClassExW(&wc);
+
+    // Preferencias persistidas (tema de destaque, escala da UI, geometria da janela, Always-on-Top)
+    pes::ui::AppSettings cfg = pes::ui::load_settings();
+    pes::ui::set_accent_theme(cfg.accent_idx);
 
     // Center window comfortably on primary work area
     RECT wa{};
@@ -341,7 +350,18 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     int scaled_h = std::min(static_cast<int>(800.0f * dpi), std::max(540, wa_h - 48));
     int scaled_x = wa.left + (wa_w - scaled_w) / 2;
     int scaled_y = wa.top + (wa_h - scaled_h) / 2;
-    SetWindowPos(hwnd, nullptr, scaled_x, scaled_y, scaled_w, scaled_h, SWP_NOZORDER | SWP_NOACTIVATE);
+    bool restored_geom = false;
+    if (cfg.win_w >= 640 && cfg.win_h >= 480) {
+        RECT sr{cfg.win_x, cfg.win_y, cfg.win_x + cfg.win_w, cfg.win_y + cfg.win_h};
+        // So restaura se a janela ainda cai sobre algum monitor (evita janela fora da tela apos trocar de monitor)
+        if (MonitorFromRect(&sr, MONITOR_DEFAULTTONULL)) {
+            scaled_x = cfg.win_x; scaled_y = cfg.win_y; scaled_w = cfg.win_w; scaled_h = cfg.win_h;
+            restored_geom = true;
+        }
+    }
+    SetWindowPos(hwnd, cfg.topmost ? HWND_TOPMOST : nullptr, scaled_x, scaled_y, scaled_w, scaled_h,
+                 (cfg.topmost ? 0 : SWP_NOZORDER) | SWP_NOACTIVATE);
+    if (restored_geom && cfg.win_max) nCmdShow = SW_SHOWMAXIMIZED;
 
     configure_custom_window_frame(hwnd);
 
@@ -363,9 +383,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     io.IniFilename = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    pes::ui::apply_studio_theme(dpi);
+    const float eff_dpi = dpi * pes::ui::kUiScales[std::clamp(cfg.ui_scale_idx, 0, 4)];
+    pes::ui::apply_studio_theme(eff_dpi);
     pes::ui::FontBank fonts;
-    pes::ui::build_font_bank(fonts, dpi);
+    pes::ui::build_font_bank(fonts, eff_dpi);
 
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
@@ -377,7 +398,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     SetUnhandledExceptionFilter(crash_handler);
 
     pes::ui::WorkbenchApp app(engine);
-    app.set_window_handle(hwnd, dpi);
+    app.set_window_handle(hwnd, eff_dpi);
     g_app_ptr = &app;
 
 #ifdef PES_QA_DUMP
@@ -556,6 +577,18 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
             CreateRenderTarget();
         }
 
+        if (app.take_theme_rebuild()) {
+            // Escala da UI ou cor de destaque mudou: reconstroi atlas de fontes e estilo entre frames
+            const float new_dpi = dpi * pes::ui::kUiScales[std::clamp(app.settings().ui_scale_idx, 0, 4)];
+            ImGui_ImplDX11_InvalidateDeviceObjects();
+            io.Fonts->Clear();
+            fonts = pes::ui::FontBank{};
+            pes::ui::build_font_bank(fonts, new_dpi);
+            pes::ui::apply_studio_theme(new_dpi);
+            app.set_window_handle(hwnd, new_dpi);
+            g_dirty_frames = 6;
+        }
+
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
@@ -572,6 +605,19 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     }
 
     // 6. Clean Shutdown
+    {
+        WINDOWPLACEMENT wp{};
+        wp.length = sizeof(wp);
+        if (GetWindowPlacement(hwnd, &wp)) {
+            pes::ui::AppSettings cur = pes::ui::load_settings();
+            cur.win_x = wp.rcNormalPosition.left;
+            cur.win_y = wp.rcNormalPosition.top;
+            cur.win_w = wp.rcNormalPosition.right - wp.rcNormalPosition.left;
+            cur.win_h = wp.rcNormalPosition.bottom - wp.rcNormalPosition.top;
+            cur.win_max = (wp.showCmd == SW_SHOWMAXIMIZED);
+            pes::ui::save_settings(cur);
+        }
+    }
     app.stop_background_poller();
     g_app_ptr = nullptr;
     engine.shutdown();

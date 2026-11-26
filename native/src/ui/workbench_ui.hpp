@@ -12,6 +12,8 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace pes::ui {
@@ -59,6 +61,10 @@ public:
     // Render one frame; returns true if animation/toast/drag requires continuous redraw.
     bool render_frame(const FontBank& fonts);
 
+    // Preferencias: true uma vez quando escala de UI ou tema de destaque mudou (main reconstroi fontes/estilo)
+    bool take_theme_rebuild() { bool r = theme_rebuild_; theme_rebuild_ = false; return r; }
+    const AppSettings& settings() const { return settings_; }
+
     void trigger_back();
     void trigger_undo();
     void open_command_palette();
@@ -77,8 +83,16 @@ private:
     void reload_squad();
     void reload_finances();
     void reload_scouts();
+    uint8_t scout_mask_of(uint64_t addr) const;
+    void scout_report(const ActionResult& r, const char* verb_pt, const char* verb_en, int target_slot);
+    void render_scout_list_menu(const char* popup_id, uint64_t addr);
     void run_search();
     void run_squad_cmd(const char* mode);
+    void run_squad_cmd_sel(const char* mode);
+    void run_squad_cmd_impl(const char* mode, const std::vector<uint64_t>* only);
+    void apply_preset_cmd(bool to_selection);
+    void render_history_popup(const FontBank& fonts);
+    void render_preset_controls(const FontBank& fonts, bool compact);
     void toast_code(const std::string& code, bool is_err, int orig = 0, int fin = 0, int pri = 0, int pos = -1, int reg_pos = -1, bool needs_grade = false);
     std::string fmt_econ_delta_line(const EconSyncDelta& ed) const;
     void record_solver_action(const PlayerDetails& r, const char* tag_pt, const char* tag_en);
@@ -140,6 +154,8 @@ private:
     // Native window integration
     void* hwnd_ = nullptr;
     float dpi_scale_ = 1.0f;
+    bool theme_rebuild_ = false;
+    void render_prefs_popup(const FontBank& fonts);
     float titlebar_h_ = 38.0f;
     std::vector<HitRect> titlebar_interactive_;
 
@@ -224,6 +240,11 @@ private:
     // Squad view
     SquadRoster squad_;
     int squad_filter_ = 0; // 0=all, 1=exp, 2=inj, 3=u23
+    std::unordered_set<uint64_t> squad_sel_; // selecao em lote do Meu Elenco
+    int preset_idx_ = 0;
+    bool preset_replace_ = false;
+    std::vector<JournalRow> journal_cache_;
+    uint64_t journal_rev_seen_ = ~0ULL;
     char squad_search_[64]{};
     int squad_sort_col_ = 0;
     bool squad_sort_asc_ = false;
@@ -243,6 +264,16 @@ private:
     ScoutListsResult scouts_;
     int active_scout_slot_ = 4;
     double clear_scout_armed_until_ = 0.0;
+    std::unordered_map<uint64_t, uint8_t> scout_mask_;   // addr do atleta -> mascara de listas (bit = slot-1)
+    std::unordered_set<uint64_t> scout_sel_;             // handles marcados na tela de Olheiros
+    std::unordered_set<uint64_t> srch_sel_;              // addrs marcados na Busca
+    char scout_filter_[64]{};
+    int scout_pos_filter_ = 0;                           // 0 todos, 1 GO, 2 DEF, 3 MEI, 4 ATA
+    bool scout_only_free_ = false;
+    bool scout_only_exp_ = false;
+    int scout_sort_col_ = 0;
+    bool scout_sort_asc_ = false;
+    int scout_move_target_ = 1;
 
     // Training / BAL
     int bal_focus_inp_ = 21;

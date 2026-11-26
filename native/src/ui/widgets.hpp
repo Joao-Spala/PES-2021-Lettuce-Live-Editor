@@ -62,7 +62,7 @@ float calc_combo_width(const char* const* items, int count, float min_w = 110.0f
 void draw_ovr_badge(int ovr, float min_w = 36.0f, float h = 24.0f, ImFont* bold_font = nullptr);
 void draw_ovr_shield(int ovr, float size, ImFont* big_font, ImFont* small_bold);
 void draw_pos_chip(Lang lang, int pos_id, float min_w = 42.0f, float h = 23.0f, ImFont* bold_font = nullptr);
-void draw_arrow_badge(int arrow, float h = 24.0f);
+void draw_arrow_badge(int arrow, float h = 24.0f, bool blink = false);
 void draw_pill(const char* text, const ImVec4& fg, const ImVec4& bg, const ImVec4& border, bool compact = false);
 void draw_stamina_bar(int stam, float bar_w = 66.0f);
 void draw_rating_segments(int val, int max_val, const ImVec4& active_col, float width = 88.0f, float h = 7.0f);

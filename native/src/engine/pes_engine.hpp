@@ -44,6 +44,7 @@ struct PlayerSummary {
     int age = 20;
     int stamina = 100;
     int arrow = 2;
+    bool blink = false;
     int injury = 0;
     std::string club;
     int undo_count = 0;
@@ -120,6 +121,7 @@ struct PlayerDetails {
     int inj_res = 2;
     int stamina = 100;
     int arrow = 2;
+    bool blink = false;
     int injury = 0;
     int contract_yr = 2026;
     int32_t salary_raw = 0;
@@ -176,7 +178,17 @@ struct SquadRow {
     int32_t salary_raw = 0;
     int stamina = 100;
     int arrow = 2;
+    bool blink = false;
     int injury = 0;
+};
+
+struct JournalRow {
+    uint64_t seq = 0;
+    long long time = 0;      // time_t local
+    std::string action;      // codigo (ovr_dna, econ_recal, batch_econ_recal, ...)
+    std::string label;       // nome do atleta ou "N atletas"
+    int players = 1;
+    uint32_t age_sec = 0;
 };
 
 struct SquadRoster {
@@ -210,11 +222,18 @@ struct ScoutEntry {
     int slot_idx = 0;
     uint64_t handle = 0;
     uint64_t addr = 0;
+    uint32_t pid = 0;
     std::string name;
     int ovr = 40;
     int pos = 0;
     int age = 20;
     std::string club;
+    int exp_y = 0;
+    int32_t market_raw = 0;
+    int32_t salary_raw = 0;
+    int arrow = 2;
+    bool blink = false;
+    int injury = 0;
 };
 
 struct ScoutListState {
@@ -261,6 +280,7 @@ struct PackPlayerData {
     int inj_res = 2;
     int stamina = 100;
     int arrow = 2;
+    bool blink = false;
     int injury = 0;
     int contract_yr = 2026;
     int32_t salary_raw = 0;
@@ -383,7 +403,7 @@ public:
     bool select_player(uint64_t addr);
 
     PlayerDetails get_player_details(uint64_t addr = 0);
-    PlayerDetails set_player_quick_condition(std::optional<int> stamina, std::optional<int> arrow, bool heal, uint64_t addr = 0);
+    PlayerDetails set_player_quick_condition(std::optional<int> stamina, std::optional<int> arrow, bool heal, uint64_t addr = 0, std::optional<bool> blink = std::nullopt);
     PlayerDetails update_player_bio(const BioUpdate& upd);
     PlayerDetails set_player_stat(int fid, int val);
     PlayerDetails set_player_stats_batch(const std::vector<std::pair<int, int>>& items);
@@ -409,7 +429,17 @@ public:
     FinancesSnapshot add_finance_delta(bool is_transfer, int32_t raw_delta);
 
     SquadRoster get_squad_roster();
-    ActionResult run_squad_commander(std::string_view mode);
+    // Comandos em lote. `only` restringe aos atletas indicados (nullptr = elenco inteiro).
+    // Modos destrutivos geram backup JSON automatico do elenco em Documentos\PES 2021 Workbench\Packs\Backups (caminho em result.text).
+    ActionResult run_squad_commander(std::string_view mode, const std::vector<uint64_t>* only = nullptr);
+
+    // Presets de habilidades por funcao. targets == nullptr aplica ao atleta atual. replace limpa as 41 habilidades antes.
+    ActionResult apply_skill_preset(int preset_id, const std::vector<uint64_t>* targets, bool replace);
+
+    // Linha do tempo global de edicoes (mais recente primeiro) e desfazer ate um ponto.
+    std::vector<JournalRow> get_journal();
+    uint64_t journal_revision() const { return journal_rev_; }
+    ActionResult undo_journal_to(uint64_t seq);
 
     SearchResult search_players(std::string_view query, int pos_filter, int min_ovr, int max_age, bool free_only, int limit = 150);
 
@@ -417,6 +447,18 @@ public:
     ActionResult add_to_scout_list(int slot_num, uint64_t player_addr = 0);
     ActionResult remove_from_scout_list(int slot_num, uint64_t handle);
     ActionResult clear_scout_list(int slot_num);
+
+    // Operacoes em lote. count = afetados, value = ignorados (duplicados / nao encontrados), flag = lista cheia durante a operacao.
+    ActionResult add_many_to_scout_list(int slot_num, const std::vector<uint64_t>& player_addrs);
+    ActionResult remove_many_from_scout_list(int slot_num, const std::vector<uint64_t>& handles);
+    ActionResult move_scout_entries(int from_slot, int to_slot, const std::vector<uint64_t>& handles, bool copy);
+    // Desfaz a ultima alteracao nas listas de olheiros/favoritos (pilha de 12 snapshots das 4 listas).
+    ActionResult undo_scout_change();
+    int scout_undo_depth() const { return static_cast<int>(scout_undo_.size()); }
+    std::string scout_undo_label() const { return scout_undo_.empty() ? std::string() : scout_undo_.back().label; }
+    // Exporta as 4 listas (por ID do atleta + nome) e importa cruzando por ID e, se preciso, por nome unico.
+    ActionResult export_scout_lists_json();
+    ActionResult import_scout_lists_json(std::string_view json_str, bool replace);
 
     ActionResult set_training_mode(int mode);
     ActionResult set_stamina_mode(int mode);
@@ -474,6 +516,17 @@ private:
 
     void push_undo(uint64_t p_addr, const char* action_code, const uint8_t* existing_buf = nullptr);
 
+    struct JournalEntry {
+        uint64_t seq = 0;
+        long long time = 0;
+        std::string action;
+        std::vector<uint64_t> addrs;
+    };
+    void journal_begin_batch(const std::string& action);
+    void journal_end_batch();
+    void journal_drop_addr(uint64_t addr);
+    std::string backup_squad_locked(std::string_view tag);
+
     std::pair<int, std::string> decode_club_handle(uint32_t raw_u32, uint64_t career);
     uint32_t get_user_club_handle(uint64_t career);
     const std::vector<uint64_t>& get_user_squad_addresses(uint64_t career, bool force_rescan, std::vector<uint8_t>* out_raw_table = nullptr);
@@ -505,6 +558,16 @@ private:
 
     std::unordered_map<uint64_t, std::vector<UndoEntry>> undo_stack_;
     std::vector<BatchUndoItem> last_batch_undo_;
+    struct ScoutSnap {
+        std::string label;
+        std::array<std::vector<uint64_t>, 4> lists;
+    };
+    bool scout_snapshot_push(uint64_t career, const char* label);
+    std::vector<ScoutSnap> scout_undo_;
+    std::vector<JournalEntry> journal_;
+    uint64_t journal_seq_ = 0;
+    uint64_t journal_rev_ = 0;
+    bool journal_batch_open_ = false;
     std::string last_batch_label_;
     EconSyncMode econ_sync_mode_ = EconSyncMode::All;
     std::unordered_map<uint64_t, EconAnchor> econ_anchors_;
