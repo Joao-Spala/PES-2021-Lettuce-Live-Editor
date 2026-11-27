@@ -241,12 +241,14 @@ static void test_settings() {
     // Valores padrao: atualizacao automatica ligada, backups ilimitados
     AppSettings d;
     CHECK(d.auto_update);
+    CHECK(d.layout_guard);   // a trava de estrutura dos dados nasce ligada
     CHECK(d.backup_keep_idx == 0);
     CHECK(d.action_log);
 
     // Ida e volta
     AppSettings s;
     s.auto_update = false;
+    s.layout_guard = false;
     s.update_dismissed = "v14.2.0";
     s.backup_keep_idx = 3;
     s.action_log = false;
@@ -257,6 +259,14 @@ static void test_settings() {
     std::istringstream in(out.str());
     AppSettings r = parse_settings(in);
     CHECK(!r.auto_update && r.update_dismissed == "v14.2.0" && r.backup_keep_idx == 3);
+    CHECK(!r.layout_guard);
+    // arquivo de versao anterior sem a chave: a trava fica ligada. Valor estranho tambem nao desliga, so "0" desliga
+    std::istringstream no_key("lang=pt\n");
+    CHECK(parse_settings(no_key).layout_guard);
+    std::istringstream weird("layout_guard=nao\n");
+    CHECK(parse_settings(weird).layout_guard);
+    std::istringstream zero("layout_guard=0\n");
+    CHECK(!parse_settings(zero).layout_guard);
     CHECK(!r.action_log && r.lang == Lang::EN && r.currency_idx == 2);
 
     // Arquivo de versao anterior (sem as chaves novas): atualizacao automatica ligada, backups ilimitados

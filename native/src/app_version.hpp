@@ -3,7 +3,7 @@
 
 namespace pes {
 
-inline constexpr const char* kAppVersion = "14.2.0";
+inline constexpr const char* kAppVersion = "14.2.1";
 inline constexpr const char* kUpdateRepo = "Joao-Spala/PES-2021-Lettuce-Live-Editor";
 inline constexpr const char* kReleasesPagePrefix = "https://github.com/Joao-Spala/PES-2021-Lettuce-Live-Editor/releases/";
 

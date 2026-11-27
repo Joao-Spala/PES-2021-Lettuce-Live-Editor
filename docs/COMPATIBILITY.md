@@ -11,7 +11,8 @@ How the app finds things inside the game, what has been verified, and how to che
 3. **Read again before writing.** The bytes at a site are compared with the signature right before the patch, so a stale result can never be written over something that changed.
 4. **Layout guards.** The two pointer signatures contain the offset of a career structure field (`E0 CB 6E 01`). If the structure moves, they stop matching and the app refuses to edit.
 5. **Everything a hook assumes is inside its signature.** The stamina hook rebuilds the function epilogue by hand, so its signature runs up to the `RET`.
-6. **Safety net.** Each hook is recorded in a journal inside the helper area the app allocates in the game. If the app dies, the next instance reverts the jumps and frees the area, but only when nothing still jumps into it and only when the owner process (PID and creation time) is gone. A live instance is never touched, even if its file has another name.
+6. **Data layout check.** Signatures find code, but the career data sits at fixed offsets. On connect and every minute the app cross-checks the year, the player count and that your club points to a real squad (11 players or more) whose records have a text name, a plausible age and attributes from 0 to 99. If a build moved the data, at least one of these breaks and the edits that write to the career are turned off with a message. `Settings > Services` can turn the lock off.
+7. **Safety net.** Each hook is recorded in a journal inside the helper area the app allocates in the game. If the app dies, the next instance reverts the jumps and frees the area, but only when nothing still jumps into it and only when the owner process (PID and creation time) is gone. A live instance is never touched, even if its file has another name.
 
 ## Signatures
 
@@ -56,7 +57,8 @@ The script reads the signatures from `native/src/engine/signatures.hpp`, searche
 
 ## Limits
 
-- Only 64-bit PE images. Only the career layout of PES 2021 is known. A build with a different layout makes the pointer signatures fail, which is the intended result.
+- Only 64-bit PE images. Only the career layout of PES 2021 is known. A build with a different layout makes the pointer signatures fail, or, if they still match, fails the data layout check. Both are the intended result.
+- The layout check judges your club's squad, so a career with fewer than 11 registered players, or a save still loading, is reported as a mismatch until it can be read. It rechecks by itself.
 - Executable sections above 128 MB are not searched, except once as a last resort when no signature at all was found.
 - `FL_2027.exe` has not been run live with this app. Squad and finance editing there depends on the player table, which can only be confirmed with the report from a real save.
 

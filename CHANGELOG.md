@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [14.2.1] - 2026-11-27 - Data layout check
+
+### Added / Adicionado
+- **Data layout check.** The app finds hooks and pointers by byte signature, but the career data sits at fixed offsets. On connect and every minute it now cross-checks independent fields: the year, the player count, and that your club points to a real squad in the player table (11 players or more) whose records have a text name (ASCII or valid UTF-8), a plausible age and every attribute between 0 and 99. A different layout breaks at least one of these. If it does, the edits that write to the career (finances, BAL focus, squad tools, pack import and scout lists) are turned off with a clear message instead of writing to the wrong place, and the connection line shows a warning. It checks again by itself, so loading a save never leaves it stuck.
+- Settings > Services > **Check the data structure before editing** (on by default) turns the lock off for people who are sure. The diagnostics report always shows the check and its inputs.
+- Tests: `native/tests/test_layout.cpp`, 47 checks, including that random data is almost never read as a record. Total 527 checks.
+
+### Changed / Alterado
+- Player records are judged by their attributes (0 to 99) and not by the computed OVR, which reaches 107 with every attribute at 99 and has a floor of 40, so it barely separates good data from bad.
+
+---
+
 ## [14.2.0] - 2026-11-27 - Automatic updates
 
 ### Added / Adicionado

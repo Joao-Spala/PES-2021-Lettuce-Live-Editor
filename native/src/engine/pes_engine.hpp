@@ -7,6 +7,7 @@
 #include "ovr_engine.hpp"
 #include "value_lock.hpp"
 #include "econ_model.hpp"
+#include "layout_check.hpp"
 #include "../data/game_data.hpp"
 
 #include <array>
@@ -78,6 +79,8 @@ struct StatusSnapshot {
     int match_sec = 0;
     int bal_focus = 0;
     bool bal_lock = false;
+    bool layout_mismatch = false;      // a estrutura dos dados nao confere (ha mais de 5 s): edicoes da carreira desligadas
+    std::string layout_reason;         // codigo curto do motivo (year, count, squad_size, names, ages, stats)
     bool val_lock_active = false;
     ValueLockConfig val_lock;
     uint64_t val_lock_addr = 0;
@@ -421,6 +424,11 @@ public:
 
     // Quantos backups manter (0 = todos). A poda so roda depois de gravar um backup novo.
     void set_backup_keep(int keep) { backup_keep_.store(keep < 0 ? 0 : keep, std::memory_order_relaxed); }
+    // Trava das edicoes que gravam na carreira quando a checagem de estrutura dos dados falha (ligada por padrao)
+    void set_layout_guard(bool on) {
+        std::lock_guard<std::recursive_mutex> g(lock_);
+        layout_guard_ = on;
+    }
 
     StatusSnapshot get_status();
     bool select_player(uint64_t addr);
@@ -600,6 +608,20 @@ private:
     bool init_fail_logged_ = false;
     uint32_t career_changes_ = 0;   // quantas vezes o ponteiro da carreira mudou desde o attach (diagnostico)
     uint32_t compat_missing_ = 0;
+    struct LayoutState {
+        layout::Verdict verdict = layout::Verdict::Unknown;
+        std::string reason;
+        uint64_t career = 0;       // carreira que foi avaliada
+        uint64_t eval_tick = 0;    // GetTickCount64 da ultima avaliacao
+        uint64_t bad_since = 0;    // desde quando falha (0 = nao falha)
+        uint32_t fail_streak = 0;  // falhas seguidas: o intervalo entre avaliacoes cresce
+        layout::Input in;
+    } layout_;
+    bool layout_guard_ = true;
+    void evaluate_layout_locked(uint64_t career);
+    void ensure_layout_checked_locked(uint64_t career);
+    // True quando a estrutura nao confere e a trava esta ligada. Reavalia se a leitura estiver velha.
+    bool layout_blocks_writes(uint64_t career);
     uint32_t compat_rechecks_ = 0;       // novas tentativas de achar assinaturas depois do attach (intervalo crescente)
     bool wage_cache_found_ = false;      // o ultimo calculo da folha achou o elenco?
     uint64_t compat_recheck_tick_ = 0;

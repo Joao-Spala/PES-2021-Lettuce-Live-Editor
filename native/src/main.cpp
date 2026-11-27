@@ -631,6 +631,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR cmd_line, int nCmdShow
             {"40_wide_update_installing",  1920, 1200, 0, 0, 12},
             {"41_wide_update_refused",     1920, 1200, 0, 0, 13},
             {"42_narrow_update_refused",    980, 1080, 0, 0, 13},
+            {"43_wide_layout_warning",     1920, 1200, 0, 0, 14},
+            {"44_narrow_layout_warning",    980, 1080, 0, 0, 14},
         };
         int last_w = -1, last_h = -1;
         for (const auto& s : shots) {

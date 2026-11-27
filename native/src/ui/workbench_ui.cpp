@@ -70,7 +70,7 @@ bool status_materially_changed(const StatusSnapshot& a, const StatusSnapshot& b)
         a.val_lock_active != b.val_lock_active || !(a.val_lock == b.val_lock) ||
         a.val_lock_addr != b.val_lock_addr || a.val_lock_lost != b.val_lock_lost ||
         a.val_lock_name != b.val_lock_name || a.target_exe != b.target_exe || a.target_unsupported != b.target_unsupported ||
-        a.compat_missing != b.compat_missing) {
+        a.compat_missing != b.compat_missing || a.layout_mismatch != b.layout_mismatch) {
         return true;
     }
     if (a.has_finances && (a.finances.transfer_raw != b.finances.transfer_raw ||
@@ -224,6 +224,7 @@ WorkbenchApp::WorkbenchApp(PESEngine& engine) : engine_(engine) {
     actionlog::set_directory(std::filesystem::path(utf8_to_wide(get_logs_directory())));
     actionlog::set_enabled(settings_.action_log);
     apply_backup_retention();
+    engine_.set_layout_guard(settings_.layout_guard);
     engine_.set_target_process(settings_.game_process, 0);   // processo escolhido a mao em outra sessao (vazio = automatico)
 }
 
@@ -5509,6 +5510,12 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     if (modal_kind == 6) update_manual_ = true;
     if (modal_kind == 6) update_checker_.qa_force(update::State::Available, update::Release{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"});
     // QA do auto-updater: 11 = instalada (reiniciar), 12 = baixando, 13 = recusada por assinatura
+    // QA da checagem de estrutura: 14 = aviso de estrutura diferente na linha de conexao
+    if (modal_kind == 14) {
+        st_.attached = true;
+        st_.layout_mismatch = true;
+        st_.layout_reason = "names";
+    }
     if (modal_kind >= 11 && modal_kind <= 13) {
         update_manual_ = true;
         const update::Release qr{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"};
@@ -5746,6 +5753,21 @@ void WorkbenchApp::render_prefs_services() {
         }
     }
 
+    // ---- Seguranca dos dados
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Segurança dos dados", "Data safety"));
+    bool lg_v = settings_.layout_guard;
+    if (toggle_switch("##sw_layout_guard", T(L, "Conferir a estrutura dos dados antes de editar", "Check the data structure before editing"), &lg_v)) {
+        settings_.layout_guard = lg_v;
+        save_settings(settings_);
+        engine_.set_layout_guard(lg_v);
+    }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Ao conectar e a cada minuto, o app confere se os dados da carreira têm o formato que ele conhece (ano, seu elenco, nomes, idades e atributos). Se não tiverem, as edições que gravam na carreira ficam desligadas, para nada ser escrito no lugar errado. Ligado por padrão. Desligue só se tiver certeza.",
+        "On connect and every minute the app checks that the career data has the layout it knows (year, your squad, names, ages and attributes). If it does not, edits that write to the career are turned off so nothing is written to the wrong place. On by default. Turn it off only if you are sure."));
+    ImGui::PopTextWrapPos();
+
     // ---- Atualizacoes
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
     ImGui::TextColored(col::Subtext, "%s", T(L, "Atualizações", "Updates"));
@@ -5864,8 +5886,10 @@ void WorkbenchApp::render_connection_hint(const FontBank& fonts) {
     const bool career_ok = st_.attached && st_.career > 0;
     // Executavel com assinaturas que nao casaram: parte dos recursos fica desligada por seguranca e o usuario precisa saber
     const bool compat_warn = st_.attached && !st_.access_denied && st_.compat_missing != 0;
+    // Estrutura dos dados diferente da esperada: as edicoes da carreira estao desligadas (o mais grave, vai na frente)
+    const bool layout_warn = st_.attached && !st_.access_denied && st_.layout_mismatch;
     // Conectado e com carreira: volta a descricao normal da tela. A dica ocupa a mesma linha, entao nada se desloca.
-    if (career_ok && !st_.access_denied && !compat_warn) {
+    if (career_ok && !st_.access_denied && !compat_warn && !layout_warn) {
         wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.",
                                                  "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
         return;
@@ -5885,6 +5909,10 @@ void WorkbenchApp::render_connection_hint(const FontBank& fonts) {
             ? std::string(T(L, "Aguardando o PES 2021 ou o Football Life. A conexão é automática.", "Waiting for PES 2021 or Football Life. The connection is automatic."))
             : std::string(T(L, "Procurando o processo escolhido: ", "Looking for the chosen process: ")) + st_.target_exe;
         tone = col::Subtext;
+    } else if (layout_warn) {
+        msg = T(L, "Estrutura de dados diferente do esperado: edições da carreira desligadas. Veja Serviços > Diagnóstico.",
+                   "Data structure differs from the expected one: career edits are off. See Services > Diagnostics.");
+        tone = col::GoldSoft;
     } else if (compat_warn) {
         msg = T(L, "Executável diferente: recursos incompatíveis desligados. Veja Serviços > Diagnóstico.",
                    "Different executable: unsupported features are off. See Services > Diagnostics.");

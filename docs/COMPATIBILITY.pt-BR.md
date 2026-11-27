@@ -11,7 +11,8 @@ Como o app acha as coisas dentro do jogo, o que já foi verificado e como confer
 3. **Reler antes de gravar.** Os bytes do ponto são comparados com a assinatura logo antes do patch, então um resultado antigo nunca é gravado por cima de algo que mudou.
 4. **Guardas de layout.** As duas assinaturas de ponteiro contêm o deslocamento de um campo da estrutura da carreira (`E0 CB 6E 01`). Se a estrutura mudar, elas deixam de casar e o app recusa editar.
 5. **Tudo o que um gancho presume está dentro da assinatura.** O gancho de fôlego refaz o epílogo da função na mão, então a assinatura vai até o `RET`.
-6. **Rede de segurança.** Cada gancho é registrado num diário dentro da área auxiliar que o app aloca no jogo. Se o app morrer, a instância seguinte reverte os saltos e libera a área, mas só quando nada mais salta para ela e só quando o processo dono (PID e horário de criação) acabou. Uma instância viva nunca é tocada, mesmo que o arquivo tenha outro nome.
+6. **Checagem de estrutura dos dados.** As assinaturas acham o código, mas os dados da carreira ficam em offsets fixos. Ao conectar e a cada minuto o app cruza o ano, o contador de atletas e se o seu clube aponta para um elenco de verdade (11 jogadores ou mais) cujos registros têm nome de texto, idade plausível e atributos de 0 a 99. Se uma versão mexeu nos dados, pelo menos um desses testes falha e as edições que gravam na carreira ficam desligadas, com uma mensagem. Em `Ajustes > Serviços` dá para desligar a trava.
+7. **Rede de segurança.** Cada gancho é registrado num diário dentro da área auxiliar que o app aloca no jogo. Se o app morrer, a instância seguinte reverte os saltos e libera a área, mas só quando nada mais salta para ela e só quando o processo dono (PID e horário de criação) acabou. Uma instância viva nunca é tocada, mesmo que o arquivo tenha outro nome.
 
 ## Assinaturas
 
@@ -56,7 +57,8 @@ O script lê as assinaturas de `native/src/engine/signatures.hpp`, procura no ar
 
 ## Limites
 
-- Só imagens PE de 64 bits. Só o layout da carreira do PES 2021 é conhecido. Uma versão com layout diferente faz as assinaturas de ponteiro falharem, que é o resultado esperado.
+- Só imagens PE de 64 bits. Só o layout da carreira do PES 2021 é conhecido. Uma versão com layout diferente faz as assinaturas de ponteiro falharem ou, se elas ainda casarem, reprova a checagem de estrutura dos dados. Os dois são o resultado esperado.
+- A checagem julga o elenco do seu clube, então uma carreira com menos de 11 jogadores registrados, ou um save ainda carregando, aparece como incompatível até poder ser lido. Ela confere de novo sozinha.
 - Seções executáveis acima de 128 MB não são varridas, exceto uma vez como último recurso quando nenhuma assinatura foi achada.
 - O `FL_2027.exe` não foi rodado ao vivo com este app. A edição de elenco e finanças nele depende da tabela de atletas, que só se confirma com o relatório de um save real.
 

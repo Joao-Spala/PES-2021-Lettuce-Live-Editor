@@ -331,6 +331,7 @@ AppSettings parse_settings(std::istream& f) {
         else if (k == "update_dismissed") s.update_dismissed = sanitize_version_tag(v);
         else if (k == "backup_keep") s.backup_keep_idx = std::clamp(std::atoi(v.c_str()), 0, backups::kKeepOptionCount - 1);
         else if (k == "action_log") s.action_log = (v != "0");
+        else if (k == "layout_guard") s.layout_guard = (v != "0");   // so "0" desliga
         else if (k == "game_process") s.game_process = sanitize_exe_name(v);
     }
     // Arquivo anterior aos temas: adota tambem a cor de destaque do tema padrao (identidade completa)
@@ -362,6 +363,7 @@ void write_settings(std::ostream& f, const AppSettings& s) {
     f << "update_dismissed=" << sanitize_version_tag(s.update_dismissed) << "\n";
     f << "backup_keep=" << std::clamp(s.backup_keep_idx, 0, backups::kKeepOptionCount - 1) << "\n";
     f << "action_log=" << (s.action_log ? 1 : 0) << "\n";
+    f << "layout_guard=" << (s.layout_guard ? 1 : 0) << "\n";
     f << "game_process=" << sanitize_exe_name(s.game_process) << "\n";
 }
 
