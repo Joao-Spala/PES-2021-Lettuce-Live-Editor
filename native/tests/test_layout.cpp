@@ -41,7 +41,7 @@ static Input good_input() {
     Input in;
     in.year = 2026;
     in.count_field = 24434;
-    in.max_records = 62115;
+    in.max_records = 61425;   // 0x1642A24 / 0x17C: a tabela nao pode passar do campo do ano
     in.club_handle = 0x138007A;
     in.squad = 31;
     in.named = in.age_ok = in.stats_ok = 31;
@@ -131,9 +131,9 @@ int main() {
 
         in = good_input(); in.count_field = 0;
         CHECK(std::string(evaluate(in).reason) == "count");
-        in.count_field = 62116;
+        in.count_field = 61426;
         CHECK(evaluate(in).verdict == Verdict::Mismatch && std::string(evaluate(in).reason) == "count");
-        in.count_field = 62115;
+        in.count_field = 61425;
         CHECK(evaluate(in).verdict == Verdict::Ok);
 
         in = good_input(); in.squad = 10; in.named = in.age_ok = in.stats_ok = 10;

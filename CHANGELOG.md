@@ -34,7 +34,7 @@ All notable changes to this project are documented in this file.
 ### Changed / Alterado
 - **No fixed addresses.** Every hook site and global pointer is found by a unique byte signature in the executable sections of the running process (11 signatures in `native/src/engine/signatures.hpp`). The old shortcut that trusted the reference build's address for the career and match pointers was removed: on another build it pointed at a different variable. A signature that is missing or ambiguous turns the dependent feature off and shows a warning in the connection line at the top of each view, instead of writing to a wrong address.
 - The bytes at a site are read again, live, right before any write.
-- The player table is read up to its structural limit (62115 records, the point where it would overlap the career fields), all or nothing, instead of being capped at 30000. Squad records are validated before any batch tool writes to them.
+- The player table is read up to its structural limit (61425 records, the point where it would overlap the career fields), all or nothing, instead of being capped at 30000. Squad records are validated before any batch tool writes to them.
 - The stamina hook signature now covers the function epilogue that the hook rebuilds by hand.
 - BAL focus above 21 refuses with a clear message when the cap patch is unavailable.
 
