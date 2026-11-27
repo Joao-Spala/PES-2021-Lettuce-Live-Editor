@@ -1562,43 +1562,113 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
 
         ImGui::TableNextColumn();
         begin_studio_card("##dash_hooks", row2_min_h);
+        // Cada recurso tem um estado com significado real. EM USO: ligado agora. PRONTO: disponivel, so nao esta sendo
+        // usado (os ganchos entram quando o recurso e ligado, entao "espera" parecia defeito). INDISPONIVEL: a assinatura
+        // dele nao foi achada neste executavel, o unico caso que de fato pede atencao.
+        enum class FeatState { Offline, Starting, InUse, Ready, Unavailable };
+        struct FeatItem { FeatState st; const char* lbl; View target; bool has_target; };
+        auto feat_state = [&](bool in_use, uint32_t missing_bit) {
+            if (!st_.attached) return FeatState::Offline;
+            if (in_use) return FeatState::InUse;
+            if (st_.compat_missing & missing_bit) return FeatState::Unavailable;
+            return FeatState::Ready;
+        };
+        const FeatState capture_state = (st_.attached && !st_.hooks[1] && !(st_.compat_missing & kFeatPlayerCapture))
+                                            ? FeatState::Starting
+                                            : feat_state(st_.hooks[1], kFeatPlayerCapture);
+        const FeatItem items[5] = {
+            {capture_state, T(L, "Captura Automática (Plano de Jogo / Elenco)", "Auto Player Capture (Game Plan / Squad)"), View::Squad, false},
+            {feat_state(st_.hooks[3] && st_.training_mode > 0, kFeatTraining), T(L, "Multiplicador de Treino (XP)", "Training XP Multiplier"), View::Training, true},
+            {feat_state(st_.hooks[4] && (st_.bal_lock || st_.bal_focus > 21), kFeatBalCap), T(L, "Desbloqueio de Foco BAL (21 -> 99)", "BAL Focus Cap Unlock"), View::Training, true},
+            {feat_state(st_.hooks[5] && st_.freeze_clock, kFeatMatchClock), T(L, "Relógio Congelado na Partida", "Match Clock Freeze"), View::Match, true},
+            {feat_state(st_.hooks[6] && st_.stamina_mode > 0, kFeatMatchStamina), T(L, "Fôlego Seletivo em Partida", "Selective Match Stamina"), View::Match, true},
+        };
+        int n_use = 0, n_ready = 0, n_off = 0;
+        for (const auto& it : items) {
+            if (it.st == FeatState::InUse) ++n_use;
+            else if (it.st == FeatState::Ready) ++n_ready;
+            else if (it.st == FeatState::Unavailable) ++n_off;
+        }
+        char summary[160];
+        if (!st_.attached) {
+            std::snprintf(summary, sizeof(summary), "%s", T(L, "Conecte ao jogo para ver e usar os recursos.", "Connect to the game to see and use the features."));
+        } else {
+            char a[48], b2[48], c[48];
+            // "Rotulo: n" nao depende de singular e plural ("1 prontos" ficaria errado)
+            std::snprintf(a, sizeof(a), T(L, "Em uso: %d", "In use: %d"), n_use);
+            std::snprintf(b2, sizeof(b2), T(L, "Prontos: %d", "Ready: %d"), n_ready);
+            std::snprintf(c, sizeof(c), T(L, "Indisponíveis: %d", "Unavailable: %d"), n_off);
+            if (n_off > 0) std::snprintf(summary, sizeof(summary), "%s, %s, %s", a, b2, c);
+            else std::snprintf(summary, sizeof(summary), "%s, %s", a, b2);
+        }
         {
             float msz = std::round(24.0f * dpi_scale_);
             float row_y = ImGui::GetCursorPosY();
             draw_kpi_medallion(4, msz, col::GreenSoft);
             ImGui::SameLine(0, 9.0f * dpi_scale_);
             ImGui::SetCursorPosY(row_y + std::max(0.0f, (msz - ImGui::GetTextLineHeight()) * 0.5f));
-            card_header(T(L, "Status dos Recursos x64", "Native x64 Features Status"), bold,
-                T(L, "Os hooks x64 são verificados continuamente e restaurados com segurança ao fechar.", "Native x64 hooks are verified continuously and restored cleanly on exit."));
+            card_header(T(L, "Recursos", "Features"), bold);
             ImGui::SetCursorPosY(std::max(ImGui::GetCursorPosY(), row_y + msz + 6.0f * dpi_scale_));
         }
+        wrapped_colored(st_.attached && n_off > 0 ? col::GoldSoft : col::Subtext, "%s", summary);
         ImGui::Separator();
         ImGui::Spacing();
-        struct HItem { bool on; const char* lbl; };
-        const HItem items[5] = {
-            {st_.hooks[1], T(L, "Captura Automática (Plano de Jogo / Elenco)", "Auto Player Capture (Game Plan / Squad)")},
-            {st_.hooks[3] && st_.training_mode > 0, T(L, "Multiplicador de Treino (XP)", "Training XP Multiplier")},
-            {st_.hooks[4] && (st_.bal_lock || st_.bal_focus > 21), T(L, "Desbloqueio de Foco BAL (21 -> 99)", "BAL Focus Cap Unlock")},
-            {st_.hooks[5] && st_.freeze_clock, T(L, "Relógio Congelado na Partida", "Match Clock Freeze")},
-            {st_.hooks[6] && st_.stamina_mode > 0, T(L, "Fôlego Seletivo em Partida", "Selective Match Stamina")},
-        };
-        if (ImGui::BeginTable("##hooks_tbl", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadOuterX)) {
+        if (st_.attached && ImGui::BeginTable("##hooks_tbl", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadOuterX)) {
             ImGui::TableSetupColumn("##hlbl", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("##hst", ImGuiTableColumnFlags_WidthFixed, std::round(92.0f * dpi_scale_));
-            for (const auto& hi : items) {
+            ImGui::TableSetupColumn("##hst", ImGuiTableColumnFlags_WidthFixed, std::round(118.0f * dpi_scale_));
+            for (int i = 0; i < 5; ++i) {
+                const FeatItem& it = items[i];
+                const float lh = ImGui::GetTextLineHeight();
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::TextColored(hi.on ? col::Text : col::Subtext, "%s", hi.lbl);
+                // So os recursos usaveis levam a tela deles. A linha inteira e clicavel, com o dedo e a dica dizendo para onde.
+                const bool clickable = it.has_target && (it.st == FeatState::InUse || it.st == FeatState::Ready);
+                char tip[200];
+                if (it.st == FeatState::Unavailable) {
+                    std::snprintf(tip, sizeof(tip), "%s", T(L, "Este recurso não foi achado neste executável do jogo. Veja Serviços > Diagnóstico.",
+                                                              "This feature was not found in this game executable. See Services > Diagnostics."));
+                } else if (it.has_target) {
+                    std::snprintf(tip, sizeof(tip), T(L, "Abrir %s", "Open %s"), view_label(it.target));
+                } else {
+                    std::snprintf(tip, sizeof(tip), "%s", T(L, "Automática: o app captura o atleta que você destaca no jogo.",
+                                                              "Automatic: the app captures the player you highlight in the game."));
+                }
+                const float row_top = ImGui::GetCursorPosY();
+                ImGui::PushID(i);
+                if (clickable) {
+                    if (ImGui::Selectable("##feat_row", false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap, ImVec2(0, lh))) switch_view(it.target);
+                    if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                } else {
+                    ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, lh));
+                }
+                show_tip_if_hovered(it.lbl, tip);
+                ImGui::PopID();
+                ImGui::SetCursorPosY(row_top);   // o texto vai por cima da area clicavel
+                const bool normal = it.st == FeatState::InUse || it.st == FeatState::Ready;
+                ImGui::TextColored(normal ? col::Text : col::Subtext, "%s", it.lbl);
+
                 ImGui::TableSetColumnIndex(1);
                 ImVec2 lp = ImGui::GetCursorScreenPos();
-                float lh = ImGui::GetTextLineHeight();
-                draw_led_dot(ImGui::GetWindowDrawList(),
-                             ImVec2(lp.x + 5.0f * dpi_scale_, lp.y + lh * 0.5f),
-                             3.5f * dpi_scale_, hi.on ? col::GreenSoft : col::Muted, hi.on);
+                ImVec4 bc = col::Muted;
+                const char* bt = "";
+                bool pulse = false;
+                switch (it.st) {
+                    case FeatState::InUse:       bc = col::GreenSoft;  bt = T(L, "EM USO", "IN USE"); pulse = true; break;
+                    case FeatState::Ready:       bc = col::AccentSoft; bt = T(L, "PRONTO", "READY"); break;
+                    case FeatState::Unavailable: bc = col::GoldSoft;   bt = T(L, "INDISPONÍVEL", "UNAVAILABLE"); break;
+                    case FeatState::Starting:    bc = col::Muted;      bt = T(L, "INICIANDO", "STARTING"); break;
+                    default: break;
+                }
+                const ImVec2 dot_c(lp.x + 5.0f * dpi_scale_, lp.y + lh * 0.5f);
+                if (it.st == FeatState::Ready) {
+                    // anel vazio: disponivel e sem uso. O ponto cheio que brilha fica so para o que esta em uso.
+                    ImGui::GetWindowDrawList()->AddCircle(dot_c, 3.4f * dpi_scale_, ImGui::GetColorU32(bc), 0, std::max(1.2f, 1.4f * dpi_scale_));
+                } else {
+                    draw_led_dot(ImGui::GetWindowDrawList(), dot_c, 3.5f * dpi_scale_, bc, pulse);
+                }
                 ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 14.0f * dpi_scale_);
                 if (fonts.small_bold) ImGui::PushFont(fonts.small_bold);
-                ImGui::TextColored(hi.on ? col::GreenSoft : col::Muted, "%s",
-                    hi.on ? T(L, "ATIVO", "ACTIVE") : T(L, "Espera", "Standby"));
+                ImGui::TextColored(bc, "%s", bt);
                 if (fonts.small_bold) ImGui::PopFont();
             }
             ImGui::EndTable();
@@ -5510,6 +5580,12 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     if (modal_kind == 6) update_manual_ = true;
     if (modal_kind == 6) update_checker_.qa_force(update::State::Available, update::Release{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"});
     // QA do auto-updater: 11 = instalada (reiniciar), 12 = baixando, 13 = recusada por assinatura
+    // QA do card de recursos: 15 = conectado, tudo disponivel. 16 = conectado, um recurso indisponivel
+    if (modal_kind == 15 || modal_kind == 16) {
+        st_.attached = true;
+        st_.layout_mismatch = false;
+        st_.compat_missing = (modal_kind == 16) ? static_cast<uint32_t>(kFeatMatchClock) : 0u;
+    }
     // QA da checagem de estrutura: 14 = aviso de estrutura diferente na linha de conexao
     if (modal_kind == 14) {
         st_.attached = true;

@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
 - Tests: `native/tests/test_layout.cpp`, 47 checks, including that random data is almost never read as a record. Total 527 checks.
 
 ### Changed / Alterado
+- **Features card on the Overview** (was "Native x64 Features Status"). It no longer shows "Standby" for features you are simply not using, which looked like something was broken. Each feature is now In use (on right now, glowing dot), Ready (available, empty ring) or Unavailable (gold, only when its signature was not found in this executable, with the reason on hover). A summary line counts them, and the rows that have a screen open it on click (Training & BAL, Live Match). Before connecting it just says to connect to the game.
 - Player records are judged by their attributes (0 to 99) and not by the computed OVR, which reaches 107 with every attribute at 99 and has a floor of 40, so it barely separates good data from bad.
 
 ---
