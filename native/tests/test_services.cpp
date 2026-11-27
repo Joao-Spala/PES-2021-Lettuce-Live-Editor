@@ -12,6 +12,7 @@
 #include "../src/ui/arrow_text.hpp"
 #include "../src/ui/i18n.hpp"
 #include "../src/ui/theme.hpp"
+#include "../src/ui/window_scale.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -241,12 +242,14 @@ static void test_settings() {
     // Valores padrao: atualizacao automatica ligada, backups ilimitados
     AppSettings d;
     CHECK(d.auto_update);
+    CHECK(d.layout_guard);   // a trava de estrutura dos dados nasce ligada
     CHECK(d.backup_keep_idx == 0);
     CHECK(d.action_log);
 
     // Ida e volta
     AppSettings s;
     s.auto_update = false;
+    s.layout_guard = false;
     s.update_dismissed = "v14.2.0";
     s.backup_keep_idx = 3;
     s.action_log = false;
@@ -257,6 +260,14 @@ static void test_settings() {
     std::istringstream in(out.str());
     AppSettings r = parse_settings(in);
     CHECK(!r.auto_update && r.update_dismissed == "v14.2.0" && r.backup_keep_idx == 3);
+    CHECK(!r.layout_guard);
+    // arquivo de versao anterior sem a chave: a trava fica ligada. Valor estranho tambem nao desliga, so "0" desliga
+    std::istringstream no_key("lang=pt\n");
+    CHECK(parse_settings(no_key).layout_guard);
+    std::istringstream weird("layout_guard=nao\n");
+    CHECK(parse_settings(weird).layout_guard);
+    std::istringstream zero("layout_guard=0\n");
+    CHECK(!parse_settings(zero).layout_guard);
     CHECK(!r.action_log && r.lang == Lang::EN && r.currency_idx == 2);
 
     // Arquivo de versao anterior (sem as chaves novas): atualizacao automatica ligada, backups ilimitados
@@ -609,6 +620,34 @@ static void test_game_exes() {
 // ------------------------------------------------------------------------------------------------
 // Seletor de processo: lista, alvo manual e persistencia
 
+static void test_window_scale() {
+    using namespace pes::ui;
+    // O piso do arrasto e logico x escala efetiva. A escala nunca redimensiona a janela: so este limite existe.
+    WinSize m = min_window_size(1.0f, 1920, 1080);
+    CHECK(m.w == 640 && m.h == 480);
+    m = min_window_size(1.5f, 1920, 1080);
+    CHECK(m.w == 960 && m.h == 720);
+    m = min_window_size(2.25f, 2560, 1440);   // Windows 150% x escala do app 150%
+    CHECK(m.w == 1440 && m.h == 1080);
+    // Monitor pequeno com escala alta: o piso encosta no limite da tela em vez de ficar impossivel
+    m = min_window_size(2.25f, 1366, 768);
+    CHECK(m.w == 1366 && m.h == 768);
+    m = min_window_size(2.5f, 800, 600);
+    CHECK(m.w == 800 && m.h == 600);
+    // Area de trabalho invalida nao quebra
+    m = min_window_size(1.0f, 0, 0);
+    CHECK(m.w == 1 && m.h == 1);
+
+    // A janela padrao (1280 x 800 logicos) fica acima do piso em todas as escalas do app, entao nenhuma troca de
+    // escala deixa a janela padrao menor que o que o layout comporta
+    for (float ui : {0.90f, 1.00f, 1.15f, 1.30f, 1.50f}) {
+        const float logical_w = 1280.0f / ui;
+        const float logical_h = 800.0f / ui;
+        CHECK(logical_w >= kMinLogicalW && logical_h >= kMinLogicalH);
+    }
+    std::printf("Janela: piso de tamanho por escala PASS\n");
+}
+
 static void test_process_picker() {
     using namespace pes;
     using pes::ui::AppSettings;
@@ -687,6 +726,7 @@ int main() {
     test_app_dirs();
     test_game_exes();
     test_process_picker();
+    test_window_scale();
     std::printf("%d verificacoes, %d falha(s)\n", g_checks, g_fail);
     return g_fail == 0 ? 0 : 1;
 }

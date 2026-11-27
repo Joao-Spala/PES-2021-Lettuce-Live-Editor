@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## [14.2.1] - 2026-11-27 - Data layout check
+
+### Added / Adicionado
+- **Data layout check.** The app finds hooks and pointers by byte signature, but the career data sits at fixed offsets. On connect and every minute it now cross-checks independent fields: the year, the player count, and that your club points to a real squad in the player table (11 players or more) whose records have a text name (ASCII or valid UTF-8), a plausible age and every attribute between 0 and 99. A different layout breaks at least one of these. If it does, the edits that write to the career (finances, BAL focus, squad tools, pack import and scout lists) are turned off with a clear message instead of writing to the wrong place, and the connection line shows a warning. It checks again by itself, so loading a save never leaves it stuck.
+- Settings > Services > **Check the data structure before editing** (on by default) turns the lock off for people who are sure. The diagnostics report always shows the check and its inputs.
+- Tests: `native/tests/test_layout.cpp`, 47 checks, including that random data is almost never read as a record. Total 527 checks.
+
+### Changed / Alterado
+- **Features card on the Overview** (was "Native x64 Features Status"). It no longer shows "Standby" for features you are simply not using, which looked like something was broken. Each feature is now In use (on right now, glowing dot), Ready (available, empty ring) or Unavailable (gold, only when its signature was not found in this executable, with the reason on hover). A summary line counts them, and the rows that have a screen open it on click (Training & BAL, Live Match). Before connecting it just says to connect to the game.
+- Player records are judged by their attributes (0 to 99) and not by the computed OVR, which reaches 107 with every attribute at 99 and has a floor of 40, so it barely separates good data from bad.
+
+### Fixed / Corrigido
+- **Nothing is cut when you raise the UI scale.** The scale grows by itself and the layout now reflows to whatever window size you have, down to a floor of 640 x 480 logical pixels (multiplied by the Windows and app scales). The window is never resized for you. Raising the scale shrinks the logical area (at 150% a 980 px window holds only 653 px of layout) and the screens adapt to it: the header buttons turn into icons, cards stack, and the tables drop only the columns that do not fit.
+- **Responsive tables.** My Squad, Search and Scouts hide optional columns in a fixed order, only when the width requires it (stamina, form, contract, then the row buttons, with tighter cells as a last step), and every header always fits whole. In the Position Lab, Match and Primary move under the position name when the row has no room. Scout tags that do not fit are not drawn half cut. A shared helper (`fit_columns`) decides all of this, so the tables behave the same way.
+- **Floating panels stay inside the window.** Settings and History are re-anchored every frame and their size is limited to the window, so changing the scale or resizing with the panel open no longer leaves it cut off.
+- **Column headers are aligned with their content.** Badge, number and action columns are centered with their header, name and club columns stay left aligned. Applies to My Squad, Search, Scouts, the pack preview and the Position Lab.
+- Position Lab and header buttons: -1 and +1 now have the same width and the same spacing everywhere (OVR bar, DNA bar and the table), and the primary position badge shows the whole word (Principal, Primary) instead of "PRI." or "PRINC.".
+- Tests: added checks for the window size floor at every UI scale.
+
+---
+
 ## [14.2.0] - 2026-11-27 - Automatic updates
 
 ### Added / Adicionado
@@ -22,7 +43,7 @@ All notable changes to this project are documented in this file.
 ### Changed / Alterado
 - **No fixed addresses.** Every hook site and global pointer is found by a unique byte signature in the executable sections of the running process (11 signatures in `native/src/engine/signatures.hpp`). The old shortcut that trusted the reference build's address for the career and match pointers was removed: on another build it pointed at a different variable. A signature that is missing or ambiguous turns the dependent feature off and shows a warning in the connection line at the top of each view, instead of writing to a wrong address.
 - The bytes at a site are read again, live, right before any write.
-- The player table is read up to its structural limit (62115 records, the point where it would overlap the career fields), all or nothing, instead of being capped at 30000. Squad records are validated before any batch tool writes to them.
+- The player table is read up to its structural limit (61425 records, the point where it would overlap the career fields), all or nothing, instead of being capped at 30000. Squad records are validated before any batch tool writes to them.
 - The stamina hook signature now covers the function epilogue that the hook rebuilds by hand.
 - BAL focus above 21 refuses with a clear message when the cap patch is unavailable.
 

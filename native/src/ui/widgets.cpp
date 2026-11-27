@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <unordered_map>
@@ -735,6 +736,126 @@ void draw_stamina_bar(int stam, float bar_w) {
     char pct[12];
     std::snprintf(pct, sizeof(pct), "%d%%", cl);
     dl->AddText(ImVec2(p.x + bw + 7.0f * sc, p.y), to_u32(col::Subtext), pct);
+}
+
+void table_headers_row(const ColAlign* aligns, int count, bool sortable) {
+    // Equivale a ImGui::TableHeadersRow(), com o rotulo de cada coluna alinhado como o conteudo da celula
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float row_height = ImGui::GetTextLineHeight() + style.CellPadding.y * 2.0f;
+    ImGui::TableNextRow(ImGuiTableRowFlags_Headers, row_height);
+    // Em tabela ordenavel o ImGui reserva a direita da celula para a seta de ordenacao (mesma conta de ImGui::TableHeader)
+    const float w_arrow = std::floor(ImGui::GetFontSize() * 0.65f + style.FramePadding.x);
+    const int n = std::min(count, ImGui::TableGetColumnCount());
+    for (int c = 0; c < n; ++c) {
+        if (!ImGui::TableSetColumnIndex(c)) continue;
+        const char* name = ImGui::TableGetColumnName(c);
+        ImGui::PushID(c);
+        if (aligns && aligns[c] == ColAlign::Center) {
+            const float tw = ImGui::CalcTextSize(name, nullptr, true).x;
+            const float avail = ImGui::GetContentRegionAvail().x;
+            const float reserve = (sortable && !(ImGui::TableGetColumnFlags(c) & ImGuiTableColumnFlags_NoSort)) ? w_arrow : 0.0f;
+            // Centro exato da celula quando cabe. Quando a seta reservada cortaria o rotulo, desloca o minimo necessario.
+            const float max_off = avail + style.CellPadding.x - reserve - tw;
+            const float off = std::min(std::floor((avail - tw) * 0.5f), max_off);
+            if (off > 0.0f) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+        }
+        ImGui::TableHeader(name);
+        ImGui::PopID();
+    }
+}
+
+float cell_center_offset(float item_w) {
+    const float avail = ImGui::GetContentRegionAvail().x;
+    return (avail > item_w) ? std::floor((avail - item_w) * 0.5f) : 0.0f;
+}
+
+void cell_center(float item_w) {
+    const float off = cell_center_offset(item_w);
+    if (off > 0.0f) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+}
+
+void cell_text_center(const char* text, const ImVec4* color) {
+    cell_center(ImGui::CalcTextSize(text).x);
+    if (color) ImGui::TextColored(*color, "%s", text);
+    else ImGui::TextUnformatted(text);
+}
+
+float header_min_width(const char* label, bool sortable) {
+    const float tw = std::ceil(ImGui::CalcTextSize(label, nullptr, true).x);
+    const float w_arrow = sortable ? std::floor(ImGui::GetFontSize() * 0.65f + ImGui::GetStyle().FramePadding.x) : 0.0f;
+    return tw + w_arrow + 2.0f;
+}
+
+FitResult fit_columns(const FitColumn* cols, int n, const int* steps, int step_n, float avail, float cpx_norm, float cpx_compact, float extra) {
+    FitResult r{};
+    n = std::min(n, 16);
+    r.cpx = cpx_norm;
+    for (int i = 0; i < n; ++i) r.vis[i] = true;
+    auto cur_w = [&](int i) {
+        float w = (r.small[i] && cols[i].w_small > 0.0f) ? cols[i].w_small : cols[i].w;
+        if (r.compact) w = std::floor(w * 0.9f);
+        return std::max(w, cols[i].min_w);
+    };
+    auto need = [&]() {
+        float t = extra;
+        for (int i = 0; i < n; ++i) if (r.vis[i]) t += cur_w(i) + 2.0f * r.cpx;
+        return t;
+    };
+    for (int k = 0; k < step_n && need() > avail; ++k) {
+        const int s = steps[k];
+        if (s == kFitCompact) { r.compact = true; r.cpx = std::min(r.cpx, cpx_compact); }
+        else if (s >= kFitSmallBase && s - kFitSmallBase < n) r.small[s - kFitSmallBase] = true;
+        else if (s >= 0 && s < n) r.vis[s] = false;
+    }
+    const float free_px = avail - need();
+    float flex_sum = 0.0f;
+    for (int i = 0; i < n; ++i) if (r.vis[i]) flex_sum += cols[i].flex;
+    for (int i = 0; i < n; ++i) {
+        r.w[i] = cur_w(i);
+        if (r.vis[i] && cols[i].flex > 0.0f && flex_sum > 0.0f && free_px > 0.0f) r.w[i] += std::floor(free_px * cols[i].flex / flex_sum);
+    }
+    return r;
+}
+
+void cell_textf_center(const ImVec4& color, const char* fmt, ...) {
+    char buf[160];
+    va_list args;
+    va_start(args, fmt);
+    std::vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    cell_text_center(buf, &color);
+}
+
+float ovr_badge_width(int ovr, float min_w, ImFont* bold_font) {
+    char txt[16];
+    if (ovr <= 0) std::snprintf(txt, sizeof(txt), "--");
+    else std::snprintf(txt, sizeof(txt), "%d", ovr);
+    if (bold_font) ImGui::PushFont(bold_font);
+    const float w = std::max(min_w, ImGui::CalcTextSize(txt).x + 14.0f);
+    if (bold_font) ImGui::PopFont();
+    return w;
+}
+
+float pos_chip_width(Lang lang, int pos_id, float min_w, ImFont* bold_font) {
+    const char* txt = (pos_id < 0 || pos_id >= 13) ? "---" : pos_short(lang, pos_id);
+    if (bold_font) ImGui::PushFont(bold_font);
+    const float w = std::max(min_w, ImGui::CalcTextSize(txt).x + 14.0f);
+    if (bold_font) ImGui::PopFont();
+    return w;
+}
+
+float arrow_badge_width(float h) { return h * 1.18f; }
+
+float pill_width(const char* text, bool compact) {
+    return ImGui::CalcTextSize(text).x + (compact ? 7.0f : 9.0f) * 2.0f;
+}
+
+float stamina_bar_width(int stam, float bar_w) {
+    // Largura visivel: barra + espaco + percentual (o Dummy do draw_stamina_bar reserva um pouco mais)
+    const float sc = std::clamp(ImGui::GetFontSize() / 15.0f, 0.85f, 2.5f);
+    char pct[12];
+    std::snprintf(pct, sizeof(pct), "%d%%", std::clamp(stam, 0, 100));
+    return bar_w * sc + 7.0f * sc + ImGui::CalcTextSize(pct).x;
 }
 
 void draw_rating_segments(int val, int max_val, const ImVec4& active_col, float width, float h) {

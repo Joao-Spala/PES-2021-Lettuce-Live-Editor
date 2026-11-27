@@ -651,6 +651,18 @@ std::string PESEngine::diagnostics_report() {
                 r += b;
             }
         }
+        evaluate_layout_locked(last_career_);
+        {
+            const char* v = layout_.verdict == layout::Verdict::Ok ? "OK"
+                          : layout_.verdict == layout::Verdict::Mismatch ? "MISMATCH" : "not evaluated";
+            std::snprintf(b, sizeof(b), "layout check: %s%s%s%s\r\n", v, layout_.reason.empty() ? "" : " (", layout_.reason.c_str(),
+                          layout_.reason.empty() ? "" : ")");
+            r += b;
+            std::snprintf(b, sizeof(b), "  year %d, count field %u (max %u), club 0x%X, squad %d (names %d, ages %d, attributes %d), guard %s\r\n",
+                          layout_.in.year, layout_.in.count_field, layout_.in.max_records, layout_.in.club_handle, layout_.in.squad,
+                          layout_.in.named, layout_.in.age_ok, layout_.in.stats_ok, layout_guard_ ? "on" : "off");
+            r += b;
+        }
         const int32_t y = static_cast<int32_t>(mem_.read_u16(last_career_ + 0x01642A24ULL));
         const int32_t tb = mem_.read_i32(last_career_ + 0x016ECBF4ULL);
         const int32_t gs = mem_.read_i32(last_career_ + 0x016ECC08ULL);
@@ -673,6 +685,7 @@ void PESEngine::reset_session() {
 }
 
 void PESEngine::reset_career_caches() {
+    layout_ = LayoutState{};   // outra carreira: a estrutura precisa ser conferida de novo
     squad_cache_ = {};
     wage_cache_career_ = 0;
     wage_cache_time_ = 0.0;
@@ -1152,6 +1165,65 @@ const std::vector<uint64_t>& PESEngine::get_user_squad_addresses(uint64_t career
     return squad_cache_.addrs;
 }
 
+void PESEngine::evaluate_layout_locked(uint64_t career) {
+    layout::Input in;
+    in.year = mem_.read_u16(career + 0x01642A24ULL);
+    in.count_field = mem_.read_u32(career + 0x00D0BCE8ULL);
+    in.max_records = kMaxPlayerRecords;
+    in.club_handle = get_user_club_handle(career);
+    std::vector<uint8_t> raw;
+    const auto& addrs = get_user_squad_addresses(career, true, &raw);
+    for (uint64_t p : addrs) {
+        const uint64_t off = p - career;
+        if (off + data::PLAYER_RECORD_SIZE > raw.size()) continue;
+        const layout::RecordPlausibility pl = layout::record_plausibility(raw.data() + off);
+        ++in.squad;
+        in.named += pl.named ? 1 : 0;
+        in.age_ok += pl.age_ok ? 1 : 0;
+        in.stats_ok += pl.stats_ok ? 1 : 0;
+    }
+    const layout::Result r = layout::evaluate(in);
+    const uint64_t now = GetTickCount64();
+    const bool was_bad = layout_.verdict == layout::Verdict::Mismatch;
+    layout_.in = in;
+    layout_.career = career;
+    layout_.eval_tick = now;
+    layout_.reason = r.reason;
+    layout_.verdict = r.verdict;
+    if (r.verdict == layout::Verdict::Mismatch) {
+        ++layout_.fail_streak;
+        if (!was_bad) {
+            layout_.bad_since = now;
+            actionlog::write("ERROR", std::string("Data layout check failed (") + r.reason +
+                                          "): edits that write to the career are turned off. See the diagnostics report.");
+        }
+    } else {
+        if (was_bad) actionlog::write("INFO", "Data layout check passed again.");
+        layout_.fail_streak = 0;
+        layout_.bad_since = 0;
+    }
+}
+
+void PESEngine::ensure_layout_checked_locked(uint64_t career) {
+    if (!career) {
+        layout_ = LayoutState{};
+        return;
+    }
+    const uint64_t now = GetTickCount64();
+    uint64_t interval = 2000;   // sem veredito ainda
+    if (layout_.verdict == layout::Verdict::Ok) interval = 60000;
+    else if (layout_.verdict == layout::Verdict::Mismatch) interval = std::min<uint64_t>(30000, 2000ULL << std::min<uint32_t>(layout_.fail_streak, 4));
+    if (layout_.career != career || now - layout_.eval_tick >= interval) evaluate_layout_locked(career);
+}
+
+bool PESEngine::layout_blocks_writes(uint64_t career) {
+    if (!layout_guard_ || !career) return false;
+    ensure_layout_checked_locked(career);
+    // Uma acao do usuario nao espera o intervalo longo: se estava falhando, confere de novo (os dados podem ter acabado de carregar)
+    if (layout_.verdict == layout::Verdict::Mismatch && GetTickCount64() - layout_.eval_tick >= 1000) evaluate_layout_locked(career);
+    return layout_.verdict == layout::Verdict::Mismatch;
+}
+
 void PESEngine::get_available_salary_budget(uint64_t career, bool force_refresh, int32_t& out_avail, int32_t& out_gross, int32_t& out_wages,
                                             bool* squad_found) {
     out_avail = out_gross = out_wages = 0;
@@ -1226,6 +1298,7 @@ FinancesSnapshot PESEngine::set_finances(std::optional<std::string_view> trf_str
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, p = 0, ms = 0;
     sync_pointers(career, p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     if (!career) return {false, "no_career"};
 
     std::optional<int32_t> t_raw, w_raw;
@@ -1259,6 +1332,7 @@ FinancesSnapshot PESEngine::add_finance_delta(bool is_transfer, int32_t raw_delt
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, p = 0, ms = 0;
     sync_pointers(career, p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     if (!career) return {false, "no_career"};
     uint64_t off = is_transfer ? 0x016ECBF4ULL : 0x016ECC08ULL;
     int32_t cur = mem_.read_i32(career + off);
@@ -1294,6 +1368,10 @@ StatusSnapshot PESEngine::get_status() {
     HookStateBlock sb{};
     sync_pointers(career, p_addr, match_state, &sb);
 
+    ensure_layout_checked_locked(career);
+    st.layout_mismatch = layout_guard_ && layout_.verdict == layout::Verdict::Mismatch &&
+                         GetTickCount64() - layout_.bad_since >= 5000;   // so avisa se persiste: carregar o save pode levar um instante
+    st.layout_reason = layout_.reason;
     st.val_lock_active = vlock_.active;
     st.val_lock = vlock_.cfg;
     st.val_lock_addr = vlock_.addr;
@@ -2156,6 +2234,7 @@ ActionResult PESEngine::run_squad_commander(std::string_view mode, const std::ve
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, p_cur = 0, ms = 0;
     sync_pointers(career, p_cur, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     if (!career) return {false, "no_career"};
 
     int cur_year = static_cast<int>(mem_.read_u16(career + 0x01642A24ULL));
@@ -2513,6 +2592,7 @@ ActionResult PESEngine::add_to_scout_list(int slot_num, uint64_t player_addr) {
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     uint64_t p = player_addr ? player_addr : cur_p;
     if (!career) return {false, "no_career"};
     if (p <= 0x10000ULL) return {false, "no_player"};
@@ -2542,6 +2622,7 @@ ActionResult PESEngine::remove_from_scout_list(int slot_num, uint64_t handle) {
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     const data::ScoutListDef* sl = nullptr;
     for (const auto& s : data::SCOUT_LISTS) if (s.slot == slot_num) { sl = &s; break; }
     if (!career || !sl || !handle) return {false, "invalid_arg"};
@@ -2563,6 +2644,7 @@ ActionResult PESEngine::clear_scout_list(int slot_num) {
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     const data::ScoutListDef* sl = nullptr;
     for (const auto& s : data::SCOUT_LISTS) if (s.slot == slot_num) { sl = &s; break; }
     if (!career || !sl) return {false, "invalid_arg"};
@@ -2600,6 +2682,7 @@ ActionResult PESEngine::undo_scout_change() {
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     if (!career) return {false, "no_career"};
     if (scout_undo_.empty()) return {false, "nothing_to_undo"};
     ScoutSnap snap = std::move(scout_undo_.back());
@@ -2617,6 +2700,7 @@ ActionResult PESEngine::add_many_to_scout_list(int slot_num, const std::vector<u
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     if (!career) return {false, "no_career"};
     const auto* sl = find_scout_def(slot_num);
     if (!sl || player_addrs.empty()) return {false, "invalid_arg"};
@@ -2654,6 +2738,7 @@ ActionResult PESEngine::remove_many_from_scout_list(int slot_num, const std::vec
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     if (!career) return {false, "no_career"};
     const auto* sl = find_scout_def(slot_num);
     if (!sl || handles_to_remove.empty()) return {false, "invalid_arg"};
@@ -2685,6 +2770,7 @@ ActionResult PESEngine::move_scout_entries(int from_slot, int to_slot, const std
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     if (!career) return {false, "no_career"};
     const auto* src = find_scout_def(from_slot);
     const auto* dst = find_scout_def(to_slot);
@@ -2756,6 +2842,7 @@ ActionResult PESEngine::import_scout_lists_json(std::string_view json_str, bool 
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     if (!career) return {false, "no_career"};
 
     using json = nlohmann::json;
@@ -2873,6 +2960,7 @@ ActionResult PESEngine::set_bal_focus(int points, bool lock_enabled) {
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
     if (!career) return {false, "no_career"};
     int pts = std::clamp(points, 0, 99);
     bool cap_ok = true;
@@ -3685,6 +3773,7 @@ ActionResult PESEngine::apply_pack_import(const PackPreviewResult& preview, cons
     if (!ensure_attached()) return {false, "not_connected"};
     uint64_t career = 0, cur_p = 0, ms = 0;
     sync_pointers(career, cur_p, ms);
+    if (layout_blocks_writes(career)) return {false, "layout_mismatch"};
 
     std::vector<BatchUndoItem> batch_backup;
     int applied = 0;

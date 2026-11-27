@@ -21,6 +21,7 @@
 #include "engine/pes_engine.hpp"
 #include "engine/self_update.hpp"
 #include "ui/theme.hpp"
+#include "ui/window_scale.hpp"
 #include "ui/workbench_ui.hpp"
 
 #include <atomic>
@@ -50,6 +51,18 @@ UINT                    g_resize_w = 0;
 UINT                    g_resize_h = 0;
 int                     g_dirty_frames = 6;
 float                   g_dpi_scale = 1.0f;
+float                   g_ui_scale = 1.0f;   // opcao "Escala da interface" (90% a 150%), multiplica a escala do Windows
+
+// Area de trabalho do monitor onde a janela esta (ou do mais proximo)
+RECT work_area_of(HWND hwnd) {
+    MONITORINFO mi{};
+    mi.cbSize = sizeof(mi);
+    HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    if (mon && GetMonitorInfoW(mon, &mi) && mi.rcWork.right > mi.rcWork.left && mi.rcWork.bottom > mi.rcWork.top) return mi.rcWork;
+    RECT r{};
+    SystemParametersInfoW(SPI_GETWORKAREA, 0, &r, 0);
+    return r;
+}
 
 pes::PESEngine*         g_engine_ptr = nullptr;
 pes::ui::WorkbenchApp*  g_app_ptr = nullptr;
@@ -302,8 +315,12 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         case WM_GETMINMAXINFO: {
             auto* mmi = reinterpret_cast<MINMAXINFO*>(lParam);
-            mmi->ptMinTrackSize.x = static_cast<LONG>(640 * g_dpi_scale);
-            mmi->ptMinTrackSize.y = static_cast<LONG>(480 * g_dpi_scale);
+            // Piso do arrasto: tamanho logico minimo x escala efetiva (Windows x opcao do app). So limita quanto o usuario
+            // pode encolher a janela, nunca muda o tamanho sozinho. Acima desse piso o layout se reorganiza e nada fica cortado.
+            const RECT work = work_area_of(hWnd);
+            const pes::ui::WinSize mn = pes::ui::min_window_size(g_dpi_scale * g_ui_scale, work.right - work.left, work.bottom - work.top);
+            mmi->ptMinTrackSize.x = mn.w;
+            mmi->ptMinTrackSize.y = mn.h;
             return 0;
         }
 
@@ -399,7 +416,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR cmd_line, int nCmdShow
         cfg.theme_idx = std::clamp(std::atoi(qt), 0, pes::ui::kThemeCount - 1);
         cfg.accent_idx = pes::ui::theme_default_accent(cfg.theme_idx);
     }
+    if (const char* qs = std::getenv("PES_QA_UISCALE")) cfg.ui_scale_idx = std::clamp(std::atoi(qs), 0, 4);   // QA: forca a escala
 #endif
+    g_ui_scale = pes::ui::kUiScales[std::clamp(cfg.ui_scale_idx, 0, 4)];
     pes::ui::apply_visual_theme(cfg.theme_idx);
     pes::ui::set_accent_theme(cfg.accent_idx);
 
@@ -466,8 +485,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR cmd_line, int nCmdShow
             if (GetMonitorInfoW(mon, &mi) && mi.rcWork.right > mi.rcWork.left && mi.rcWork.bottom > mi.rcWork.top) {
             const int mw = mi.rcWork.right - mi.rcWork.left;
             const int mh = mi.rcWork.bottom - mi.rcWork.top;
-            const int w = std::min(cfg.win_w, mw);
-            const int h = std::min(cfg.win_h, mh);
+            // Tamanho salvo, mas nunca abaixo do piso da escala de hoje (a escala pode ter mudado desde que foi salvo)
+            const pes::ui::WinSize min_now = pes::ui::min_window_size(dpi * g_ui_scale, mw, mh);
+            const int w = std::max(std::min(cfg.win_w, mw), min_now.w);
+            const int h = std::max(std::min(cfg.win_h, mh), min_now.h);
             const int x = std::clamp(static_cast<int>(sr.left), static_cast<int>(mi.rcWork.left), static_cast<int>(mi.rcWork.right) - w);
             const int y = std::clamp(static_cast<int>(sr.top), static_cast<int>(mi.rcWork.top), static_cast<int>(mi.rcWork.bottom) - h);
             WINDOWPLACEMENT wp{};
@@ -631,6 +652,36 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR cmd_line, int nCmdShow
             {"40_wide_update_installing",  1920, 1200, 0, 0, 12},
             {"41_wide_update_refused",     1920, 1200, 0, 0, 13},
             {"42_narrow_update_refused",    980, 1080, 0, 0, 13},
+            {"43_wide_layout_warning",     1920, 1200, 0, 0, 14},
+            {"44_narrow_layout_warning",    980, 1080, 0, 0, 14},
+            {"45_wide_features_ready",     1920, 1200, 0, 0, 15},
+            {"46_narrow_features_ready",    980, 1080, 0, 0, 15},
+            {"47_wide_features_unavailable", 1920, 1200, 0, 0, 16},
+            {"48_narrow_poslab_scrolled",   980, 1080, 3, 2, 17},
+            {"49_med_poslab_scrolled",     1320,  860, 3, 2, 17},
+            // Auditoria no piso logico (640 x 480 a 100%, proporcional nas outras escalas): nada pode ficar cortado
+            {"60_min_dashboard",   600, 400, 0, 0, 0},
+            {"61_min_squad",       600, 400, 1, 0, 0},
+            {"62_min_finances",    600, 400, 2, 0, 0},
+            {"63_min_player_bio",  600, 400, 3, 0, 0},
+            {"64_min_player_stats", 600, 400, 3, 1, 0},
+            {"65_min_poslab",      600, 400, 3, 2, 17},
+            {"66_min_player_skills", 600, 400, 3, 3, 0},
+            {"67_min_player_role", 600, 400, 3, 4, 0},
+            {"68_min_search",      600, 400, 4, 0, 0},
+            {"69_min_scouts",      600, 400, 5, 0, 0},
+            {"70_min_match",       600, 400, 6, 0, 0},
+            {"71_min_training",    600, 400, 7, 0, 0},
+            {"72_min_prefs",       600, 400, 0, 0, 9},
+            // Tabelas rolando ate o fim: no piso e em 853 x 533 logicos (janela padrao a 150%)
+            {"73_min_squad_tbl",   600, 400, 1, 0, 18},
+            {"74_min_search_tbl",  600, 400, 4, 0, 18},
+            {"75_min_scouts_tbl",  600, 400, 5, 0, 18},
+            {"76_mid_squad_tbl",  1280, 800, 1, 0, 18},
+            {"77_mid_search_tbl", 1280, 800, 4, 0, 18},
+            {"78_mid_scouts_tbl", 1280, 800, 5, 0, 18},
+            {"79_min_poslab_tbl",   600, 400, 3, 2, 19},
+            {"80_min_poslab_tbl2",  600, 400, 3, 2, 20},
         };
         int last_w = -1, last_h = -1;
         for (const auto& s : shots) {
@@ -742,7 +793,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR cmd_line, int nCmdShow
                 g_bg_brush = nb;
             }
             // Escala da UI ou cor de destaque mudou: reconstroi atlas de fontes e estilo entre frames
-            const float new_dpi = dpi * pes::ui::kUiScales[std::clamp(app.settings().ui_scale_idx, 0, 4)];
+            g_ui_scale = pes::ui::kUiScales[std::clamp(app.settings().ui_scale_idx, 0, 4)];
+            const float new_dpi = dpi * g_ui_scale;
             ImGui_ImplDX11_InvalidateDeviceObjects();
             io.Fonts->Clear();
             fonts = pes::ui::FontBank{};

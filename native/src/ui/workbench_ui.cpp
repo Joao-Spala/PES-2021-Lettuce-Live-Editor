@@ -70,7 +70,7 @@ bool status_materially_changed(const StatusSnapshot& a, const StatusSnapshot& b)
         a.val_lock_active != b.val_lock_active || !(a.val_lock == b.val_lock) ||
         a.val_lock_addr != b.val_lock_addr || a.val_lock_lost != b.val_lock_lost ||
         a.val_lock_name != b.val_lock_name || a.target_exe != b.target_exe || a.target_unsupported != b.target_unsupported ||
-        a.compat_missing != b.compat_missing) {
+        a.compat_missing != b.compat_missing || a.layout_mismatch != b.layout_mismatch) {
         return true;
     }
     if (a.has_finances && (a.finances.transfer_raw != b.finances.transfer_raw ||
@@ -224,6 +224,7 @@ WorkbenchApp::WorkbenchApp(PESEngine& engine) : engine_(engine) {
     actionlog::set_directory(std::filesystem::path(utf8_to_wide(get_logs_directory())));
     actionlog::set_enabled(settings_.action_log);
     apply_backup_retention();
+    engine_.set_layout_guard(settings_.layout_guard);
     engine_.set_target_process(settings_.game_process, 0);   // processo escolhido a mao em outra sessao (vazio = automatico)
 }
 
@@ -1161,12 +1162,20 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
 
     ImGui::SameLine(0, gap);
     ImVec2 hist_pos = ImGui::GetCursorScreenPos();
+    // Os paineis flutuantes ficam sempre dentro da janela: a posicao e o tamanho maximo sao refeitos a cada quadro, entao
+    // trocar a escala ou redimensionar com o painel aberto nao o deixa cortado
+    ImGuiViewport* pvp = ImGui::GetMainViewport();
+    const float pop_margin = std::round(8.0f * dpi_scale_);
+    const float hist_max_w = std::max(300.0f * dpi_scale_, std::min(640.0f * dpi_scale_, pvp->Size.x - pop_margin * 2.0f));
+    const ImVec2 hist_anchor(std::max(pvp->Pos.x + pop_margin, std::min(hist_pos.x, pvp->Pos.x + pvp->Size.x - hist_max_w - pop_margin)),
+                             hist_pos.y + ctrl_h + 6.0f * dpi_scale_);
+    const float hist_max_h = std::max(200.0f * dpi_scale_, pvp->Pos.y + pvp->Size.y - hist_anchor.y - pop_margin);
     if (icon_button(Icon::History, hist_btn_lbl, col::BgCard, col::Border, col::Text, ImVec2(hist_w, ctrl_h))) {
-        ImGui::SetNextWindowPos(ImVec2(hist_pos.x, hist_pos.y + ctrl_h + 6.0f * dpi_scale_), ImGuiCond_Always, ImVec2(0.0f, 0.0f));
         ImGui::OpenPopup("##hist_popup");
     }
     show_tip_if_hovered(hist_lbl, T(L, "Linha do tempo de todas as edições da sessão, com desfazer até qualquer ponto.", "Timeline of every edit this session, with undo to any point."));
-    render_history_popup(fonts);
+    if (ImGui::IsPopupOpen("##hist_popup")) ImGui::SetNextWindowPos(hist_anchor, ImGuiCond_Always, ImVec2(0.0f, 0.0f));
+    render_history_popup(fonts, hist_max_w, hist_max_h);
 
     if (show_font) {
     ImGui::SameLine(0, gap);
@@ -1210,18 +1219,19 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
 #ifdef PES_QA_DUMP
     if (qa_open_prefs_) { prefs_clicked = true; qa_open_prefs_ = false; }
 #endif
-    if (prefs_clicked) {
-        ImGui::SetNextWindowPos(ImVec2(prefs_pos.x + prefs_w, prefs_pos.y + ctrl_h + 6.0f * dpi_scale_), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-        ImGui::OpenPopup("##prefs_popup");
-    }
+    if (prefs_clicked) ImGui::OpenPopup("##prefs_popup");
     show_tip_if_hovered(T(L, "Ajustes", "Settings"), T(L, "Sempre no topo, escala da interface e cor de destaque", "Always on top, UI scale and accent colour"));
-    render_prefs_popup(fonts);
+    const ImVec2 prefs_anchor(prefs_pos.x + prefs_w, prefs_pos.y + ctrl_h + 6.0f * dpi_scale_);
+    if (ImGui::IsPopupOpen("##prefs_popup")) ImGui::SetNextWindowPos(prefs_anchor, ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+    const float prefs_max_w = std::max(280.0f * dpi_scale_, std::min(420.0f * dpi_scale_, prefs_anchor.x - pvp->Pos.x - pop_margin));
+    const float prefs_max_h = std::max(200.0f * dpi_scale_, std::min(640.0f * dpi_scale_, pvp->Pos.y + pvp->Size.y - prefs_anchor.y - pop_margin));
+    render_prefs_popup(fonts, prefs_max_w, prefs_max_h);
 }
 
-void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
+void WorkbenchApp::render_prefs_popup(const FontBank& fonts, float max_w, float max_h) {
     Lang L = settings_.lang;
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
-    ImGui::SetNextWindowSizeConstraints(ImVec2(300.0f * dpi_scale_, 0.0f), ImVec2(420.0f * dpi_scale_, 640.0f * dpi_scale_));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(std::min(300.0f * dpi_scale_, max_w), 0.0f), ImVec2(max_w, max_h));
     if (!ImGui::BeginPopup("##prefs_popup")) return;
     if (ImGui::IsWindowAppearing()) refresh_backup_info();   // a aba Servicos mostra o espaco usado por backups
 
@@ -1561,43 +1571,113 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
 
         ImGui::TableNextColumn();
         begin_studio_card("##dash_hooks", row2_min_h);
+        // Cada recurso tem um estado com significado real. EM USO: ligado agora. PRONTO: disponivel, so nao esta sendo
+        // usado (os ganchos entram quando o recurso e ligado, entao "espera" parecia defeito). INDISPONIVEL: a assinatura
+        // dele nao foi achada neste executavel, o unico caso que de fato pede atencao.
+        enum class FeatState { Offline, Starting, InUse, Ready, Unavailable };
+        struct FeatItem { FeatState st; const char* lbl; View target; bool has_target; };
+        auto feat_state = [&](bool in_use, uint32_t missing_bit) {
+            if (!st_.attached) return FeatState::Offline;
+            if (in_use) return FeatState::InUse;
+            if (st_.compat_missing & missing_bit) return FeatState::Unavailable;
+            return FeatState::Ready;
+        };
+        const FeatState capture_state = (st_.attached && !st_.hooks[1] && !(st_.compat_missing & kFeatPlayerCapture))
+                                            ? FeatState::Starting
+                                            : feat_state(st_.hooks[1], kFeatPlayerCapture);
+        const FeatItem items[5] = {
+            {capture_state, T(L, "Captura Automática (Plano de Jogo / Elenco)", "Auto Player Capture (Game Plan / Squad)"), View::Squad, false},
+            {feat_state(st_.hooks[3] && st_.training_mode > 0, kFeatTraining), T(L, "Multiplicador de Treino (XP)", "Training XP Multiplier"), View::Training, true},
+            {feat_state(st_.hooks[4] && (st_.bal_lock || st_.bal_focus > 21), kFeatBalCap), T(L, "Desbloqueio de Foco BAL (21 -> 99)", "BAL Focus Cap Unlock"), View::Training, true},
+            {feat_state(st_.hooks[5] && st_.freeze_clock, kFeatMatchClock), T(L, "Relógio Congelado na Partida", "Match Clock Freeze"), View::Match, true},
+            {feat_state(st_.hooks[6] && st_.stamina_mode > 0, kFeatMatchStamina), T(L, "Fôlego Seletivo em Partida", "Selective Match Stamina"), View::Match, true},
+        };
+        int n_use = 0, n_ready = 0, n_off = 0;
+        for (const auto& it : items) {
+            if (it.st == FeatState::InUse) ++n_use;
+            else if (it.st == FeatState::Ready) ++n_ready;
+            else if (it.st == FeatState::Unavailable) ++n_off;
+        }
+        char summary[160];
+        if (!st_.attached) {
+            std::snprintf(summary, sizeof(summary), "%s", T(L, "Conecte ao jogo para ver e usar os recursos.", "Connect to the game to see and use the features."));
+        } else {
+            char a[48], b2[48], c[48];
+            // "Rotulo: n" nao depende de singular e plural ("1 prontos" ficaria errado)
+            std::snprintf(a, sizeof(a), T(L, "Em uso: %d", "In use: %d"), n_use);
+            std::snprintf(b2, sizeof(b2), T(L, "Prontos: %d", "Ready: %d"), n_ready);
+            std::snprintf(c, sizeof(c), T(L, "Indisponíveis: %d", "Unavailable: %d"), n_off);
+            if (n_off > 0) std::snprintf(summary, sizeof(summary), "%s, %s, %s", a, b2, c);
+            else std::snprintf(summary, sizeof(summary), "%s, %s", a, b2);
+        }
         {
             float msz = std::round(24.0f * dpi_scale_);
             float row_y = ImGui::GetCursorPosY();
             draw_kpi_medallion(4, msz, col::GreenSoft);
             ImGui::SameLine(0, 9.0f * dpi_scale_);
             ImGui::SetCursorPosY(row_y + std::max(0.0f, (msz - ImGui::GetTextLineHeight()) * 0.5f));
-            card_header(T(L, "Status dos Recursos x64", "Native x64 Features Status"), bold,
-                T(L, "Os hooks x64 são verificados continuamente e restaurados com segurança ao fechar.", "Native x64 hooks are verified continuously and restored cleanly on exit."));
+            card_header(T(L, "Recursos", "Features"), bold);
             ImGui::SetCursorPosY(std::max(ImGui::GetCursorPosY(), row_y + msz + 6.0f * dpi_scale_));
         }
+        wrapped_colored(st_.attached && n_off > 0 ? col::GoldSoft : col::Subtext, "%s", summary);
         ImGui::Separator();
         ImGui::Spacing();
-        struct HItem { bool on; const char* lbl; };
-        const HItem items[5] = {
-            {st_.hooks[1], T(L, "Captura Automática (Plano de Jogo / Elenco)", "Auto Player Capture (Game Plan / Squad)")},
-            {st_.hooks[3] && st_.training_mode > 0, T(L, "Multiplicador de Treino (XP)", "Training XP Multiplier")},
-            {st_.hooks[4] && (st_.bal_lock || st_.bal_focus > 21), T(L, "Desbloqueio de Foco BAL (21 -> 99)", "BAL Focus Cap Unlock")},
-            {st_.hooks[5] && st_.freeze_clock, T(L, "Relógio Congelado na Partida", "Match Clock Freeze")},
-            {st_.hooks[6] && st_.stamina_mode > 0, T(L, "Fôlego Seletivo em Partida", "Selective Match Stamina")},
-        };
-        if (ImGui::BeginTable("##hooks_tbl", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadOuterX)) {
+        if (st_.attached && ImGui::BeginTable("##hooks_tbl", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadOuterX)) {
             ImGui::TableSetupColumn("##hlbl", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("##hst", ImGuiTableColumnFlags_WidthFixed, std::round(92.0f * dpi_scale_));
-            for (const auto& hi : items) {
+            ImGui::TableSetupColumn("##hst", ImGuiTableColumnFlags_WidthFixed, std::round(118.0f * dpi_scale_));
+            for (int i = 0; i < 5; ++i) {
+                const FeatItem& it = items[i];
+                const float lh = ImGui::GetTextLineHeight();
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::TextColored(hi.on ? col::Text : col::Subtext, "%s", hi.lbl);
+                // So os recursos usaveis levam a tela deles. A linha inteira e clicavel, com o dedo e a dica dizendo para onde.
+                const bool clickable = it.has_target && (it.st == FeatState::InUse || it.st == FeatState::Ready);
+                char tip[200];
+                if (it.st == FeatState::Unavailable) {
+                    std::snprintf(tip, sizeof(tip), "%s", T(L, "Este recurso não foi achado neste executável do jogo. Veja Serviços > Diagnóstico.",
+                                                              "This feature was not found in this game executable. See Services > Diagnostics."));
+                } else if (it.has_target) {
+                    std::snprintf(tip, sizeof(tip), T(L, "Abrir %s", "Open %s"), view_label(it.target));
+                } else {
+                    std::snprintf(tip, sizeof(tip), "%s", T(L, "Automática: o app captura o atleta que você destaca no jogo.",
+                                                              "Automatic: the app captures the player you highlight in the game."));
+                }
+                const float row_top = ImGui::GetCursorPosY();
+                ImGui::PushID(i);
+                if (clickable) {
+                    if (ImGui::Selectable("##feat_row", false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap, ImVec2(0, lh))) switch_view(it.target);
+                    if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                } else {
+                    ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, lh));
+                }
+                show_tip_if_hovered(it.lbl, tip);
+                ImGui::PopID();
+                ImGui::SetCursorPosY(row_top);   // o texto vai por cima da area clicavel
+                const bool normal = it.st == FeatState::InUse || it.st == FeatState::Ready;
+                ImGui::TextColored(normal ? col::Text : col::Subtext, "%s", it.lbl);
+
                 ImGui::TableSetColumnIndex(1);
                 ImVec2 lp = ImGui::GetCursorScreenPos();
-                float lh = ImGui::GetTextLineHeight();
-                draw_led_dot(ImGui::GetWindowDrawList(),
-                             ImVec2(lp.x + 5.0f * dpi_scale_, lp.y + lh * 0.5f),
-                             3.5f * dpi_scale_, hi.on ? col::GreenSoft : col::Muted, hi.on);
+                ImVec4 bc = col::Muted;
+                const char* bt = "";
+                bool pulse = false;
+                switch (it.st) {
+                    case FeatState::InUse:       bc = col::GreenSoft;  bt = T(L, "EM USO", "IN USE"); pulse = true; break;
+                    case FeatState::Ready:       bc = col::AccentSoft; bt = T(L, "PRONTO", "READY"); break;
+                    case FeatState::Unavailable: bc = col::GoldSoft;   bt = T(L, "INDISPONÍVEL", "UNAVAILABLE"); break;
+                    case FeatState::Starting:    bc = col::Muted;      bt = T(L, "INICIANDO", "STARTING"); break;
+                    default: break;
+                }
+                const ImVec2 dot_c(lp.x + 5.0f * dpi_scale_, lp.y + lh * 0.5f);
+                if (it.st == FeatState::Ready) {
+                    // anel vazio: disponivel e sem uso. O ponto cheio que brilha fica so para o que esta em uso.
+                    ImGui::GetWindowDrawList()->AddCircle(dot_c, 3.4f * dpi_scale_, ImGui::GetColorU32(bc), 0, std::max(1.2f, 1.4f * dpi_scale_));
+                } else {
+                    draw_led_dot(ImGui::GetWindowDrawList(), dot_c, 3.5f * dpi_scale_, bc, pulse);
+                }
                 ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 14.0f * dpi_scale_);
                 if (fonts.small_bold) ImGui::PushFont(fonts.small_bold);
-                ImGui::TextColored(hi.on ? col::GreenSoft : col::Muted, "%s",
-                    hi.on ? T(L, "ATIVO", "ACTIVE") : T(L, "Espera", "Standby"));
+                ImGui::TextColored(bc, "%s", bt);
                 if (fonts.small_bold) ImGui::PopFont();
             }
             ImGui::EndTable();
@@ -1705,10 +1785,10 @@ const char* journal_action_label(const std::string& code, Lang L) {
 }
 } // namespace
 
-void WorkbenchApp::render_history_popup(const FontBank& fonts) {
+void WorkbenchApp::render_history_popup(const FontBank& fonts, float max_w, float max_h) {
     Lang L = settings_.lang;
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
-    ImGui::SetNextWindowSizeConstraints(ImVec2(440.0f * dpi_scale_, 0.0f), ImVec2(640.0f * dpi_scale_, 560.0f * dpi_scale_));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(std::min(440.0f * dpi_scale_, max_w), 0.0f), ImVec2(max_w, std::min(560.0f * dpi_scale_, max_h)));
     if (!ImGui::BeginPopup("##hist_popup")) return;
 
     if (journal_rev_seen_ != engine_.journal_revision() || ImGui::IsWindowAppearing()) {
@@ -1770,6 +1850,7 @@ void WorkbenchApp::render_history_popup(const FontBank& fonts) {
 }
 
 void WorkbenchApp::render_view_squad(const FontBank& fonts) {
+    if (qa_scroll_y_ > 0.0f) { ImGui::SetScrollY(qa_scroll_y_); qa_scroll_y_ = 0.0f; }   // so o QA usa: leva a tabela para a area visivel
     Lang L = settings_.lang;
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
 
@@ -1957,42 +2038,49 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
     ImGuiTableFlags tf = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
                          ImGuiTableFlags_ScrollX | ImGuiTableFlags_Sortable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_PadOuterX;
     float tbl_h = std::max(260.0f * dpi_scale_, ImGui::GetContentRegionAvail().y - 6.0f);
-    float w_ovr = std::round(48.0f * dpi_scale_ + 30.0f * dpi_scale_);
-    float w_pos = std::round(54.0f * dpi_scale_);
-    float w_age = std::round(44.0f * dpi_scale_);
-    float w_con = std::round(76.0f * dpi_scale_);
-    float w_sal = std::round(98.0f * dpi_scale_);
-    float w_frm = std::round(54.0f * dpi_scale_);
-    float w_stm = std::round(92.0f * dpi_scale_);
-    float w_hlt = std::round(48.0f * dpi_scale_);
-    float w_act = std::round(110.0f * dpi_scale_);
-    // Colunas opcionais somem em janelas estreitas (ordem: barra de folego, forma) para nunca cortar as acoes
-    bool show_stm = true, show_frm = true;
-    const float sq_avail = ImGui::GetContentRegionAvail().x;
-    const float sq_name_min = std::round(140.0f * dpi_scale_);
-    auto sq_need = [&]() {
-        int ncols = 8 + (show_stm ? 1 : 0) + (show_frm ? 1 : 0);
-        float fixed = w_ovr + w_pos + w_age + w_con + w_sal + w_hlt + w_act + (show_stm ? w_stm : 0.0f) + (show_frm ? w_frm : 0.0f);
-        return fixed + sq_name_min + ImGui::GetStyle().CellPadding.x * 2.0f * static_cast<float>(ncols) + ImGui::GetStyle().ScrollbarSize + 14.0f * dpi_scale_;
+    // Ajuste responsivo: a tabela perde so o que precisa perder para caber, nesta ordem: barra de folego, forma, nome mais
+    // enxuto, contrato, acoes e, por fim, celulas mais justas. Os atalhos de folego e cura seguem na barra em lote.
+    const float dpx = dpi_scale_;
+    const auto hm = [](const char* lbl) { return header_min_width(lbl, true); };   // piso: o cabecalho sempre cabe inteiro
+    const FitColumn sq_cols[10] = {
+        {std::round(78.0f * dpx), 0.0f, 0.0f, hm("OVR")},                                                           // 0 OVR (caixa + selo)
+        {std::round(54.0f * dpx), 0.0f, 0.0f, hm("POS")},                                                           // 1 POS
+        {std::round(140.0f * dpx), std::round(112.0f * dpx), 1.0f, hm(T(L, "ATLETA", "PLAYER"))},                   // 2 ATLETA (flexivel)
+        {std::round(48.0f * dpx), 0.0f, 0.0f, hm(T(L, "IDADE", "AGE"))},                                            // 3 IDADE
+        {std::round(76.0f * dpx), 0.0f, 0.0f, hm(T(L, "CONTRATO", "CONTRACT"))},                                    // 4 CONTRATO
+        {std::round(98.0f * dpx), 0.0f, 0.0f, hm(T(L, "SALÁRIO", "SALARY"))},                                       // 5 SALARIO
+        {std::round(54.0f * dpx), 0.0f, 0.0f, hm(T(L, "FORMA", "FORM"))},                                           // 6 FORMA
+        {std::round(92.0f * dpx), 0.0f, 0.0f, hm(T(L, "FÔLEGO", "STAMINA"))},                                       // 7 FOLEGO
+        {std::round(48.0f * dpx), 0.0f, 0.0f, hm(T(L, "SAÚDE", "HEALTH"))},                                         // 8 SAUDE
+        {std::round(110.0f * dpx), 0.0f, 0.0f, hm(T(L, "AÇÕES", "ACTIONS"))},                                       // 9 ACOES
     };
-    if (sq_need() > sq_avail) show_stm = false;
-    if (sq_need() > sq_avail) show_frm = false;
-    float pad_est = ImGui::GetStyle().CellPadding.x * 2.0f * static_cast<float>(8 + (show_stm ? 1 : 0) + (show_frm ? 1 : 0)) + ImGui::GetStyle().ScrollbarSize + 14.0f * dpi_scale_;
-    float w_name = std::max(sq_name_min,
-                            sq_avail - (w_ovr + w_pos + w_age + w_con + w_sal + w_hlt + w_act + (show_stm ? w_stm : 0.0f) + (show_frm ? w_frm : 0.0f) + pad_est));
+    const int sq_steps[] = {7, 6, kFitSmallBase + 2, 4, 9, kFitCompact};
+    const float sq_cpx_norm = ImGui::GetStyle().CellPadding.x;
+    const FitResult sq = fit_columns(sq_cols, 10, sq_steps, 6, ImGui::GetContentRegionAvail().x, sq_cpx_norm, std::round(6.0f * dpx),
+                                     ImGui::GetStyle().ScrollbarSize + std::round(8.0f * dpx));
+    const bool sq_cp_pushed = (sq.cpx != sq_cpx_norm);
+    if (sq_cp_pushed) ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(sq.cpx, ImGui::GetStyle().CellPadding.y));
     if (ImGui::BeginTable("##squad_tbl", 10, tf, ImVec2(0, tbl_h))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("OVR", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, w_ovr, 0);
-        ImGui::TableSetupColumn("POS", ImGuiTableColumnFlags_WidthFixed, w_pos, 1);
-        ImGui::TableSetupColumn(T(L, "ATLETA", "PLAYER"), ImGuiTableColumnFlags_WidthFixed, w_name, 2);
-        ImGui::TableSetupColumn(T(L, "IDADE", "AGE"), ImGuiTableColumnFlags_WidthFixed, w_age, 3);
-        ImGui::TableSetupColumn(T(L, "CONTRATO", "CONTRACT"), ImGuiTableColumnFlags_WidthFixed, w_con, 4);
-        ImGui::TableSetupColumn(T(L, "SALÁRIO", "SALARY"), ImGuiTableColumnFlags_WidthFixed, w_sal, 5);
-        ImGui::TableSetupColumn(T(L, "FORMA", "FORM"), ImGuiTableColumnFlags_WidthFixed | (show_frm ? 0 : ImGuiTableColumnFlags_Disabled), w_frm, 6);
-        ImGui::TableSetupColumn(T(L, "FÔLEGO", "STAMINA"), ImGuiTableColumnFlags_WidthFixed | (show_stm ? 0 : ImGuiTableColumnFlags_Disabled), w_stm, 7);
-        ImGui::TableSetupColumn(T(L, "SAÚDE", "HEALTH"), ImGuiTableColumnFlags_WidthFixed, w_hlt, 8);
-        ImGui::TableSetupColumn(T(L, "AÇÕES", "ACTIONS"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, w_act, 9);
-        ImGui::TableHeadersRow();
+        {
+            auto fl = [&](int i, ImGuiTableColumnFlags f) { return static_cast<ImGuiTableColumnFlags>(f | (sq.vis[i] ? 0 : ImGuiTableColumnFlags_Disabled)); };
+            ImGui::TableSetupColumn("OVR", fl(0, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending), sq.w[0], 0);
+            ImGui::TableSetupColumn("POS", fl(1, ImGuiTableColumnFlags_WidthFixed), sq.w[1], 1);
+            ImGui::TableSetupColumn(T(L, "ATLETA", "PLAYER"), fl(2, ImGuiTableColumnFlags_WidthFixed), sq.w[2], 2);
+            ImGui::TableSetupColumn(T(L, "IDADE", "AGE"), fl(3, ImGuiTableColumnFlags_WidthFixed), sq.w[3], 3);
+            ImGui::TableSetupColumn(T(L, "CONTRATO", "CONTRACT"), fl(4, ImGuiTableColumnFlags_WidthFixed), sq.w[4], 4);
+            ImGui::TableSetupColumn(T(L, "SALÁRIO", "SALARY"), fl(5, ImGuiTableColumnFlags_WidthFixed), sq.w[5], 5);
+            ImGui::TableSetupColumn(T(L, "FORMA", "FORM"), fl(6, ImGuiTableColumnFlags_WidthFixed), sq.w[6], 6);
+            ImGui::TableSetupColumn(T(L, "FÔLEGO", "STAMINA"), fl(7, ImGuiTableColumnFlags_WidthFixed), sq.w[7], 7);
+            ImGui::TableSetupColumn(T(L, "SAÚDE", "HEALTH"), fl(8, ImGuiTableColumnFlags_WidthFixed), sq.w[8], 8);
+            ImGui::TableSetupColumn(T(L, "AÇÕES", "ACTIONS"), fl(9, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort), sq.w[9], 9);
+        }
+        {
+            // Cabecalho e conteudo no mesmo eixo: centro nas colunas de selo, numero e acao, esquerda so no nome
+            static const ColAlign al[10] = {ColAlign::Center, ColAlign::Center, ColAlign::Left, ColAlign::Center, ColAlign::Center,
+                                            ColAlign::Center, ColAlign::Center, ColAlign::Center, ColAlign::Center, ColAlign::Center};
+            table_headers_row(al, 10, true);
+        }
 
         if (ImGuiTableSortSpecs* specs = ImGui::TableGetSortSpecs()) {
             if (specs->SpecsCount > 0) {
@@ -2024,45 +2112,67 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
             ImGui::PushID(static_cast<int>(p->addr & 0x7FFFFFFF));
 
             ImGui::TableSetColumnIndex(0);
+            const float ovr_h = std::round(23.0f * dpi_scale_);
+            const float cb_gap = 6.0f * dpi_scale_;
+            // Caixa de selecao + selo de OVR formam um grupo so, centralizado na celula (a caixa tem 2 px de preenchimento escalado)
+            const float cb_w = ImGui::GetFontSize() + 4.0f * dpi_scale_;
+            const float ovr_w = ovr_badge_width(p->ovr, std::round(38.0f * dpi_scale_), bold);
+            const float ovr_group_off = cell_center_offset(cb_w + cb_gap + ovr_w);
             if (ImGui::Selectable("##sq_row", p->addr == last_player_addr_,
                                   ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap,
                                   ImVec2(0.0f, row_h))) {
                 open_player_in_studio(p->addr);
             }
-            ImGui::SameLine(0, 0);
+            ImGui::SameLine(0, ovr_group_off);
             {
                 bool sel_v = squad_sel_.count(p->addr) != 0;
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f * dpi_scale_, 2.0f * dpi_scale_));
                 if (ImGui::Checkbox("##sel", &sel_v)) { if (sel_v) squad_sel_.insert(p->addr); else squad_sel_.erase(p->addr); }
                 ImGui::PopStyleVar();
-                ImGui::SameLine(0, 6.0f * dpi_scale_);
+                ImGui::SameLine(0, cb_gap);
             }
-            draw_ovr_badge(p->ovr, std::round(38.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
-            ImGui::TableSetColumnIndex(1); draw_pos_chip(L, p->pos, std::round(44.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
+            draw_ovr_badge(p->ovr, std::round(38.0f * dpi_scale_), ovr_h, bold);
+            ImGui::TableSetColumnIndex(1);
+            cell_center(pos_chip_width(L, p->pos, std::round(44.0f * dpi_scale_), bold));
+            draw_pos_chip(L, p->pos, std::round(44.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
             ImGui::TableSetColumnIndex(2);
             ImGui::AlignTextToFramePadding();
             ImGui::TextUnformatted(p->name.c_str());
-            ImGui::TableSetColumnIndex(3); ImGui::Text("%d%s", p->age, T(L, "a", "y"));
+            ImGui::TableSetColumnIndex(3);
+            {
+                char ab[24]; std::snprintf(ab, sizeof(ab), "%d%s", p->age, T(L, "a", "y"));
+                cell_text_center(ab);
+            }
             ImGui::TableSetColumnIndex(4);
-            if (p->exp_y > 0) ImGui::TextColored(p->is_expiring ? col::GoldSoft : col::Subtext, "%d", p->exp_y);
-            else ImGui::TextColored(col::Muted, "-");
-            ImGui::TableSetColumnIndex(5); ImGui::Text("%s", fmt_money(p->salary_raw, settings_.currency_idx, L).c_str());
-            ImGui::TableSetColumnIndex(6); draw_arrow_badge(p->arrow, std::round(22.0f * dpi_scale_), p->blink, settings_.lang);
-            ImGui::TableSetColumnIndex(7); draw_stamina_bar(p->stamina, 62.0f);
+            if (p->exp_y > 0) {
+                char eb[16]; std::snprintf(eb, sizeof(eb), "%d", p->exp_y);
+                cell_text_center(eb, p->is_expiring ? &col::GoldSoft : &col::Subtext);
+            } else cell_text_center("-", &col::Muted);
+            ImGui::TableSetColumnIndex(5); cell_text_center(fmt_money(p->salary_raw, settings_.currency_idx, L).c_str());
+            ImGui::TableSetColumnIndex(6);
+            cell_center(arrow_badge_width(std::round(22.0f * dpi_scale_)));
+            draw_arrow_badge(p->arrow, std::round(22.0f * dpi_scale_), p->blink, settings_.lang);
+            ImGui::TableSetColumnIndex(7);
+            cell_center(stamina_bar_width(p->stamina, 62.0f));
+            draw_stamina_bar(p->stamina, 62.0f);
             ImGui::TableSetColumnIndex(8);
             if (p->injury > 0) {
                 char ib[16]; std::snprintf(ib, sizeof(ib), "%dd", p->injury);
+                cell_center(pill_width(ib));
                 draw_pill(ib, col::RedSoft, ImVec4(0.937f, 0.267f, 0.267f, 0.16f), ImVec4(0.937f, 0.267f, 0.267f, 0.45f));
             } else {
+                cell_center(pill_width("OK"));
                 draw_pill("OK", col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.16f), ImVec4(0.063f, 0.725f, 0.506f, 0.45f));
             }
             ImGui::TableSetColumnIndex(9);
             if (p->injury > 0) {
+                cell_center(icon_button_width(T(L, "Curar", "Heal")));
                 if (icon_btn_green(Icon::Cross, T(L, "Curar", "Heal"))) {
                     engine_.set_player_quick_condition(std::nullopt, std::nullopt, true, p->addr);
                     need_reload_squad = true;
                 }
             } else if (p->stamina < 100) {
+                cell_center(calc_btn_w("100%"));
                 if (btn_green("100%")) {
                     engine_.set_player_quick_condition(100, std::nullopt, false, p->addr);
                     need_reload_squad = true;
@@ -2073,6 +2183,7 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
         ImGui::EndTable();
         if (need_reload_squad) reload_squad();
     }
+    if (sq_cp_pushed) ImGui::PopStyleVar();
     if (squad_reload_pending_) {
         squad_reload_pending_ = false;
         reload_squad();
@@ -2184,6 +2295,10 @@ void WorkbenchApp::render_view_finances(const FontBank& fonts) {
 
 void WorkbenchApp::render_view_player(const FontBank& fonts) {
     Lang L = settings_.lang;
+    if (qa_scroll_y_ > 0.0f) {
+        ImGui::SetScrollY(qa_scroll_y_);   // so o QA usa: mostra a tabela do Lab em larguras onde ela fica abaixo da dobra
+        qa_scroll_y_ = 0.0f;
+    }
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
 
     if (!has_player_details_) {
@@ -2206,19 +2321,21 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
     const char* exp_lbl = T(L, "Exportar JSON", "Export JSON");
     const char* imp_lbl = T(L, "Importar JSON", "Import JSON");
     const float act_gap = std::round(6.0f * dpi_scale_);
-    const float acts_total_w = icon_button_width("-1 OVR") + icon_button_width("+1 OVR") + icon_button_width(fav_lbl) +
+    // Mesma largura para -1 OVR e +1 OVR (o "+" e mais largo que o "-")
+    const float ovr_btn_w = std::max(icon_button_width("-1 OVR"), icon_button_width("+1 OVR"));
+    const float acts_total_w = ovr_btn_w * 2.0f + icon_button_width(fav_lbl) +
                                icon_button_width(exp_lbl) + icon_button_width(imp_lbl) + act_gap * 4.0f;
     const bool hero_inline_acts = (hero_avail_w >= std::max(860.0f * dpi_scale_, acts_total_w + 460.0f * dpi_scale_));
 
     auto draw_hero_actions = [&](bool inline_row) {
-        if (icon_btn_plain(Icon::ArrowDown, "-1 OVR##hero")) {
+        if (icon_btn_plain(Icon::ArrowDown, "-1 OVR##hero", ImVec2(ovr_btn_w, 0))) {
             auto r = engine_.step_player_ovr(-1);
             if (r.ok) { player_ = r; sync_player_form_buffers(); record_solver_action(r, "-1 OVR DNA", "-1 OVR DNA"); wake_poller(); }
             else toast_code(r.code, true);
         }
         show_tip_if_hovered("-1 OVR", T(L, "Desce 1 ponto de Overall geral mantendo o DNA de atributos.", "Lowers Overall by 1 while preserving stat DNA."));
-        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(icon_button_width("+1 OVR"), act_gap);
-        if (icon_btn_primary(Icon::ArrowUp, "+1 OVR##hero")) {
+        if (inline_row) ImGui::SameLine(0, act_gap); else flow_next(ovr_btn_w, act_gap);
+        if (icon_btn_primary(Icon::ArrowUp, "+1 OVR##hero", ImVec2(ovr_btn_w, 0))) {
             auto r = engine_.step_player_ovr(1);
             if (r.ok) { player_ = r; sync_player_form_buffers(); record_solver_action(r, "+1 OVR DNA", "+1 OVR DNA"); wake_poller(); }
             else toast_code(r.code, true);
@@ -2915,7 +3032,8 @@ void WorkbenchApp::render_ptab_stats(const FontBank& fonts) {
                                                 "Raises or lowers Overall by scaling stats in the exact natural proportion of the player."));
     ImGui::Spacing();
 
-    if (icon_btn_plain(Icon::ArrowDown, "-1 OVR##dna")) {
+    const float dna_btn_w = std::max(icon_button_width("-1 OVR"), icon_button_width("+1 OVR"));   // mesma largura nos dois
+    if (icon_btn_plain(Icon::ArrowDown, "-1 OVR##dna", ImVec2(dna_btn_w, 0))) {
         auto r = engine_.step_player_ovr(-1);
         if (r.ok) { player_ = r; sync_player_form_buffers(); record_solver_action(r, "-1 OVR DNA", "-1 OVR DNA"); wake_poller(); }
         else toast_code(r.code, true);
@@ -2923,7 +3041,7 @@ void WorkbenchApp::render_ptab_stats(const FontBank& fonts) {
     ImGui::SameLine(0, 6.0f * dpi_scale_);
     draw_ovr_badge(player_.ovr, std::round(44.0f * dpi_scale_), ImGui::GetFrameHeight(), bold);
     ImGui::SameLine(0, 6.0f * dpi_scale_);
-    if (icon_btn_primary(Icon::ArrowUp, "+1 OVR##dna")) {
+    if (icon_btn_primary(Icon::ArrowUp, "+1 OVR##dna", ImVec2(dna_btn_w, 0))) {
         auto r = engine_.step_player_ovr(1);
         if (r.ok) { player_ = r; sync_player_form_buffers(); record_solver_action(r, "+1 OVR DNA", "+1 OVR DNA"); wake_poller(); }
         else toast_code(r.code, true);
@@ -2939,7 +3057,7 @@ void WorkbenchApp::render_ptab_stats(const FontBank& fonts) {
     ImGui::SetNextItemWidth(tgt_w);
     bool ent = ImGui::InputText("##tgt_ovr", target_ovr_buf_, sizeof(target_ovr_buf_),
                                 ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue);
-    ImGui::SameLine(0, 6);
+    ImGui::SameLine(0, 6.0f * dpi_scale_);
     if (btn_primary(app_lbl) || ent) {
         int parsed = std::atoi(target_ovr_buf_);
         if (parsed <= 0) parsed = player_.ovr;
@@ -3328,91 +3446,64 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
 
         const char* match_lbl = T(L, "Igualar", "Match");
         const char* setp_lbl  = T(L, "Principal", "Primary");
-        float act_col_w = calc_btn_w(match_lbl) + calc_btn_w(setp_lbl) + 14.0f * dpi_scale_;
-        float step_col_w = icon_button_width("-1") + icon_button_width("+1") + 12.0f * dpi_scale_;
+        // Ritmo unico de espacamento da tabela, sempre escalado pelo DPI: grupo curto das notas, pares de botoes e folga de coluna
+        const float gap_tight = std::round(4.0f * dpi_scale_);
+        const float gap_btn = std::round(6.0f * dpi_scale_);
+        const float col_slack = std::round(8.0f * dpi_scale_);
+        // O "+" e mais largo que o "-": sem isso o +1 sai maior que o -1. Os dois botoes ficam com a mesma largura.
+        const float step_btn_w = std::max(icon_button_width("-1"), icon_button_width("+1"));
+        const char* pri_pill = T(L, "Principal", "Primary");   // a palavra inteira, sem abreviar
+        float act_col_w = calc_btn_w(match_lbl) + calc_btn_w(setp_lbl) + gap_btn + col_slack;
+        float step_col_w = step_btn_w * 2.0f + gap_btn + col_slack;
         float grade_btn_w = std::round(26.0f * dpi_scale_);
-        float grade_col_w = grade_btn_w * 3.0f + 12.0f * dpi_scale_;
+        float grade_col_w = grade_btn_w * 3.0f + gap_tight * 2.0f + col_slack;
         float ovr_col_w = std::round(50.0f * dpi_scale_);
-        float pad_est = ImGui::GetStyle().CellPadding.x * 10.0f + 12.0f * dpi_scale_;
-        float pos_col_w = std::max(std::round(176.0f * dpi_scale_),
-                                   ImGui::GetContentRegionAvail().x - (ovr_col_w + grade_col_w + step_col_w + act_col_w + pad_est));
+        // Ajuste responsivo das colunas. Sem largura para tudo: a coluna de posicao enxuga, depois as acoes (Igualar e
+        // Principal) descem para baixo do nome e por fim as celulas ficam mais justas. O piso de cada coluna e o do conteudo
+        // (botoes) e o do proprio cabecalho, entao nada fica cortado.
+        const auto phm = [](const char* lbl) { return header_min_width(lbl, false); };
+        const FitColumn pl_cols[5] = {
+            {std::round(176.0f * dpi_scale_), std::round(140.0f * dpi_scale_), 1.0f, phm(T(L, "POSIÇÃO", "POSITION"))},
+            {ovr_col_w, 0.0f, 0.0f, std::max(ovr_col_w * 0.8f, phm("OVR"))},
+            {grade_col_w, 0.0f, 0.0f, std::max(grade_col_w, phm(T(L, "GRAU", "GRADE")))},
+            {step_col_w, 0.0f, 0.0f, std::max(step_col_w, phm(T(L, "AJUSTE ISOLADO", "ISOLATED STEP")))},
+            {act_col_w, 0.0f, 0.0f, std::max(act_col_w, phm(T(L, "AÇÕES", "ACTIONS")))},
+        };
+        const int pl_steps[] = {kFitSmallBase + 0, 4, kFitCompact};
+        const float pl_cpx_norm = ImGui::GetStyle().CellPadding.x;
+        const FitResult pl = fit_columns(pl_cols, 5, pl_steps, 3, ImGui::GetContentRegionAvail().x, pl_cpx_norm, std::round(6.0f * dpi_scale_),
+                                         std::round(8.0f * dpi_scale_));
+        const bool stack_act = !pl.vis[4];                       // Igualar e Principal ficam sob o nome da posicao
+        const bool pl_cp_pushed = (pl.cpx != pl_cpx_norm);
+        const float pos_col_w = pl.w[0];
+        // A pilula "Principal" (palavra inteira) vai ao lado do nome quando a coluna comporta, e embaixo dele quando nao
+        // comporta (larguras menores). Assim nunca abrevia e a tabela nao ganha barra de rolagem horizontal.
+        const float pill_w = ImGui::CalcTextSize(pri_pill).x + 14.0f;   // mesmo preenchimento do draw_pill compacto
+        const float primary_name_w = ImGui::CalcTextSize(pos_full(L, player_.reg_pos)).x;
+        const float pos_inline_w = std::round(40.0f * dpi_scale_) + 7.0f * dpi_scale_ + primary_name_w + 6.0f * dpi_scale_ + pill_w + col_slack;
+        const bool pill_inline = pos_col_w >= pos_inline_w;
 
         ImGuiTableFlags tf = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollX;
+        if (pl_cp_pushed) ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(pl.cpx, ImGui::GetStyle().CellPadding.y));
         if (ImGui::BeginTable("##poslab_tbl", 5, tf)) {
-            ImGui::TableSetupColumn(T(L, "POSIÇÃO", "POSITION"), ImGuiTableColumnFlags_WidthFixed, pos_col_w);
-            ImGui::TableSetupColumn("OVR", ImGuiTableColumnFlags_WidthFixed, ovr_col_w);
-            ImGui::TableSetupColumn(T(L, "GRAU", "GRADE"), ImGuiTableColumnFlags_WidthFixed, grade_col_w);
-            ImGui::TableSetupColumn(T(L, "AJUSTE ISOLADO", "ISOLATED STEP"), ImGuiTableColumnFlags_WidthFixed, step_col_w);
-            ImGui::TableSetupColumn(T(L, "AÇÕES", "ACTIONS"), ImGuiTableColumnFlags_WidthFixed, act_col_w);
-            ImGui::TableHeadersRow();
+            {
+                auto fl = [&](int i) { return static_cast<ImGuiTableColumnFlags>(ImGuiTableColumnFlags_WidthFixed | (pl.vis[i] ? 0 : ImGuiTableColumnFlags_Disabled)); };
+                ImGui::TableSetupColumn(T(L, "POSIÇÃO", "POSITION"), fl(0), pl.w[0]);
+                ImGui::TableSetupColumn("OVR", fl(1), pl.w[1]);
+                ImGui::TableSetupColumn(T(L, "GRAU", "GRADE"), fl(2), pl.w[2]);
+                ImGui::TableSetupColumn(T(L, "AJUSTE ISOLADO", "ISOLATED STEP"), fl(3), pl.w[3]);
+                ImGui::TableSetupColumn(T(L, "AÇÕES", "ACTIONS"), fl(4), pl.w[4]);
+            }
+            {
+                static const ColAlign al[5] = {ColAlign::Left, ColAlign::Center, ColAlign::Center, ColAlign::Center, ColAlign::Center};
+                table_headers_row(al, 5);
+            }
 
-            for (int pid : order) {
-                const auto& pos = player_.positions[pid];
-                ImGui::TableNextRow();
-                if (highlighted_pos_ == pid) {
-                    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.22f)));
-                    if (scroll_poslab_to_hl_) {
-                        ImGui::SetScrollHereY(0.4f);
-                        scroll_poslab_to_hl_ = false;
-                    }
-                }
-                ImGui::PushID(pid);
-
-                ImGui::TableSetColumnIndex(0);
-                draw_pos_chip(L, pid, std::round(40.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
-                ImGui::SameLine(0, 7.0f * dpi_scale_);
-                ImGui::Text("%s", pos_full(L, pid));
-                if (pos.is_reg) {
-                    ImGui::SameLine(0, 6.0f * dpi_scale_);
-                    draw_pill(T(L, "PRINC.", "PRI."), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.18f), ImVec4(0.063f, 0.725f, 0.506f, 0.5f), true);
-                }
-
-                ImGui::TableSetColumnIndex(1);
-                draw_ovr_badge(pos.ovr, std::round(38.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
-
-                ImGui::TableSetColumnIndex(2);
-                auto grade_btn = [&](int g, const char* gl, const ImVec4& act_bg, const ImVec4& act_fg) {
-                    bool act = (pos.apt == g);
-                    if (styled_button(gl, act ? act_bg : col::BgInput, act ? act_bg : col::Border, act ? act_fg : col::Subtext, ImVec2(grade_btn_w, std::round(24.0f * dpi_scale_)))) {
-                        int old_g = pos.apt;
-                        int old_o = pos.ovr;
-                        auto r = engine_.set_position_aptitude(pid, g);
-                        if (r.ok) {
-                            player_ = r;
-                            if (r.econ_delta.applied) sync_player_form_buffers();
-                            wake_poller();
-                            if (old_g != g) {
-                                const char* gn[3] = {"C", "B", "A"};
-                                record_meta_action(pid, old_o, player_.positions[pid].ovr,
-                                    std::string("Grau ") + gn[old_g] + " -> " + gn[g],
-                                    std::string("Grade ") + gn[old_g] + " -> " + gn[g]);
-                            }
-                        } else toast_code(r.code, true);
-                    }
-                };
-                grade_btn(0, "C", col::Sky, ImVec4(0.03f, 0.12f, 0.20f, 1.0f));
-                ImGui::SameLine(0, 3.0f * dpi_scale_);
-                grade_btn(1, "B", col::Gold, ImVec4(0.15f, 0.08f, 0.0f, 1.0f));
-                ImGui::SameLine(0, 3.0f * dpi_scale_);
-                grade_btn(2, "A", col::Green, ImVec4(0.02f, 0.18f, 0.08f, 1.0f));
-
-                ImGui::TableSetColumnIndex(3);
-                if (icon_btn_plain(Icon::ArrowDown, "-1##pl")) {
-                    highlighted_pos_ = pid;
-                    auto r = engine_.step_position_ovr(pid, -1);
-                    if (r.ok) { player_ = r; if (r.econ_delta.applied) sync_player_form_buffers(); record_solver_action(r, "-1 OVR", "-1 OVR"); wake_poller(); }
-                    else toast_code(r.code, true);
-                }
-                ImGui::SameLine(0, 5);
-                if (icon_btn_primary(Icon::ArrowUp, "+1##pl")) {
-                    highlighted_pos_ = pid;
-                    auto r = engine_.step_position_ovr(pid, 1);
-                    if (r.ok) { player_ = r; if (r.econ_delta.applied) sync_player_form_buffers(); record_solver_action(r, "+1 OVR", "+1 OVR"); wake_poller(); }
-                    else toast_code(r.code, true);
-                }
-
-                ImGui::TableSetColumnIndex(4);
-                if (!pos.is_reg) {
+        // Igualar e Principal: na coluna Acoes ou, sem largura, embaixo do nome da posicao
+        auto pos_actions = [&](int pid, const PositionEntry& pos, bool center) {
+            if (pos.is_reg) return;
+            {
+                    if (center) cell_center(calc_btn_w(match_lbl) + gap_btn + calc_btn_w(setp_lbl));
                     if (btn_gold(match_lbl)) {
                         highlighted_pos_ = pid;
                         auto r = engine_.match_position_to_primary(pid);
@@ -3422,7 +3513,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                     show_tip_if_hovered(T(L, "Igualar à Posição Principal", "Match Primary Position"),
                         T(L, "Eleva o OVR desta posição até igualar a posição principal sem alterar o OVR principal.",
                              "Raises this position's OVR to match the primary position without changing primary OVR."));
-                    ImGui::SameLine(0, 5.0f * dpi_scale_);
+                    ImGui::SameLine(0, gap_btn);
                     if (ImGui::Button(setp_lbl)) {
                         int old_reg = player_.reg_pos;
                         int old_o = pos.ovr;
@@ -3447,11 +3538,95 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                     show_tip_if_hovered(T(L, "Tornar Posição Principal", "Set as Primary Position"),
                         T(L, "Define esta posição como a posição registrada principal do atleta.",
                              "Sets this position as the player's registered primary position."));
+            }
+        };
+
+            for (int pid : order) {
+                const auto& pos = player_.positions[pid];
+                ImGui::TableNextRow();
+                if (highlighted_pos_ == pid) {
+                    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.22f)));
+                    if (scroll_poslab_to_hl_) {
+                        ImGui::SetScrollHereY(0.4f);
+                        scroll_poslab_to_hl_ = false;
+                    }
+                }
+                ImGui::PushID(pid);
+
+                ImGui::TableSetColumnIndex(0);
+                draw_pos_chip(L, pid, std::round(40.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
+                ImGui::SameLine(0, 7.0f * dpi_scale_);
+                if (pos.is_reg && !pill_inline) {
+                    ImGui::BeginGroup();   // nome em cima, "Principal" embaixo
+                    ImGui::Text("%s", pos_full(L, pid));
+                    draw_pill(pri_pill, col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.18f), ImVec4(0.063f, 0.725f, 0.506f, 0.5f), true);
+                    ImGui::EndGroup();
+                } else {
+                    ImGui::Text("%s", pos_full(L, pid));
+                    if (pos.is_reg) {
+                        ImGui::SameLine(0, 6.0f * dpi_scale_);
+                        draw_pill(pri_pill, col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.18f), ImVec4(0.063f, 0.725f, 0.506f, 0.5f), true);
+                    }
+                }
+
+                if (stack_act && !pos.is_reg) pos_actions(pid, pos, false);
+
+                ImGui::TableSetColumnIndex(1);
+                cell_center(ovr_badge_width(pos.ovr, std::round(38.0f * dpi_scale_), bold));
+                draw_ovr_badge(pos.ovr, std::round(38.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
+
+                ImGui::TableSetColumnIndex(2);
+                cell_center(grade_btn_w * 3.0f + gap_tight * 2.0f);
+                auto grade_btn = [&](int g, const char* gl, const ImVec4& act_bg, const ImVec4& act_fg) {
+                    bool act = (pos.apt == g);
+                    if (styled_button(gl, act ? act_bg : col::BgInput, act ? act_bg : col::Border, act ? act_fg : col::Subtext, ImVec2(grade_btn_w, std::round(24.0f * dpi_scale_)))) {
+                        int old_g = pos.apt;
+                        int old_o = pos.ovr;
+                        auto r = engine_.set_position_aptitude(pid, g);
+                        if (r.ok) {
+                            player_ = r;
+                            if (r.econ_delta.applied) sync_player_form_buffers();
+                            wake_poller();
+                            if (old_g != g) {
+                                const char* gn[3] = {"C", "B", "A"};
+                                record_meta_action(pid, old_o, player_.positions[pid].ovr,
+                                    std::string("Grau ") + gn[old_g] + " -> " + gn[g],
+                                    std::string("Grade ") + gn[old_g] + " -> " + gn[g]);
+                            }
+                        } else toast_code(r.code, true);
+                    }
+                };
+                grade_btn(0, "C", col::Sky, ImVec4(0.03f, 0.12f, 0.20f, 1.0f));
+                ImGui::SameLine(0, gap_tight);
+                grade_btn(1, "B", col::Gold, ImVec4(0.15f, 0.08f, 0.0f, 1.0f));
+                ImGui::SameLine(0, gap_tight);
+                grade_btn(2, "A", col::Green, ImVec4(0.02f, 0.18f, 0.08f, 1.0f));
+
+                ImGui::TableSetColumnIndex(3);
+                cell_center(step_btn_w * 2.0f + gap_btn);
+                if (icon_btn_plain(Icon::ArrowDown, "-1##pl", ImVec2(step_btn_w, 0))) {
+                    highlighted_pos_ = pid;
+                    auto r = engine_.step_position_ovr(pid, -1);
+                    if (r.ok) { player_ = r; if (r.econ_delta.applied) sync_player_form_buffers(); record_solver_action(r, "-1 OVR", "-1 OVR"); wake_poller(); }
+                    else toast_code(r.code, true);
+                }
+                ImGui::SameLine(0, gap_btn);
+                if (icon_btn_primary(Icon::ArrowUp, "+1##pl", ImVec2(step_btn_w, 0))) {
+                    highlighted_pos_ = pid;
+                    auto r = engine_.step_position_ovr(pid, 1);
+                    if (r.ok) { player_ = r; if (r.econ_delta.applied) sync_player_form_buffers(); record_solver_action(r, "+1 OVR", "+1 OVR"); wake_poller(); }
+                    else toast_code(r.code, true);
+                }
+
+                if (!stack_act) {
+                    ImGui::TableSetColumnIndex(4);
+                    pos_actions(pid, pos, true);
                 }
                 ImGui::PopID();
             }
             ImGui::EndTable();
         }
+        if (pl_cp_pushed) ImGui::PopStyleVar();
         end_studio_card();
     };
 
@@ -3775,6 +3950,7 @@ void WorkbenchApp::render_ptab_role(const FontBank& fonts) {
 }
 
 void WorkbenchApp::render_view_search(const FontBank& fonts) {
+    if (qa_scroll_y_ > 0.0f) { ImGui::SetScrollY(qa_scroll_y_); qa_scroll_y_ = 0.0f; }   // so o QA usa: leva a tabela para a area visivel
     Lang L = settings_.lang;
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
 
@@ -3895,27 +4071,45 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
     ImGui::Spacing();
     float tbl_h = std::max(260.0f * dpi_scale_, ImGui::GetContentRegionAvail().y - 6.0f);
     ImGuiTableFlags tf = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX | ImGuiTableFlags_Sortable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_PadOuterX;
-    float s_ovr = std::round(54.0f * dpi_scale_ + 30.0f * dpi_scale_);
-    float s_pos = std::round(58.0f * dpi_scale_);
-    float s_age = std::round(56.0f * dpi_scale_);
-    float s_con = std::round(78.0f * dpi_scale_);
-    float s_sal = std::round(118.0f * dpi_scale_);
-    float s_act = std::round(196.0f * dpi_scale_);
-    float s_pad = ImGui::GetStyle().CellPadding.x * 18.0f + ImGui::GetStyle().ScrollbarSize + 24.0f * dpi_scale_;
-    float s_rem = std::max(std::round(250.0f * dpi_scale_), ImGui::GetContentRegionAvail().x - (s_ovr + s_pos + s_age + s_con + s_sal + s_act + s_pad));
-    float s_name = std::round(s_rem * 0.52f);
-    float s_club = std::max(std::round(110.0f * dpi_scale_), s_rem - s_name);
+    // Ajuste responsivo: contrato, botao Editar (clicar na linha ja abre o atleta), celulas mais justas, clube e salario,
+    // nesta ordem e so se a janela exigir. Nome e clube dividem a sobra.
+    const float spx = dpi_scale_;
+    const auto shm = [](const char* lbl) { return header_min_width(lbl, true); };   // piso: o cabecalho sempre cabe inteiro
+    const FitColumn s_cols[8] = {
+        {std::round(84.0f * spx), 0.0f, 0.0f, shm("OVR")},                                                          // 0 OVR (caixa + selo)
+        {std::round(58.0f * spx), 0.0f, 0.0f, shm("POS")},                                                          // 1 POS
+        {std::round(130.0f * spx), std::round(110.0f * spx), 0.52f, shm(T(L, "ATLETA", "PLAYER"))},                 // 2 ATLETA (flexivel)
+        {std::round(56.0f * spx), 0.0f, 0.0f, shm(T(L, "IDADE", "AGE"))},                                           // 3 IDADE
+        {std::round(120.0f * spx), std::round(90.0f * spx), 0.48f, shm(T(L, "CLUBE", "CLUB"))},                     // 4 CLUBE (flexivel)
+        {std::round(78.0f * spx), 0.0f, 0.0f, shm(T(L, "CONTRATO", "CONTRACT"))},                                   // 5 CONTRATO
+        {std::round(118.0f * spx), std::round(100.0f * spx), 0.0f, shm(T(L, "SALÁRIO", "SALARY"))},                 // 6 SALARIO
+        {std::round(196.0f * spx), std::round(104.0f * spx), 0.0f, shm(T(L, "AÇÕES", "ACTIONS"))},                  // 7 ACOES (reduzida: sem o botao Editar)
+    };
+    const int s_steps[] = {5, kFitSmallBase + 7, kFitCompact, 4, kFitSmallBase + 6, 6};
+    const float s_cpx_norm = ImGui::GetStyle().CellPadding.x;
+    const FitResult sr = fit_columns(s_cols, 8, s_steps, 6, ImGui::GetContentRegionAvail().x, s_cpx_norm, std::round(6.0f * spx),
+                                     ImGui::GetStyle().ScrollbarSize + std::round(8.0f * spx));
+    const bool s_show_edit = !sr.small[7];
+    const bool s_cp_pushed = (sr.cpx != s_cpx_norm);
+    if (s_cp_pushed) ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(sr.cpx, ImGui::GetStyle().CellPadding.y));
     if (ImGui::BeginTable("##srch_tbl", 8, tf, ImVec2(0, tbl_h))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("OVR", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, s_ovr, 0);
-        ImGui::TableSetupColumn("POS", ImGuiTableColumnFlags_WidthFixed, s_pos, 1);
-        ImGui::TableSetupColumn(T(L, "ATLETA", "PLAYER"), ImGuiTableColumnFlags_WidthFixed, s_name, 2);
-        ImGui::TableSetupColumn(T(L, "IDADE", "AGE"), ImGuiTableColumnFlags_WidthFixed, s_age, 3);
-        ImGui::TableSetupColumn(T(L, "CLUBE", "CLUB"), ImGuiTableColumnFlags_WidthFixed, s_club, 4);
-        ImGui::TableSetupColumn(T(L, "CONTRATO", "CONTRACT"), ImGuiTableColumnFlags_WidthFixed, s_con, 5);
-        ImGui::TableSetupColumn(T(L, "SALÁRIO", "SALARY"), ImGuiTableColumnFlags_WidthFixed, s_sal, 6);
-        ImGui::TableSetupColumn(T(L, "AÇÕES", "ACTIONS"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, s_act, 7);
-        ImGui::TableHeadersRow();
+        {
+            auto fl = [&](int i, ImGuiTableColumnFlags f) { return static_cast<ImGuiTableColumnFlags>(f | (sr.vis[i] ? 0 : ImGuiTableColumnFlags_Disabled)); };
+            ImGui::TableSetupColumn("OVR", fl(0, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending), sr.w[0], 0);
+            ImGui::TableSetupColumn("POS", fl(1, ImGuiTableColumnFlags_WidthFixed), sr.w[1], 1);
+            ImGui::TableSetupColumn(T(L, "ATLETA", "PLAYER"), fl(2, ImGuiTableColumnFlags_WidthFixed), sr.w[2], 2);
+            ImGui::TableSetupColumn(T(L, "IDADE", "AGE"), fl(3, ImGuiTableColumnFlags_WidthFixed), sr.w[3], 3);
+            ImGui::TableSetupColumn(T(L, "CLUBE", "CLUB"), fl(4, ImGuiTableColumnFlags_WidthFixed), sr.w[4], 4);
+            ImGui::TableSetupColumn(T(L, "CONTRATO", "CONTRACT"), fl(5, ImGuiTableColumnFlags_WidthFixed), sr.w[5], 5);
+            ImGui::TableSetupColumn(T(L, "SALÁRIO", "SALARY"), fl(6, ImGuiTableColumnFlags_WidthFixed), sr.w[6], 6);
+            ImGui::TableSetupColumn(T(L, "AÇÕES", "ACTIONS"), fl(7, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort), sr.w[7], 7);
+        }
+        {
+            static const ColAlign al[8] = {ColAlign::Center, ColAlign::Center, ColAlign::Left, ColAlign::Center,
+                                           ColAlign::Left, ColAlign::Center, ColAlign::Center, ColAlign::Center};
+            table_headers_row(al, 8, true);
+        }
 
         if (ImGuiTableSortSpecs* specs = ImGui::TableGetSortSpecs()) {
             if (specs->SpecsCount > 0) {
@@ -3946,44 +4140,67 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
             ImGui::TableNextRow(0, row_h);
             ImGui::PushID(static_cast<int>(p->addr & 0x7FFFFFFF));
             ImGui::TableSetColumnIndex(0);
+            const float cb_w = ImGui::GetFontSize() + 4.0f * dpi_scale_;
+            const float cb_gap = 6.0f * dpi_scale_;
+            const float ovr_group_off = cell_center_offset(cb_w + cb_gap + ovr_badge_width(p->ovr, std::round(38.0f * dpi_scale_), bold));
             if (ImGui::Selectable("##sr_row", p->addr == last_player_addr_,
                                   ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap,
                                   ImVec2(0.0f, row_h))) {
                 open_player_in_studio(p->addr);
             }
-            ImGui::SameLine(0, 0);
+            ImGui::SameLine(0, ovr_group_off);
             {
                 bool sel_v = srch_sel_.count(p->addr) != 0;
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f * dpi_scale_, 2.0f * dpi_scale_));
                 if (ImGui::Checkbox("##srsel", &sel_v)) { if (sel_v) srch_sel_.insert(p->addr); else srch_sel_.erase(p->addr); }
                 ImGui::PopStyleVar();
-                ImGui::SameLine(0, 6.0f * dpi_scale_);
+                ImGui::SameLine(0, cb_gap);
             }
             draw_ovr_badge(p->ovr, std::round(38.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
-            ImGui::TableSetColumnIndex(1); draw_pos_chip(L, p->pos, std::round(44.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
+            ImGui::TableSetColumnIndex(1);
+            cell_center(pos_chip_width(L, p->pos, std::round(44.0f * dpi_scale_), bold));
+            draw_pos_chip(L, p->pos, std::round(44.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
             ImGui::TableSetColumnIndex(2); ImGui::AlignTextToFramePadding(); ImGui::TextUnformatted(p->name.c_str());
             {
                 const uint8_t mk = scout_mask_of(p->addr);
                 if (mk) {
-                    ImGui::SameLine(0, 8.0f * dpi_scale_);
+                    // So desenha a etiqueta que cabe no resto da celula: nome longo em coluna estreita nao deixa etiqueta cortada
                     const char* tags[4] = {"O1", "O2", "O3", "FAV"};
+                    const float tag_gap = 3.0f * dpi_scale_;
+                    const float cell_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+                    float x_next = ImGui::GetItemRectMax().x + 8.0f * dpi_scale_;
                     for (int b = 0; b < 4; ++b) {
                         if (!(mk & (1u << b))) continue;
+                        const float tw = ImGui::CalcTextSize(tags[b]).x + 14.0f;
+                        if (x_next + tw > cell_right) break;
+                        ImGui::SameLine(0, x_next - ImGui::GetItemRectMax().x);
                         draw_pill(tags[b], col::GoldSoft, ImVec4(0.96f, 0.62f, 0.04f, 0.14f), ImVec4(0.96f, 0.62f, 0.04f, 0.45f), true);
-                        ImGui::SameLine(0, 3.0f * dpi_scale_);
+                        x_next += tw + tag_gap;
                     }
                 }
             }
-            ImGui::TableSetColumnIndex(3); ImGui::Text("%d%s", p->age, T(L, "a", "y"));
+            ImGui::TableSetColumnIndex(3);
+            {
+                char ab[24]; std::snprintf(ab, sizeof(ab), "%d%s", p->age, T(L, "a", "y"));
+                cell_text_center(ab);
+            }
             ImGui::TableSetColumnIndex(4); ImGui::TextColored(col::Subtext, "%s", fmt_club(L, p->club).c_str());
-            ImGui::TableSetColumnIndex(5); if (p->exp_y) ImGui::Text("%d", p->exp_y); else ImGui::TextColored(col::Muted, "-");
-            ImGui::TableSetColumnIndex(6); ImGui::Text("%s", fmt_money(p->salary_raw, settings_.currency_idx, L).c_str());
+            ImGui::TableSetColumnIndex(5);
+            if (p->exp_y) {
+                char eb[16]; std::snprintf(eb, sizeof(eb), "%d", p->exp_y);
+                cell_text_center(eb);
+            } else cell_text_center("-", &col::Muted);
+            ImGui::TableSetColumnIndex(6); cell_text_center(fmt_money(p->salary_raw, settings_.currency_idx, L).c_str());
             ImGui::TableSetColumnIndex(7);
-            if (icon_btn_primary(Icon::Sliders, T(L, "Editar", "Edit"))) open_player_in_studio(p->addr);
-            ImGui::SameLine(0, 5);
             const bool in_target = (scout_mask_of(p->addr) & (1u << (srch_target_scout_ - 1))) != 0;
+            const char* list_lbl = in_target ? T(L, "Na lista", "On list") : T(L, "+ Lista", "+ List");
+            cell_center((s_show_edit ? icon_button_width(T(L, "Editar", "Edit")) + 5.0f : 0.0f) + calc_btn_w(list_lbl));
+            if (s_show_edit) {
+                if (icon_btn_primary(Icon::Sliders, T(L, "Editar", "Edit"))) open_player_in_studio(p->addr);
+                ImGui::SameLine(0, 5);
+            }
             ImGui::BeginDisabled(in_target);
-            if (btn_green(in_target ? T(L, "Na lista", "On list") : T(L, "+ Lista", "+ List"))) {
+            if (btn_green(list_lbl)) {
                 auto r = engine_.add_to_scout_list(srch_target_scout_, p->addr);
                 toast_code(r.code, !r.ok);
                 reload_scouts();
@@ -3993,9 +4210,11 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
         }
         ImGui::EndTable();
     }
+    if (s_cp_pushed) ImGui::PopStyleVar();
 }
 
 void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
+    if (qa_scroll_y_ > 0.0f) { ImGui::SetScrollY(qa_scroll_y_); qa_scroll_y_ = 0.0f; }   // so o QA usa: leva a tabela para a area visivel
     Lang L = settings_.lang;
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
     double now = ImGui::GetTime();
@@ -4169,48 +4388,54 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
 
     // ---- Tabela ----
     float tbl_h = std::max(240.0f * dpi_scale_, ImGui::GetContentRegionAvail().y - 6.0f);
-    float c_ovr = std::round(54.0f * dpi_scale_ + 30.0f * dpi_scale_);
-    float c_pos = std::round(52.0f * dpi_scale_);
-    float c_age = std::round(46.0f * dpi_scale_);
-    float c_con = std::round(82.0f * dpi_scale_);
-    float c_mkt = std::round(100.0f * dpi_scale_);
-    float c_sal = std::round(96.0f * dpi_scale_);
-    float c_frm = std::round(46.0f * dpi_scale_);
-    float c_lst = std::round(112.0f * dpi_scale_);
-    float c_act = std::round(186.0f * dpi_scale_);
-    float c_club = std::round(140.0f * dpi_scale_);
-    // Colunas opcionais somem em janelas estreitas (ordem: outras listas, forma, salario) para nunca cortar as acoes
-    bool show_lst = true, show_frm = true, show_sal = true;
-    const float avail_w = ImGui::GetContentRegionAvail().x;
-    const float name_min = std::round(150.0f * dpi_scale_);
-    auto table_need = [&]() {
-        int ncols = 8 + (show_lst ? 1 : 0) + (show_frm ? 1 : 0) + (show_sal ? 1 : 0);
-        float fixed = c_ovr + c_pos + c_age + c_con + c_mkt + c_act + c_club + (show_lst ? c_lst : 0.0f) + (show_frm ? c_frm : 0.0f) + (show_sal ? c_sal : 0.0f);
-        return fixed + name_min + ImGui::GetStyle().CellPadding.x * 2.0f * static_cast<float>(ncols) + ImGui::GetStyle().ScrollbarSize + 14.0f * dpi_scale_;
+    // Ajuste responsivo: outras listas, forma, salario, contrato, acoes so com icones, celulas mais justas, clube e mercado,
+    // nesta ordem e so se a janela exigir.
+    const float cpx_d = dpi_scale_;
+    const auto chm = [](const char* lbl) { return header_min_width(lbl, true); };   // piso: o cabecalho sempre cabe inteiro
+    const FitColumn c_cols[11] = {
+        {std::round(84.0f * cpx_d), 0.0f, 0.0f, chm("OVR")},                                                        // 0 OVR (caixa + selo)
+        {std::round(52.0f * cpx_d), 0.0f, 0.0f, chm("POS")},                                                        // 1 POS
+        {std::round(150.0f * cpx_d), std::round(120.0f * cpx_d), 1.0f, chm(T(L, "ATLETA", "PLAYER"))},              // 2 ATLETA (flexivel)
+        {std::round(52.0f * cpx_d), 0.0f, 0.0f, chm(T(L, "IDADE", "AGE"))},                                         // 3 IDADE
+        {std::round(140.0f * cpx_d), std::round(110.0f * cpx_d), 0.0f, chm(T(L, "CLUBE", "CLUB"))},                 // 4 CLUBE
+        {std::round(82.0f * cpx_d), 0.0f, 0.0f, chm(T(L, "CONTRATO", "CONTRACT"))},                                 // 5 CONTRATO
+        {std::round(100.0f * cpx_d), 0.0f, 0.0f, chm(T(L, "MERCADO", "MARKET"))},                                   // 6 MERCADO
+        {std::round(96.0f * cpx_d), 0.0f, 0.0f, chm(T(L, "SALÁRIO", "SALARY"))},                                    // 7 SALARIO
+        {std::round(46.0f * cpx_d), 0.0f, 0.0f, chm(T(L, "FORMA", "FORM"))},                                        // 8 FORMA
+        {std::round(112.0f * cpx_d), 0.0f, 0.0f, chm(T(L, "OUTRAS LISTAS", "OTHER LISTS"))},                        // 9 OUTRAS LISTAS
+        {std::round(186.0f * cpx_d), std::round(92.0f * cpx_d), 0.0f, chm(T(L, "AÇÕES", "ACTIONS"))},               // 10 ACOES (reduzida: so icones)
     };
-    if (table_need() > avail_w) show_lst = false;
-    if (table_need() > avail_w) show_frm = false;
-    if (table_need() > avail_w) show_sal = false;
-    float c_pad = ImGui::GetStyle().CellPadding.x * 2.0f * static_cast<float>(8 + (show_lst ? 1 : 0) + (show_frm ? 1 : 0) + (show_sal ? 1 : 0)) + ImGui::GetStyle().ScrollbarSize + 14.0f * dpi_scale_;
-    float c_name = std::max(name_min,
-                            avail_w - (c_ovr + c_pos + c_age + c_con + c_mkt + c_act + c_club + (show_lst ? c_lst : 0.0f) + (show_frm ? c_frm : 0.0f) + (show_sal ? c_sal : 0.0f) + c_pad));
+    const int c_steps[] = {9, 8, 7, 5, kFitSmallBase + 10, kFitCompact, kFitSmallBase + 4, 4, 6};
+    const float c_cpx_norm = ImGui::GetStyle().CellPadding.x;
+    const FitResult cf = fit_columns(c_cols, 11, c_steps, 9, ImGui::GetContentRegionAvail().x, c_cpx_norm, std::round(6.0f * cpx_d),
+                                     ImGui::GetStyle().ScrollbarSize + std::round(8.0f * cpx_d));
+    const bool c_icons_only = cf.small[10];
+    const bool c_cp_pushed = (cf.cpx != c_cpx_norm);
+    if (c_cp_pushed) ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(cf.cpx, ImGui::GetStyle().CellPadding.y));
     ImGuiTableFlags tf = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX |
                          ImGuiTableFlags_Sortable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_PadOuterX;
     uint64_t remove_one_handle = 0;
     if (ImGui::BeginTable("##scout_tbl", 11, tf, ImVec2(0, tbl_h))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("OVR", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, c_ovr, 0);
-        ImGui::TableSetupColumn("POS", ImGuiTableColumnFlags_WidthFixed, c_pos, 1);
-        ImGui::TableSetupColumn(T(L, "ATLETA", "PLAYER"), ImGuiTableColumnFlags_WidthFixed, c_name, 2);
-        ImGui::TableSetupColumn(T(L, "IDADE", "AGE"), ImGuiTableColumnFlags_WidthFixed, c_age, 3);
-        ImGui::TableSetupColumn(T(L, "CLUBE", "CLUB"), ImGuiTableColumnFlags_WidthFixed, c_club, 4);
-        ImGui::TableSetupColumn(T(L, "CONTRATO", "CONTRACT"), ImGuiTableColumnFlags_WidthFixed, c_con, 5);
-        ImGui::TableSetupColumn(T(L, "MERCADO", "MARKET"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, c_mkt, 6);
-        ImGui::TableSetupColumn(T(L, "SALÁRIO", "SALARY"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending | (show_sal ? 0 : ImGuiTableColumnFlags_Disabled), c_sal, 7);
-        ImGui::TableSetupColumn(T(L, "FORMA", "FORM"), ImGuiTableColumnFlags_WidthFixed | (show_frm ? 0 : ImGuiTableColumnFlags_Disabled), c_frm, 8);
-        ImGui::TableSetupColumn(T(L, "OUTRAS LISTAS", "OTHER LISTS"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort | (show_lst ? 0 : ImGuiTableColumnFlags_Disabled), c_lst, 9);
-        ImGui::TableSetupColumn(T(L, "AÇÕES", "ACTIONS"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, c_act, 10);
-        ImGui::TableHeadersRow();
+        {
+            auto fl = [&](int i, ImGuiTableColumnFlags f) { return static_cast<ImGuiTableColumnFlags>(f | (cf.vis[i] ? 0 : ImGuiTableColumnFlags_Disabled)); };
+            ImGui::TableSetupColumn("OVR", fl(0, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending), cf.w[0], 0);
+            ImGui::TableSetupColumn("POS", fl(1, ImGuiTableColumnFlags_WidthFixed), cf.w[1], 1);
+            ImGui::TableSetupColumn(T(L, "ATLETA", "PLAYER"), fl(2, ImGuiTableColumnFlags_WidthFixed), cf.w[2], 2);
+            ImGui::TableSetupColumn(T(L, "IDADE", "AGE"), fl(3, ImGuiTableColumnFlags_WidthFixed), cf.w[3], 3);
+            ImGui::TableSetupColumn(T(L, "CLUBE", "CLUB"), fl(4, ImGuiTableColumnFlags_WidthFixed), cf.w[4], 4);
+            ImGui::TableSetupColumn(T(L, "CONTRATO", "CONTRACT"), fl(5, ImGuiTableColumnFlags_WidthFixed), cf.w[5], 5);
+            ImGui::TableSetupColumn(T(L, "MERCADO", "MARKET"), fl(6, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending), cf.w[6], 6);
+            ImGui::TableSetupColumn(T(L, "SALÁRIO", "SALARY"), fl(7, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending), cf.w[7], 7);
+            ImGui::TableSetupColumn(T(L, "FORMA", "FORM"), fl(8, ImGuiTableColumnFlags_WidthFixed), cf.w[8], 8);
+            ImGui::TableSetupColumn(T(L, "OUTRAS LISTAS", "OTHER LISTS"), fl(9, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort), cf.w[9], 9);
+            ImGui::TableSetupColumn(T(L, "AÇÕES", "ACTIONS"), fl(10, ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort), cf.w[10], 10);
+        }
+        {
+            static const ColAlign al[11] = {ColAlign::Center, ColAlign::Center, ColAlign::Left, ColAlign::Center, ColAlign::Left, ColAlign::Center,
+                                            ColAlign::Center, ColAlign::Center, ColAlign::Center, ColAlign::Center, ColAlign::Center};
+            table_headers_row(al, 11, true);
+        }
 
         if (ImGuiTableSortSpecs* specs = ImGui::TableGetSortSpecs()) {
             if (specs->SpecsCount > 0) {
@@ -4241,52 +4466,85 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
             ImGui::TableNextRow(0, row_h);
             ImGui::PushID(static_cast<int>(e->handle & 0x7FFFFFFF));
             ImGui::TableSetColumnIndex(0);
+            const float cb_w = ImGui::GetFontSize() + 4.0f * dpi_scale_;
+            const float cb_gap = 6.0f * dpi_scale_;
+            const float ovr_group_off = cell_center_offset(cb_w + cb_gap + ovr_badge_width(e->ovr, std::round(38.0f * dpi_scale_), bold));
             if (ImGui::Selectable("##sc_row", e->addr == last_player_addr_,
                                   ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap, ImVec2(0.0f, row_h))) {
                 open_player_in_studio(e->addr);
             }
-            ImGui::SameLine(0, 0);
+            ImGui::SameLine(0, ovr_group_off);
             {
                 bool sel_v = scout_sel_.count(e->handle) != 0;
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f * dpi_scale_, 2.0f * dpi_scale_));
                 if (ImGui::Checkbox("##scsel", &sel_v)) { if (sel_v) scout_sel_.insert(e->handle); else scout_sel_.erase(e->handle); }
                 ImGui::PopStyleVar();
-                ImGui::SameLine(0, 6.0f * dpi_scale_);
+                ImGui::SameLine(0, cb_gap);
             }
             draw_ovr_badge(e->ovr, std::round(38.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
-            ImGui::TableSetColumnIndex(1); draw_pos_chip(L, e->pos, std::round(44.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
+            ImGui::TableSetColumnIndex(1);
+            cell_center(pos_chip_width(L, e->pos, std::round(44.0f * dpi_scale_), bold));
+            draw_pos_chip(L, e->pos, std::round(44.0f * dpi_scale_), std::round(23.0f * dpi_scale_), bold);
             ImGui::TableSetColumnIndex(2); ImGui::AlignTextToFramePadding(); ImGui::TextUnformatted(e->name.c_str());
-            ImGui::TableSetColumnIndex(3); ImGui::Text("%d%s", e->age, T(L, "a", "y"));
+            ImGui::TableSetColumnIndex(3);
+            {
+                char ab[24]; std::snprintf(ab, sizeof(ab), "%d%s", e->age, T(L, "a", "y"));
+                cell_text_center(ab);
+            }
             ImGui::TableSetColumnIndex(4);
             if (e->club.empty()) draw_pill(T(L, "Sem clube", "Free agent"), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.16f), ImVec4(0.063f, 0.725f, 0.506f, 0.45f), true);
             else ImGui::TextColored(col::Subtext, "%s", fmt_club(L, e->club).c_str());
             ImGui::TableSetColumnIndex(5);
-            if (e->exp_y > 0) ImGui::TextColored(e->exp_y <= exp_limit ? col::GoldSoft : col::Subtext, "%d", e->exp_y);
-            else ImGui::TextColored(col::Muted, "-");
-            ImGui::TableSetColumnIndex(6); ImGui::Text("%s", fmt_money(e->market_raw, settings_.currency_idx, L).c_str());
-            ImGui::TableSetColumnIndex(7); ImGui::Text("%s", fmt_money(e->salary_raw, settings_.currency_idx, L).c_str());
-            ImGui::TableSetColumnIndex(8); draw_arrow_badge(e->arrow, std::round(22.0f * dpi_scale_), e->blink, settings_.lang);
+            if (e->exp_y > 0) {
+                char eb[16]; std::snprintf(eb, sizeof(eb), "%d", e->exp_y);
+                cell_text_center(eb, e->exp_y <= exp_limit ? &col::GoldSoft : &col::Subtext);
+            } else cell_text_center("-", &col::Muted);
+            ImGui::TableSetColumnIndex(6); cell_text_center(fmt_money(e->market_raw, settings_.currency_idx, L).c_str());
+            ImGui::TableSetColumnIndex(7); cell_text_center(fmt_money(e->salary_raw, settings_.currency_idx, L).c_str());
+            ImGui::TableSetColumnIndex(8);
+            cell_center(arrow_badge_width(std::round(22.0f * dpi_scale_)));
+            draw_arrow_badge(e->arrow, std::round(22.0f * dpi_scale_), e->blink, settings_.lang);
             ImGui::TableSetColumnIndex(9);
             {
                 const uint8_t mk = static_cast<uint8_t>(scout_mask_of(e->addr) & ~own_bit);
                 const char* tags[4] = {"O1", "O2", "O3", "FAV"};
-                bool any = false;
+                const float tag_gap = 3.0f * dpi_scale_;
+                float tags_w = 0.0f;
+                int ntags = 0;
                 for (int b = 0; b < 4; ++b) {
                     if (!(mk & (1u << b))) continue;
-                    if (any) ImGui::SameLine(0, 3.0f * dpi_scale_);
-                    draw_pill(tags[b], col::AccentSoft, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.16f), ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.45f), true);
-                    any = true;
+                    tags_w += pill_width(tags[b], true) + (ntags ? tag_gap : 0.0f);
+                    ++ntags;
                 }
-                if (!any) ImGui::TextColored(col::Muted, "-");
+                if (ntags == 0) {
+                    cell_text_center("-", &col::Muted);
+                } else {
+                    cell_center(tags_w);
+                    bool any = false;
+                    for (int b = 0; b < 4; ++b) {
+                        if (!(mk & (1u << b))) continue;
+                        if (any) ImGui::SameLine(0, tag_gap);
+                        draw_pill(tags[b], col::AccentSoft, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.16f), ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.45f), true);
+                        any = true;
+                    }
+                }
             }
             ImGui::TableSetColumnIndex(10);
-            if (icon_btn_primary(Icon::Sliders, T(L, "Editar", "Edit"))) open_player_in_studio(e->addr);
-            ImGui::SameLine(0, 5);
-            if (icon_btn_red(Icon::Trash, T(L, "Remover", "Remove"))) remove_one_handle = e->handle;
+            {
+                const char* ed_lbl = c_icons_only ? "##sced" : T(L, "Editar", "Edit");
+                const char* rm_lbl = c_icons_only ? "##scrm" : T(L, "Remover", "Remove");
+                cell_center(icon_button_width(ed_lbl) + 5.0f + icon_button_width(rm_lbl));
+                if (icon_btn_primary(Icon::Sliders, ed_lbl)) open_player_in_studio(e->addr);
+                if (c_icons_only) show_tip_if_hovered(T(L, "Editar", "Edit"), T(L, "Abre o atleta no editor.", "Opens the player in the editor."));
+                ImGui::SameLine(0, 5);
+                if (icon_btn_red(Icon::Trash, rm_lbl)) remove_one_handle = e->handle;
+                if (c_icons_only) show_tip_if_hovered(T(L, "Remover", "Remove"), T(L, "Tira o atleta desta lista.", "Removes the player from this list."));
+            }
             ImGui::PopID();
         }
         ImGui::EndTable();
     }
+    if (c_cp_pushed) ImGui::PopStyleVar();
 
     // ---- Executa a operacao pendente (depois de todo o desenho) ----
     std::vector<uint64_t> chosen;
@@ -5176,7 +5434,10 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
                     ImGui::TableSetupColumn("OVR", ImGuiTableColumnFlags_WidthFixed, c_ovr);
                     ImGui::TableSetupColumn("SKILLS", ImGuiTableColumnFlags_WidthFixed, c_skl);
                     ImGui::TableSetupColumn(T(L, "MERCADO", "MARKET"), ImGuiTableColumnFlags_WidthFixed, c_mkt);
-                    ImGui::TableHeadersRow();
+                    {
+                        static const ColAlign al[6] = {ColAlign::Center, ColAlign::Center, ColAlign::Left, ColAlign::Center, ColAlign::Center, ColAlign::Center};
+                        table_headers_row(al, 6);
+                    }
 
                     for (size_t i = 0; i < pack_preview_.rows.size(); ++i) {
                         auto& row = pack_preview_.rows[i];
@@ -5185,24 +5446,30 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
                         ImGui::PushID(static_cast<int>(i));
 
                         ImGui::TableSetColumnIndex(0);
+                        cell_center(ImGui::GetFrameHeight());
                         ImGui::BeginDisabled(!matched);
                         ImGui::Checkbox("##rchk", &row.selected);
                         ImGui::EndDisabled();
 
                         ImGui::TableSetColumnIndex(1);
                         if (row.match_kind == PackMatchKind::ExactPid) {
+                            cell_center(pill_width(T(L, "ID Exato", "Exact ID"), true));
                             draw_pill(T(L, "ID Exato", "Exact ID"), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.16f), ImVec4(0.063f, 0.725f, 0.506f, 0.45f), true);
                         } else if (row.match_kind == PackMatchKind::ExactName) {
+                            cell_center(pill_width(T(L, "Nome", "Name"), true));
                             draw_pill(T(L, "Nome", "Name"), col::GoldSoft, ImVec4(0.961f, 0.620f, 0.043f, 0.16f), ImVec4(0.961f, 0.620f, 0.043f, 0.45f), true);
                         } else if (row.match_kind == PackMatchKind::ManualCurrent) {
+                            cell_center(pill_width("Manual", true));
                             draw_pill("Manual", col::AccentSoft, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.18f), ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.48f), true);
                         } else if (pack_scope_ == PackMatchScope::CurrentPlayer && has_player_details_) {
+                            cell_center(calc_btn_w(T(L, "Escolher##pkch", "Pick##pkch")));
                             if (ImGui::SmallButton(T(L, "Escolher##pkch", "Pick##pkch"))) {
                                 run_pack_preview(row.pack_idx);
                                 ImGui::PopID();
                                 break;
                             }
                         } else {
+                            cell_center(pill_width(T(L, "Fora", "Miss"), true));
                             draw_pill(T(L, "Fora", "Miss"), col::Muted, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.10f), col::Border, true);
                         }
 
@@ -5213,37 +5480,37 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
                         if (matched) {
                             int d = row.new_ovr - row.cur_ovr;
                             if (d != 0) {
-                                ImGui::TextColored(d > 0 ? col::GreenSoft : col::RedSoft, "%d -> %d (%+d)", row.cur_ovr, row.new_ovr, d);
+                                cell_textf_center(d > 0 ? col::GreenSoft : col::RedSoft, "%d -> %d (%+d)", row.cur_ovr, row.new_ovr, d);
                             } else {
-                                ImGui::TextColored(col::Subtext, "%d (=)", row.cur_ovr);
+                                cell_textf_center(col::Subtext, "%d (=)", row.cur_ovr);
                             }
                         } else {
-                            ImGui::TextColored(col::Muted, "Pack %d", row.new_ovr);
+                            cell_textf_center(col::Muted, "Pack %d", row.new_ovr);
                         }
 
                         ImGui::TableSetColumnIndex(4);
                         if (matched) {
                             if (row.new_skills_cnt != row.cur_skills_cnt) {
-                                ImGui::TextColored(col::AccentSoft, "%d -> %d", row.cur_skills_cnt, row.new_skills_cnt);
+                                cell_textf_center(col::AccentSoft, "%d -> %d", row.cur_skills_cnt, row.new_skills_cnt);
                             } else {
-                                ImGui::TextColored(col::Subtext, "%d", row.cur_skills_cnt);
+                                cell_textf_center(col::Subtext, "%d", row.cur_skills_cnt);
                             }
                         } else {
-                            ImGui::TextColored(col::Muted, "%d", row.new_skills_cnt);
+                            cell_textf_center(col::Muted, "%d", row.new_skills_cnt);
                         }
 
                         ImGui::TableSetColumnIndex(5);
                         if (matched) {
                             if (row.new_market_raw != row.cur_market_raw) {
-                                ImGui::TextColored(row.new_market_raw > row.cur_market_raw ? col::GreenSoft : col::GoldSoft,
-                                                   "%s -> %s",
-                                                   fmt_money(row.cur_market_raw, settings_.currency_idx, L).c_str(),
-                                                   fmt_money(row.new_market_raw, settings_.currency_idx, L).c_str());
+                                cell_textf_center(row.new_market_raw > row.cur_market_raw ? col::GreenSoft : col::GoldSoft,
+                                      "%s -> %s",
+                                      fmt_money(row.cur_market_raw, settings_.currency_idx, L).c_str(),
+                                      fmt_money(row.new_market_raw, settings_.currency_idx, L).c_str());
                             } else {
-                                ImGui::TextColored(col::Subtext, "%s", fmt_money(row.cur_market_raw, settings_.currency_idx, L).c_str());
+                                cell_textf_center(col::Subtext, "%s", fmt_money(row.cur_market_raw, settings_.currency_idx, L).c_str());
                             }
                         } else {
-                            ImGui::TextColored(col::Muted, "-");
+                            cell_textf_center(col::Muted, "-");
                         }
 
                         ImGui::PopID();
@@ -5509,6 +5776,24 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     if (modal_kind == 6) update_manual_ = true;
     if (modal_kind == 6) update_checker_.qa_force(update::State::Available, update::Release{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"});
     // QA do auto-updater: 11 = instalada (reiniciar), 12 = baixando, 13 = recusada por assinatura
+    // QA do Lab de Posicoes: 17 = rola ate uma linha da tabela (as larguras menores cortam antes dela)
+    if (modal_kind == 17) qa_scroll_y_ = 1250.0f;
+    // QA das tabelas: 18 = rola a pagina ate o fim (a tabela fica abaixo dos cartoes em janelas pequenas)
+    if (modal_kind == 18) qa_scroll_y_ = 100000.0f;
+    if (modal_kind == 19) qa_scroll_y_ = 1480.0f;   // Lab de Posicoes no piso: tabela logo abaixo do mapa
+    if (modal_kind == 20) qa_scroll_y_ = 2300.0f;
+    // QA do card de recursos: 15 = conectado, tudo disponivel. 16 = conectado, um recurso indisponivel
+    if (modal_kind == 15 || modal_kind == 16) {
+        st_.attached = true;
+        st_.layout_mismatch = false;
+        st_.compat_missing = (modal_kind == 16) ? static_cast<uint32_t>(kFeatMatchClock) : 0u;
+    }
+    // QA da checagem de estrutura: 14 = aviso de estrutura diferente na linha de conexao
+    if (modal_kind == 14) {
+        st_.attached = true;
+        st_.layout_mismatch = true;
+        st_.layout_reason = "names";
+    }
     if (modal_kind >= 11 && modal_kind <= 13) {
         update_manual_ = true;
         const update::Release qr{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"};
@@ -5746,6 +6031,21 @@ void WorkbenchApp::render_prefs_services() {
         }
     }
 
+    // ---- Seguranca dos dados
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Segurança dos dados", "Data safety"));
+    bool lg_v = settings_.layout_guard;
+    if (toggle_switch("##sw_layout_guard", T(L, "Conferir a estrutura dos dados antes de editar", "Check the data structure before editing"), &lg_v)) {
+        settings_.layout_guard = lg_v;
+        save_settings(settings_);
+        engine_.set_layout_guard(lg_v);
+    }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Ao conectar e a cada minuto, o app confere se os dados da carreira têm o formato que ele conhece (ano, seu elenco, nomes, idades e atributos). Se não tiverem, as edições que gravam na carreira ficam desligadas, para nada ser escrito no lugar errado. Ligado por padrão. Desligue só se tiver certeza.",
+        "On connect and every minute the app checks that the career data has the layout it knows (year, your squad, names, ages and attributes). If it does not, edits that write to the career are turned off so nothing is written to the wrong place. On by default. Turn it off only if you are sure."));
+    ImGui::PopTextWrapPos();
+
     // ---- Atualizacoes
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
     ImGui::TextColored(col::Subtext, "%s", T(L, "Atualizações", "Updates"));
@@ -5864,8 +6164,10 @@ void WorkbenchApp::render_connection_hint(const FontBank& fonts) {
     const bool career_ok = st_.attached && st_.career > 0;
     // Executavel com assinaturas que nao casaram: parte dos recursos fica desligada por seguranca e o usuario precisa saber
     const bool compat_warn = st_.attached && !st_.access_denied && st_.compat_missing != 0;
+    // Estrutura dos dados diferente da esperada: as edicoes da carreira estao desligadas (o mais grave, vai na frente)
+    const bool layout_warn = st_.attached && !st_.access_denied && st_.layout_mismatch;
     // Conectado e com carreira: volta a descricao normal da tela. A dica ocupa a mesma linha, entao nada se desloca.
-    if (career_ok && !st_.access_denied && !compat_warn) {
+    if (career_ok && !st_.access_denied && !compat_warn && !layout_warn) {
         wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.",
                                                  "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
         return;
@@ -5885,6 +6187,10 @@ void WorkbenchApp::render_connection_hint(const FontBank& fonts) {
             ? std::string(T(L, "Aguardando o PES 2021 ou o Football Life. A conexão é automática.", "Waiting for PES 2021 or Football Life. The connection is automatic."))
             : std::string(T(L, "Procurando o processo escolhido: ", "Looking for the chosen process: ")) + st_.target_exe;
         tone = col::Subtext;
+    } else if (layout_warn) {
+        msg = T(L, "Estrutura de dados diferente do esperado: edições da carreira desligadas. Veja Serviços > Diagnóstico.",
+                   "Data structure differs from the expected one: career edits are off. See Services > Diagnostics.");
+        tone = col::GoldSoft;
     } else if (compat_warn) {
         msg = T(L, "Executável diferente: recursos incompatíveis desligados. Veja Serviços > Diagnóstico.",
                    "Different executable: unsupported features are off. See Services > Diagnostics.");

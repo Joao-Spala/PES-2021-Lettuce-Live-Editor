@@ -132,6 +132,7 @@ inline std::string fmt_code_msg(Lang lang, const std::string& code, int orig = 0
     if (code == "scout_dup") return T(lang, "Jogador já está nesta lista.", "Player is already in this list.");
     if (code == "backup_failed") return T(lang, "Não foi possível salvar o backup do elenco. Nada foi alterado.", "Could not save the squad backup. Nothing was changed.");
     if (code == "squad_not_found") return T(lang, "Não foi possível localizar o elenco do seu time neste jogo. Nada foi alterado. Copie o relatório em Serviços > Diagnóstico e envie ao desenvolvedor.", "Could not locate your club's squad in this game. Nothing was changed. Copy the report from Services > Diagnostics and send it to the developer.");
+    if (code == "layout_mismatch") return T(lang, "A estrutura de dados do jogo não confere com a esperada. Nada foi alterado. Veja Serviços > Diagnóstico.", "The game data structure does not match the expected one. Nothing was changed. See Services > Diagnostics.");
     if (code == "feature_unavailable") return T(lang, "Este recurso não está disponível neste executável do jogo. Veja Serviços > Diagnóstico.", "This feature is not available on this game executable. See Services > Diagnostics.");
     if (code == "preset_noop") return T(lang, "Nenhum atleta precisava de alteração: já têm essas habilidades ou estão no limite de 10.", "No player needed changes: they already have those skills or are at the 10 skill cap.");
     if (code == "scout_full") return T(lang, "Esta lista está cheia.", "This list is full.");
