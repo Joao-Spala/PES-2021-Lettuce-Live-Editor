@@ -54,7 +54,7 @@ O foco é editar com consistência e com volta. Os princípios abaixo orientam o
 </tr>
 <tr>
 <td valign="top"><b>5. Leveza</b></td>
-<td>Cerca de 2,6 MB, um único <code>.exe</code>, sem Cheat Engine e sem runtimes. O laço é guiado por eventos: com a janela parada, o consumo de CPU e GPU é praticamente zero.</td>
+<td>Cerca de 2,8 MB, um único <code>.exe</code>, sem Cheat Engine e sem runtimes. O laço é guiado por eventos: com a janela parada, o consumo de CPU e GPU é praticamente zero.</td>
 </tr>
 </table>
 
@@ -135,7 +135,8 @@ A base inteira do jogo, não só o seu elenco. Encontre qualquer jogador, abra o
 | --- | --- |
 | **Como o OVR muda sem desequilibrar o atleta?** | O app usa a fórmula exata da Konami como função de custo e um solver que preserva a proporção entre os atributos. 30.000 cálculos levam poucos milissegundos. |
 | **E o dinheiro?** | Mercado, salário e multa vêm de um modelo econômico calibrado (curva 2025/26) que depende de OVR, idade, posição, país e versatilidade. É determinístico e reversível: voltar ao OVR antigo volta ao valor antigo. |
-| **O que é a seta piscando?** | Uma flag independente das 5 setas de forma (bit 7 do byte `0x146` do registro do atleta). O app descreve o efeito com base no manual oficial da Konami e a anima nas tabelas. |
+| **O que fazem as setas de forma?** | Durante a partida o jogo multiplica os atributos do jogador por um fator que depende da seta. Azul: +12% em talento, atributos de goleiro e força de chute, +9% em técnica, finalização, passe, velocidade e salto, +6% em contato físico, equilíbrio e resistência. Verde: +6%, +5% e +3%. Amarela: sem alteração. Laranja: -8%, -6% e -6%. Vermelha: -16%, -12% e -12%. Posse apertada e Agressividade nunca mudam. Os valores vêm da tabela interna do próprio jogo (v1.7.2.0), o efeito não fica gravado no atleta, e cada seta no app tem um tooltip com a lista completa. |
+| **O que é a seta piscando?** | Uma flag separada da cor da seta (bit 7 do byte `0x146` do registro do atleta). A Master Liga usa o ícone piscando para marcar um atleta influenciado por uma função no time, e o manual da Konami diz que dar mais minutos a ele pode gerar uma evolução real. No app você só liga ou desliga esse aviso: a cor da seta e os atributos não mudam. |
 | **Dá para desfazer?** | Sim. Cada atleta guarda 10 estados de desfazer, a linha do tempo global guarda até 300 ações, lotes têm "Desfazer Lote" e há backup JSON antes das operações pesadas. |
 | **Funciona com patches?** | Sim. É compatível com o Sider 7.3+ e com derivados como Football Life, SmokePatch, VirtuaRED e Dream Patch. Se uma versão antiga do Workbench estiver aberta ao mesmo tempo, o app avisa do conflito. |
 | **Compartilho edições entre saves?** | O **Pack Studio** (JSON v13) exporta atletas e elencos e importa em outro save, cruzando por ID, nome ou escolha manual, com prévia das diferenças e rollback do lote. |

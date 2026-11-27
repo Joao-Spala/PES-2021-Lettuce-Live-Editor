@@ -54,7 +54,7 @@ The focus is editing consistently and reversibly. The principles below guide the
 </tr>
 <tr>
 <td valign="top"><b>5. Lightness</b></td>
-<td>About 2.6 MB, one <code>.exe</code>, no Cheat Engine and no runtimes. The loop is event driven: with the window idle, CPU and GPU use is practically zero.</td>
+<td>About 2.8 MB, one <code>.exe</code>, no Cheat Engine and no runtimes. The loop is event driven: with the window idle, CPU and GPU use is practically zero.</td>
 </tr>
 </table>
 
@@ -135,7 +135,8 @@ The whole game database, not just your squad. Find any player, open their editor
 | --- | --- |
 | **How does OVR change without unbalancing the player?** | The app uses Konami's exact formula as the cost function and a solver that preserves the ratio between attributes. 30,000 calculations take a few milliseconds. |
 | **What about money?** | Market value, salary and release clause come from a calibrated economy model (2025/26 curve) driven by OVR, age, position, country and versatility. It is deterministic and reversible: going back to the old OVR brings back the old value. |
-| **What is the blinking arrow?** | A flag independent of the 5 form arrows (bit 7 of byte `0x146` in the player record). The app describes its effect based on Konami's official manual and animates it in the tables. |
+| **What do the form arrows do?** | During a match the game multiplies the player's attributes by a factor that depends on the arrow. Blue: +12% on awareness, goalkeeper stats and kicking power, +9% on technique, shooting, passing, speed and jump, +6% on physical contact, balance and stamina. Green: +6%, +5% and +3%. Yellow: no change. Orange: -8%, -6% and -6%. Red: -16%, -12% and -12%. Tight Possession and Aggression never change. The values come from the game's own internal table (v1.7.2.0), the effect is not saved on the player, and every arrow in the app has a tooltip with the full list. |
+| **What is the blinking arrow?** | A flag separate from the arrow colour (bit 7 of byte `0x146` in the player record). Master League uses the blinking icon to mark a player influenced by a Team Role, and Konami's manual says giving him more minutes can lead to a real breakthrough. In the app you only turn that marker on or off: the arrow colour and the attributes do not change. |
 | **Can edits be undone?** | Yes. Each player keeps 10 undo states, the global timeline keeps up to 300 actions, batches have "Undo Batch", and there is a JSON backup before heavy operations. |
 | **Does it work with patches?** | Yes. It is compatible with Sider 7.3+ and with derivatives such as Football Life, SmokePatch, VirtuaRED and Dream Patch. If an older Workbench is open at the same time, the app warns about the conflict. |
 | **Can I share edits between saves?** | **Pack Studio** (JSON v13) exports players and squads and imports them on another save, matching by ID, name or manual pick, with a diff preview and batch rollback. |
