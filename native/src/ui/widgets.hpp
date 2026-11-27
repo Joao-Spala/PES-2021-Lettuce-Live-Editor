@@ -70,6 +70,43 @@ void draw_pill(const char* text, const ImVec4& fg, const ImVec4& bg, const ImVec
 void draw_stamina_bar(int stam, float bar_w = 66.0f);
 void draw_rating_segments(int val, int max_val, const ImVec4& active_col, float width = 88.0f, float h = 7.0f);
 
+// Alinhamento de colunas de tabela: o cabecalho e o conteudo da celula seguem o mesmo eixo (centro ou esquerda).
+// As funcoes *_width devolvem a largura exata que o desenho correspondente ocupa, para centralizar sem estimativa.
+enum class ColAlign : unsigned char { Left, Center };
+void table_headers_row(const ColAlign* aligns, int count, bool sortable = false);   // no lugar de ImGui::TableHeadersRow()
+void cell_center(float item_w);                                      // desloca o cursor para centralizar um item de largura item_w na celula
+float cell_center_offset(float item_w);                              // so a folga (px) a esquerda, para usar com SameLine(0, folga)
+void cell_text_center(const char* text, const ImVec4* color = nullptr);
+void cell_textf_center(const ImVec4& color, const char* fmt, ...) IM_FMTARGS(2);   // igual ao anterior, com formato printf
+float ovr_badge_width(int ovr, float min_w, ImFont* bold_font = nullptr);
+float pos_chip_width(Lang lang, int pos_id, float min_w, ImFont* bold_font = nullptr);
+float arrow_badge_width(float h);
+float pill_width(const char* text, bool compact = false);
+float stamina_bar_width(int stam, float bar_w = 66.0f);
+
+// Ajuste responsivo de colunas: dada a largura disponivel, decide quais colunas cabem. Cada passo da lista `steps` so
+// e aplicado se a tabela ainda nao couber: n >= 0 esconde a coluna n, kFitSmallBase + n usa a largura reduzida (w_small)
+// da coluna n, kFitCompact aperta o preenchimento das celulas e reduz as larguras. Colunas com `flex` > 0 dividem a
+// sobra na proporcao (w e o minimo). Assim a tabela perde so o que precisa perder e nada fica cortado.
+struct FitColumn {
+    float w = 0.0f;         // largura do conteudo (minimo, nas colunas flexiveis)
+    float w_small = 0.0f;   // largura reduzida (0 = sem variante)
+    float flex = 0.0f;      // participacao na sobra (0 = largura fixa)
+    float min_w = 0.0f;     // piso absoluto (largura do proprio cabecalho): nunca fica abaixo disso
+};
+struct FitResult {
+    bool vis[16];
+    bool small[16];
+    float w[16];
+    float cpx = 0.0f;       // preenchimento horizontal das celulas a usar
+    bool compact = false;
+};
+inline constexpr int kFitCompact = -1;
+inline constexpr int kFitSmallBase = 100;
+// Largura minima de uma coluna para o rotulo do cabecalho caber inteiro (com a reserva da seta de ordenacao, se houver)
+float header_min_width(const char* label, bool sortable);
+FitResult fit_columns(const FitColumn* cols, int n, const int* steps, int step_n, float avail, float cpx_norm, float cpx_compact, float extra);
+
 // Interactive GPU controls (smooth micro-animations, zero ugly raw ImGui defaults)
 bool draw_rating_segments_interactive(const char* id, int* val, int max_val, const ImVec4& active_col, ImFont* bold_font = nullptr);
 bool draw_stamina_slider(const char* id, int* stam, float width, ImFont* bold_font = nullptr);

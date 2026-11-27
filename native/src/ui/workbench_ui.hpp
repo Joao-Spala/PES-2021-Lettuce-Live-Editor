@@ -93,7 +93,7 @@ private:
     void run_squad_cmd_sel(const char* mode);
     void run_squad_cmd_impl(const char* mode, const std::vector<uint64_t>* only);
     void apply_preset_cmd(bool to_selection);
-    void render_history_popup(const FontBank& fonts);
+    void render_history_popup(const FontBank& fonts, float max_w, float max_h);
     void render_preset_controls(const FontBank& fonts, bool compact);
     void toast_code(const std::string& code, bool is_err, int orig = 0, int fin = 0, int pri = 0, int pos = -1, int reg_pos = -1, bool needs_grade = false);
     std::string fmt_econ_delta_line(const EconSyncDelta& ed) const;
@@ -159,7 +159,7 @@ private:
     void* hwnd_ = nullptr;
     float dpi_scale_ = 1.0f;
     bool theme_rebuild_ = false;
-    void render_prefs_popup(const FontBank& fonts);
+    void render_prefs_popup(const FontBank& fonts, float max_w, float max_h);
     int prefs_tab_ = 0;   // 0 = Aparencia, 1 = Servicos
 
     // Servicos opcionais (v14.1): aviso de versao, retencao de backups, log local e guia de primeiros passos
@@ -176,6 +176,7 @@ private:
     void apply_process_target(const std::string& exe, uint32_t pid);
     void render_process_picker(const FontBank& fonts);
     bool update_manual_ = false;   // o usuario pediu "Verificar agora": o aviso aparece mesmo com a opcao desligada
+    float qa_scroll_y_ = 0.0f;   // so o QA define (rola a pagina do atleta)
     bool update_restart_hidden_ = false;   // "Depois" no aviso de reiniciar: some ate a proxima abertura
     update::State update_logged_state_ = update::State::Idle;   // ultimo estado que foi para o log de acoes
     std::string update_logged_note_;

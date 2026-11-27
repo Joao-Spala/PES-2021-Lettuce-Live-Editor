@@ -577,7 +577,6 @@
 {"PLAYER NAME", "NOMBRE DEL JUGADOR"},
 {"PLAYERS", "JUGADORES"},
 {"POSITION", "POSICIÓN"},
-{"PRI.", "PRIN."},
 {"PROCESS", "PROCESO"},
 {"Pack", "Pack"},
 {"Pack JSON copied!", "¡JSON del pack copiado!"},

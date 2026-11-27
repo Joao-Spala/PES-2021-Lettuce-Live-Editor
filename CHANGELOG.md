@@ -13,6 +13,14 @@ All notable changes to this project are documented in this file.
 - **Features card on the Overview** (was "Native x64 Features Status"). It no longer shows "Standby" for features you are simply not using, which looked like something was broken. Each feature is now In use (on right now, glowing dot), Ready (available, empty ring) or Unavailable (gold, only when its signature was not found in this executable, with the reason on hover). A summary line counts them, and the rows that have a screen open it on click (Training & BAL, Live Match). Before connecting it just says to connect to the game.
 - Player records are judged by their attributes (0 to 99) and not by the computed OVR, which reaches 107 with every attribute at 99 and has a floor of 40, so it barely separates good data from bad.
 
+### Fixed / Corrigido
+- **Nothing is cut when you raise the UI scale.** The scale grows by itself and the layout now reflows to whatever window size you have, down to a floor of 640 x 480 logical pixels (multiplied by the Windows and app scales). The window is never resized for you. Raising the scale shrinks the logical area (at 150% a 980 px window holds only 653 px of layout) and the screens adapt to it: the header buttons turn into icons, cards stack, and the tables drop only the columns that do not fit.
+- **Responsive tables.** My Squad, Search and Scouts hide optional columns in a fixed order, only when the width requires it (stamina, form, contract, then the row buttons, with tighter cells as a last step), and every header always fits whole. In the Position Lab, Match and Primary move under the position name when the row has no room. Scout tags that do not fit are not drawn half cut. A shared helper (`fit_columns`) decides all of this, so the tables behave the same way.
+- **Floating panels stay inside the window.** Settings and History are re-anchored every frame and their size is limited to the window, so changing the scale or resizing with the panel open no longer leaves it cut off.
+- **Column headers are aligned with their content.** Badge, number and action columns are centered with their header, name and club columns stay left aligned. Applies to My Squad, Search, Scouts, the pack preview and the Position Lab.
+- Position Lab and header buttons: -1 and +1 now have the same width and the same spacing everywhere (OVR bar, DNA bar and the table), and the primary position badge shows the whole word (Principal, Primary) instead of "PRI." or "PRINC.".
+- Tests: added checks for the window size floor at every UI scale.
+
 ---
 
 ## [14.2.0] - 2026-11-27 - Automatic updates
