@@ -55,6 +55,8 @@ struct StatusSnapshot {
     bool attached = false;
     bool access_denied = false;
     bool conflict_other_wb = false;
+    std::string target_exe;            // alvo escolhido a mao (vazio = detecta sozinho)
+    bool target_unsupported = false;   // o processo escolhido existe, mas nao e um jogo compativel (nada foi gravado nele)
     std::string exe;
     uint32_t pid = 0;
     std::string mode_code = "offline"; // offline, menu, ml, bal
@@ -409,6 +411,10 @@ public:
     bool ensure_attached();
     void shutdown();
 
+    // Alvo do attach, como o "Open Process" do Cheat Engine. `exe` vazio = detectar sozinho (PES 2021 e Football Life).
+    // `pid` fixa uma instancia quando ha mais de um processo com o mesmo nome (0 = qualquer). Solta o processo atual.
+    void set_target_process(const std::string& exe_utf8, uint32_t pid);
+
     // Quantos backups manter (0 = todos). A poda so roda depois de gravar um backup novo.
     void set_backup_keep(int keep) { backup_keep_.store(keep < 0 ? 0 : keep, std::memory_order_relaxed); }
 
@@ -578,6 +584,7 @@ private:
     uint64_t addr_career_owner_ = 0;
     uint64_t addr_match_mgr_ = 0;
     uint32_t last_pid_ = 0;
+    std::string unsupported_exe_;   // alvo manual recusado por nao parecer um jogo (modulo pequeno)
     uint64_t last_career_ = 0;
     uint64_t last_written_career_ = UINT64_MAX;
     uint64_t last_written_mmgr_ = UINT64_MAX;

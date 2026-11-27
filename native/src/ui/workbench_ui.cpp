@@ -69,7 +69,7 @@ bool status_materially_changed(const StatusSnapshot& a, const StatusSnapshot& b)
         a.hooks != b.hooks || a.has_player != b.has_player || a.has_finances != b.has_finances ||
         a.val_lock_active != b.val_lock_active || !(a.val_lock == b.val_lock) ||
         a.val_lock_addr != b.val_lock_addr || a.val_lock_lost != b.val_lock_lost ||
-        a.val_lock_name != b.val_lock_name) {
+        a.val_lock_name != b.val_lock_name || a.target_exe != b.target_exe || a.target_unsupported != b.target_unsupported) {
         return true;
     }
     if (a.has_finances && (a.finances.transfer_raw != b.finances.transfer_raw ||
@@ -224,6 +224,7 @@ WorkbenchApp::WorkbenchApp(PESEngine& engine) : engine_(engine) {
     actionlog::set_enabled(settings_.action_log);
     apply_backup_retention();
     open_welcome_guide_ = !settings_.first_run_done;
+    engine_.set_target_process(settings_.game_process, 0);   // processo escolhido a mao em outra sessao (vazio = automatico)
 }
 
 WorkbenchApp::~WorkbenchApp() {
@@ -810,6 +811,7 @@ bool WorkbenchApp::render_frame(const FontBank& fonts) {
 
     render_modals(fonts);
     render_welcome_guide(fonts);
+    render_process_picker(fonts);
 
     ImGui::End();
     ImGui::PopFont();
@@ -885,21 +887,39 @@ void WorkbenchApp::render_titlebar(const FontBank& fonts, float tb_h) {
         ImVec4 c_bd(c_fg.x, c_fg.y, c_fg.z, 0.45f);
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, conn_h * 0.5f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f * dpi_scale_, 2.0f));
-        if (styled_button(conn_lbl, c_bg, c_bd, c_fg, ImVec2(conn_w, conn_h))) {
-            bool ok = engine_.ensure_attached();
-            st_ = engine_.get_status();
-            wake_poller();
-            toasts_.push(ok ? (std::string(T(L, "Conectado a ", "Connected to ")) + st_.exe)
-                            : (st_.access_denied ? T(L, "Acesso negado: execute como Administrador.", "Access denied: run as Administrator.")
-                                                 : T(L, "PES 2021 não encontrado.", "PES 2021 not found.")), !ok);
-        }
+        const bool conn_clicked = styled_button(conn_lbl, c_bg, c_bd, c_fg, ImVec2(conn_w, conn_h));
         ImVec2 bmin = ImGui::GetItemRectMin();
         ImVec2 bmax = ImGui::GetItemRectMax();
+        if (conn_clicked) {
+            ImGui::SetNextWindowPos(ImVec2(bmax.x, bmax.y + 6.0f * dpi_scale_), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+            ImGui::OpenPopup("##conn_menu");
+        }
+        if (ImGui::BeginPopup("##conn_menu")) {
+            if (ImGui::MenuItem(T(L, "Reconectar", "Reconnect"))) {
+                bool ok = engine_.ensure_attached();
+                st_ = engine_.get_status();
+                wake_poller();
+                std::string msg;
+                if (ok) msg = std::string(T(L, "Conectado a ", "Connected to ")) + st_.exe;
+                else if (st_.access_denied) msg = T(L, "Acesso negado: execute como Administrador.", "Access denied: run as Administrator.");
+                else if (st_.target_unsupported) msg = T(L, "O processo escolhido não parece ser um jogo compatível. Nada foi gravado nele.", "The chosen process does not look like a compatible game. Nothing was written to it.");
+                else if (!st_.target_exe.empty()) msg = std::string(T(L, "Processo não encontrado: ", "Process not found: ")) + st_.target_exe;
+                else msg = T(L, "PES 2021 não encontrado.", "PES 2021 not found.");
+                toasts_.push(msg, !ok);
+            }
+            if (ImGui::MenuItem(T(L, "Escolher processo...", "Choose process..."))) {
+                open_proc_picker_ = true;
+            }
+            if (!settings_.game_process.empty() && ImGui::MenuItem(T(L, "Voltar à detecção automática", "Back to automatic detection"))) {
+                apply_process_target(std::string(), 0);
+            }
+            ImGui::EndPopup();
+        }
         draw_led_dot(dl, ImVec2(bmin.x + 12.0f * dpi_scale_, (bmin.y + bmax.y) * 0.5f),
                      3.6f * dpi_scale_, c_fg, st_.attached);
         track_interactive();
         show_tip_if_hovered(T(L, "Conexão com o jogo", "Game Connection"),
-                            T(L, "Clique para reconectar e verificar os hooks x64 no PES 2021.", "Click to reconnect and verify x64 hooks in PES 2021."));
+                            T(L, "Clique para reconectar ou escolher outro processo, como no Cheat Engine.", "Click to reconnect or pick another process, like in Cheat Engine."));
         ImGui::PopStyleVar(2);
     }
     if (fonts.small_bold) ImGui::PopFont();
@@ -5485,6 +5505,24 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     prefs_tab_ = (modal_kind == 9) ? 1 : 0;
     if (modal_kind == 6) update_manual_ = true;
     if (modal_kind == 6) update_checker_.qa_force(update::State::Available, update::Release{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"});
+    if (modal_kind == 10) {   // seletor de processo com uma lista fixa
+        qa_fake_procs_ = true;
+        proc_list_.clear();
+        auto add = [&](uint32_t pid, const char* exe, const char* title, bool win, bool rec, bool is64 = true) {
+            ProcessInfo p; p.pid = pid; p.exe = exe; p.title = title; p.has_window = win; p.recognized = rec; p.is_64bit = is64;
+            proc_list_.push_back(std::move(p));
+        };
+        add(31892, "PES2021.exe", "eFootball PES 2021", true, true);
+        add(18420, "FL_2027.exe", "Football Life 2027", true, true);
+        add(5120, "chrome.exe", "Google Chrome", true, false);
+        add(7344, "Discord.exe", "Discord", true, false);
+        add(9020, "explorer.exe", "Explorador de Arquivos", true, false);
+        add(2210, "notepad.exe", "Sem título - Bloco de Notas", true, false);
+        add(4408, "game32.exe", "Jogo antigo", true, false, false);
+        proc_selected_pid_ = 18420;
+        proc_selected_exe_ = "FL_2027.exe";
+        open_proc_picker_ = true;
+    }
     if (modal_kind == 8) {   // trava ativa no atleta aberto
         st_.val_lock_active = true;
         st_.val_lock.stamina = true; st_.val_lock.stamina_value = 100;
@@ -5600,6 +5638,26 @@ void WorkbenchApp::render_prefs_services() {
     const float wrap_w = 330.0f * dpi_scale_;
     const float gap = std::round(6.0f * dpi_scale_);
     const float bh = std::round(30.0f * dpi_scale_);
+
+    // ---- Conexao com o jogo (seletor de processo)
+    ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Conexão com o jogo", "Game connection"));
+    {
+        std::string cur = settings_.game_process.empty()
+            ? std::string(T(L, "Automática (PES 2021 e Football Life)", "Automatic (PES 2021 and Football Life)"))
+            : std::string(T(L, "Processo escolhido: ", "Chosen process: ")) + settings_.game_process;
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+        wrapped_colored(col::Muted, "%s", cur.c_str());
+        ImGui::PopTextWrapPos();
+        if (ImGui::Button(T(L, "Escolher processo...##proc_open", "Choose process...##proc_open"))) {
+            open_proc_picker_ = true;
+            ImGui::CloseCurrentPopup();
+        }
+        if (!settings_.game_process.empty()) {
+            ImGui::SameLine(0, gap);
+            if (ImGui::Button(T(L, "Automática##proc_auto", "Automatic##proc_auto"))) apply_process_target(std::string(), 0);
+        }
+    }
 
     // ---- Atualizacoes
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
@@ -5743,6 +5801,18 @@ void WorkbenchApp::render_setup_checklist(const FontBank& fonts) {
     const float wrap_w = std::max(200.0f * dpi_scale_, ImGui::GetContentRegionAvail().x - 40.0f * dpi_scale_);
     draw_step_row(T(L, "Abra o PES 2021 ou o Football Life.", "Start PES 2021 or Football Life."),
                   st_.attached ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
+    if (!st_.attached) {
+        // O app nao achou o jogo pelo nome: deixa escolher o processo, ou avisa quando o escolhido nao e um jogo
+        if (st_.target_unsupported) {
+            wrapped_colored(col::GoldSoft, "%s", T(L, "O processo escolhido não parece ser um jogo compatível. Nada foi gravado nele.",
+                                                      "The chosen process does not look like a compatible game. Nothing was written to it."));
+        } else if (!st_.target_exe.empty()) {
+            const std::string tmsg = std::string(T(L, "Procurando o processo escolhido: ", "Looking for the chosen process: ")) + st_.target_exe;
+            wrapped_colored(col::Muted, "%s", tmsg.c_str());
+        }
+        if (ImGui::Button(T(L, "Escolher processo...##chk_proc", "Choose process...##chk_proc"))) open_proc_picker_ = true;
+        ImGui::Spacing();
+    }
     draw_step_row(T(L, "Entre na Master Liga ou no Rumo ao Estrelato.", "Enter Master League or Become a Legend."),
                   career_ok ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
     draw_step_row(st_.access_denied
@@ -5895,6 +5965,171 @@ void WorkbenchApp::render_value_lock_card(const FontBank& fonts) {
         "The lock turns itself off if the game closes or the locked player changes. It is not part of the undo history."));
     ImGui::PopTextWrapPos();
     end_studio_card();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Seletor de processo: escolher qualquer processo em execucao para anexar, como o "Open Process" do Cheat Engine
+// ---------------------------------------------------------------------------------------------
+
+void WorkbenchApp::refresh_process_list() {
+#ifdef PES_QA_DUMP
+    if (qa_fake_procs_) return;   // captura de tela: lista fixa, sem expor os processos da maquina de teste
+#endif
+    proc_list_ = list_processes();
+    bool still_there = false;
+    for (const auto& p : proc_list_) {
+        if (p.pid == proc_selected_pid_) { still_there = true; break; }
+    }
+    if (!still_there) {
+        proc_selected_pid_ = 0;
+        proc_selected_exe_.clear();
+    }
+}
+
+void WorkbenchApp::apply_process_target(const std::string& exe, uint32_t pid) {
+    Lang L = settings_.lang;
+    settings_.game_process = exe;
+    save_settings(settings_);
+    engine_.set_target_process(exe, pid);
+    wake_poller();
+    actionlog::write("INFO", exe.empty() ? std::string("Process target: automatic")
+                                         : std::string("Process target: ") + exe + " (pid " + std::to_string(pid) + ")");
+    toasts_.push(exe.empty() ? std::string(T(L, "Detecção automática ativada.", "Automatic detection on."))
+                             : std::string(T(L, "Processo escolhido: ", "Chosen process: ")) + exe);
+}
+
+namespace {
+std::string ascii_lower(const std::string& s) {
+    std::string o = s;
+    for (char& c : o) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    }
+    return o;
+}
+} // namespace
+
+void WorkbenchApp::render_process_picker(const FontBank& fonts) {
+    if (open_proc_picker_) {
+        refresh_process_list();
+        ImGui::OpenPopup("##ProcPicker");
+        open_proc_picker_ = false;
+    }
+    Lang L = settings_.lang;
+    ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    const float w = std::min(780.0f * dpi_scale_, vp->Size.x - 40.0f);
+    const float h = std::min(600.0f * dpi_scale_, vp->Size.y - 40.0f);
+    ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.5f, vp->Pos.y + vp->Size.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(20.0f * dpi_scale_), std::round(16.0f * dpi_scale_)));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, std::round(14.0f * dpi_scale_));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, col::BgCard);
+    ImGui::PushStyleColor(ImGuiCol_Border, col::BorderLit);
+    if (ImGui::BeginPopupModal("##ProcPicker", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+        if (bold) ImGui::PushFont(bold);
+        ImGui::TextColored(col::Text, "%s", T(L, "Escolher processo do jogo", "Choose the game process"));
+        if (bold) ImGui::PopFont();
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextColored(col::Muted, "%s", T(L,
+            "Escolha o processo ao qual o app deve se conectar. Os jogos conhecidos (PES 2021 e Football Life) aparecem primeiro. A escolha fica salva até você voltar à detecção automática.",
+            "Pick the process the app should connect to. Known games (PES 2021 and Football Life) are listed first. The choice is saved until you go back to automatic detection."));
+        ImGui::TextColored(col::GoldSoft, "%s", T(L,
+            "Use só em jogos offline. O app grava na memória do processo escolhido, mas só em processos compatíveis com o PES 2021: em qualquer outro nada é gravado.",
+            "Use it in offline games only. The app writes to the chosen process's memory, but only in processes compatible with PES 2021: in any other nothing is written."));
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing();
+
+        // Filtro, "so com janela" e atualizar
+        const float btn_w = calc_btn_w(T(L, "Atualizar##proc_ref", "Refresh##proc_ref"));
+        ImGui::SetNextItemWidth(std::max(140.0f * dpi_scale_, ImGui::GetContentRegionAvail().x - btn_w - 220.0f * dpi_scale_));
+        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+        ImGui::InputTextWithHint("##proc_flt", T(L, "Filtrar por nome, janela ou PID...", "Filter by name, window or PID..."), proc_filter_, sizeof(proc_filter_));
+        ImGui::SameLine(0, 10.0f * dpi_scale_);
+        toggle_switch("##proc_win", T(L, "Só com janela", "Windowed only"), &proc_only_windows_);
+        ImGui::SameLine(0, 10.0f * dpi_scale_);
+        if (ImGui::Button(T(L, "Atualizar##proc_ref", "Refresh##proc_ref"))) refresh_process_list();
+        ImGui::Spacing();
+
+        const std::string flt = ascii_lower(proc_filter_);
+        const float footer_h = std::round(78.0f * dpi_scale_);
+        const ImGuiTableFlags tf = ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingFixedFit;
+        int shown = 0;
+        if (ImGui::BeginTable("##proc_tbl", 3, tf, ImVec2(0, ImGui::GetContentRegionAvail().y - footer_h))) {
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn(T(L, "PROCESSO", "PROCESS"), ImGuiTableColumnFlags_WidthFixed, std::round(250.0f * dpi_scale_));
+            ImGui::TableSetupColumn("PID", ImGuiTableColumnFlags_WidthFixed, std::round(70.0f * dpi_scale_));
+            ImGui::TableSetupColumn(T(L, "JANELA", "WINDOW"), ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+            for (const auto& p : proc_list_) {
+                if (proc_only_windows_ && !p.has_window && !p.recognized) continue;
+                if (!flt.empty()) {
+                    const std::string hay = ascii_lower(p.exe) + " " + ascii_lower(p.title) + " " + std::to_string(p.pid);
+                    if (hay.find(flt) == std::string::npos) continue;
+                }
+                ++shown;
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                const bool sel = (p.pid == proc_selected_pid_);
+                char rid[48];
+                std::snprintf(rid, sizeof(rid), "##prow%u", p.pid);
+                const ImVec2 row_min = ImGui::GetCursorScreenPos();
+                ImGui::BeginDisabled(!p.is_64bit);
+                if (ImGui::Selectable(rid, sel, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+                    proc_selected_pid_ = p.pid;
+                    proc_selected_exe_ = p.exe;
+                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        apply_process_target(p.exe, p.pid);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                ImGui::EndDisabled();
+                {
+                    // Nome e selo desenhados por cima da linha selecionavel (a linha ocupa a largura toda)
+                    ImDrawList* rdl = ImGui::GetWindowDrawList();
+                    const ImVec4 name_col = p.recognized ? col::GreenSoft : (p.is_64bit ? col::Text : col::Muted);
+                    rdl->AddText(row_min, ImGui::GetColorU32(name_col), p.exe.c_str());
+                    const char* badge = p.recognized ? T(L, "conhecido", "known") : (!p.is_64bit ? "32-bit" : nullptr);
+                    if (badge) {
+                        const float nx = row_min.x + ImGui::CalcTextSize(p.exe.c_str()).x + 8.0f * dpi_scale_;
+                        rdl->AddText(ImVec2(nx, row_min.y), ImGui::GetColorU32(p.recognized ? col::AccentSoft : col::Muted), badge);
+                    }
+                }
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextColored(col::Subtext, "%u", p.pid);
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextColored(col::Subtext, "%s", p.title.c_str());
+            }
+            ImGui::EndTable();
+        }
+        if (shown == 0) {
+            ImGui::TextColored(col::Muted, "%s", T(L, "Nenhum processo encontrado com esse filtro.", "No process matches this filter."));
+        }
+
+        ImGui::Spacing();
+        {
+            const std::string cur = settings_.game_process.empty()
+                ? std::string(T(L, "Conexão atual: automática", "Current connection: automatic"))
+                : std::string(T(L, "Conexão atual: ", "Current connection: ")) + settings_.game_process;
+            ImGui::TextColored(col::Muted, "%s", cur.c_str());
+        }
+        ImGui::BeginDisabled(proc_selected_pid_ == 0);
+        const std::string attach_lbl = std::string(T(L, "Anexar a este processo", "Attach to this process")) + "##proc_go";
+        if (btn_primary(attach_lbl.c_str())) {
+            apply_process_target(proc_selected_exe_, proc_selected_pid_);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine(0, 8.0f * dpi_scale_);
+        if (ImGui::Button(T(L, "Detecção automática##proc_auto2", "Automatic detection##proc_auto2"))) {
+            apply_process_target(std::string(), 0);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine(0, 8.0f * dpi_scale_);
+        if (ImGui::Button(T(L, "Fechar##proc_close", "Close##proc_close")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(2);
 }
 
 } // namespace pes::ui

@@ -27,6 +27,7 @@ struct AppSettings {
     int backup_keep_idx = 0;         // indice em backups::kKeepOptions (0 = guardar todos)
     bool action_log = true;          // log local das acoes (Documentos\Lettuce Live Editor\Logs)
     bool first_run_done = false;     // guia de boas-vindas ja exibido
+    std::string game_process;        // executavel escolhido a mao no seletor de processo (vazio = detectar sozinho)
 };
 
 inline constexpr float kUiScales[5] = {0.90f, 1.00f, 1.15f, 1.30f, 1.50f};

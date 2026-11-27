@@ -4,6 +4,7 @@
 #include "../src/app_version.hpp"
 #include "../src/engine/action_log.hpp"
 #include "../src/engine/app_dirs.hpp"
+#include "../src/engine/win32_mem.hpp"
 #include "../src/engine/backup_retention.hpp"
 #include "../src/engine/update_check.hpp"
 #include "../src/engine/value_lock.hpp"
@@ -581,6 +582,89 @@ static void test_app_dirs() {
     std::printf("Pastas de dados: migracao unica e sem perda PASS%c", 10);
 }
 
+
+// ------------------------------------------------------------------------------------------------
+// Executaveis de jogo aceitos
+
+static void test_game_exes() {
+    using pes::is_supported_game_exe;
+    CHECK(is_supported_game_exe(L"PES2021.exe"));
+    for (const wchar_t* n : {L"FL_2023.exe", L"FL_2024.exe", L"FL_2025.exe", L"FL_2026.exe", L"FL_2027.exe"}) CHECK(is_supported_game_exe(n));
+    CHECK(is_supported_game_exe(L"fl_2027.EXE"));        // sem diferenciar maiusculas
+    CHECK(!is_supported_game_exe(L"FL_2028.exe"));       // ainda nao existe na lista
+    CHECK(!is_supported_game_exe(L"FL2027.exe"));
+    CHECK(!is_supported_game_exe(L"PES2021"));
+    CHECK(!is_supported_game_exe(L"PES 2021 Workbench.exe"));
+    CHECK(!is_supported_game_exe(L""));
+    CHECK(!is_supported_game_exe(nullptr));
+    std::printf("Executaveis aceitos: PES 2021 e Football Life 2023 a 2027 PASS%c", 10);
+}
+
+
+// ------------------------------------------------------------------------------------------------
+// Seletor de processo: lista, alvo manual e persistencia
+
+static void test_process_picker() {
+    using namespace pes;
+    using pes::ui::AppSettings;
+    using pes::ui::parse_settings;
+    using pes::ui::write_settings;
+    // Lista: sem o proprio processo, com PID e nome, reconhecidos antes dos demais
+    const auto procs = list_processes();
+    CHECK(!procs.empty());
+    bool self_listed = false, ordered = true, sane = true;
+    bool seen_unrecognized = false;
+    for (const auto& p : procs) {
+        if (p.pid == GetCurrentProcessId()) self_listed = true;
+        if (p.pid == 0 || p.exe.empty()) sane = false;
+        if (!p.recognized) seen_unrecognized = true;
+        else if (seen_unrecognized) ordered = false;
+    }
+    CHECK(!self_listed && sane && ordered);
+
+    // Alvo manual: o proprio executavel do teste, pelo nome. O attach pega esse processo.
+    wchar_t path[MAX_PATH]{};
+    GetModuleFileNameW(nullptr, path, MAX_PATH);
+    const std::wstring self_exe = fs::path(path).filename().wstring();
+    {
+        Win32Memory m;
+        m.set_target(self_exe, 0);
+        CHECK(m.attach());
+        CHECK(m.pid == GetCurrentProcessId());
+        CHECK(m.module_base != 0 && m.module_size > 0);
+        // trocar o alvo solta o processo atual
+        m.set_target(L"processo_que_nao_existe_12345.exe", 0);
+        CHECK(!m.attached());
+        CHECK(!m.attach());
+        // PID que morreu cai para o nome; sem nome nem PID valido nao acha nada
+        m.set_target(self_exe, 0xFFFFFFF0u);
+        CHECK(m.attach() && m.pid == GetCurrentProcessId());
+        m.detach();
+        m.set_target(L"", 0);
+        CHECK(!m.attach());   // automatico: nenhum PES 2021 nem Football Life rodando no teste
+    }
+
+    // Ajustes: o executavel escolhido persiste, e nomes com caminho, aspas ou controles sao limpos
+    {
+        AppSettings a;
+        a.game_process = "FL_2027.exe";
+        std::ostringstream os;
+        write_settings(os, a);
+        CHECK(os.str().find("game_process=FL_2027.exe") != std::string::npos);
+        std::istringstream is(os.str());
+        CHECK(parse_settings(is).game_process == "FL_2027.exe");
+        std::istringstream bad1("game_process=C:/Windows/System32/cmd.exe");
+        CHECK(parse_settings(bad1).game_process.find('/') == std::string::npos);
+        std::istringstream bad2("game_process=a|b*c?d.exe");
+        CHECK(parse_settings(bad2).game_process == "abcd.exe");
+        std::istringstream none("lang=pt");
+        CHECK(parse_settings(none).game_process.empty());
+        std::istringstream longv(std::string("game_process=") + std::string(500, 'x'));
+        CHECK(parse_settings(longv).game_process.size() == 100);
+    }
+    std::printf("Seletor de processo: lista, alvo manual e ajustes PASS%c", 10);
+}
+
 int main() {
     std::printf("== Servicos v14.1 ==\n");
     test_versions();
@@ -592,6 +676,8 @@ int main() {
     test_spanish();
     test_form_arrows();
     test_app_dirs();
+    test_game_exes();
+    test_process_picker();
     std::printf("%d verificacoes, %d falha(s)\n", g_checks, g_fail);
     return g_fail == 0 ? 0 : 1;
 }

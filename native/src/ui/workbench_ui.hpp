@@ -165,10 +165,21 @@ private:
     // Servicos opcionais (v14.1): aviso de versao, retencao de backups, log local e guia de primeiros passos
     update::Checker update_checker_;
     bool services_started_ = false;
+    // Seletor de processo (como o "Open Process" do Cheat Engine)
+    bool open_proc_picker_ = false;
+    std::vector<ProcessInfo> proc_list_;
+    char proc_filter_[64]{};
+    bool proc_only_windows_ = true;
+    uint32_t proc_selected_pid_ = 0;
+    std::string proc_selected_exe_;
+    void refresh_process_list();
+    void apply_process_target(const std::string& exe, uint32_t pid);
+    void render_process_picker(const FontBank& fonts);
     bool update_manual_ = false;   // o usuario pediu "Verificar agora": o aviso aparece mesmo com a opcao desligada
     bool open_welcome_guide_ = false;
 #ifdef PES_QA_DUMP
     bool qa_open_prefs_ = false;
+    bool qa_fake_procs_ = false;
 #endif
     struct BackupInfo { int count = 0; uint64_t bytes = 0; };
     BackupInfo backup_info_;

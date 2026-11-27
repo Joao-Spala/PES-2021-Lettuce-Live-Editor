@@ -488,6 +488,22 @@ bool PESEngine::ensure_attached() {
         reset_session();
         return false;
     }
+    // Processo escolhido a mao que nao e um jogo (modulo pequeno e nome desconhecido): nao aloca nem grava nada nele
+    {
+        const std::wstring wname = [&] {
+            int need = MultiByteToWideChar(CP_UTF8, 0, mem_.exe_name.data(), static_cast<int>(mem_.exe_name.size()), nullptr, 0);
+            std::wstring w(static_cast<size_t>(std::max(need, 0)), L'x');
+            if (need > 0) MultiByteToWideChar(CP_UTF8, 0, mem_.exe_name.data(), static_cast<int>(mem_.exe_name.size()), w.data(), need);
+            return w;
+        }();
+        if (!is_supported_game_exe(wname.c_str()) && mem_.module_size < kMinGameModuleBytes) {
+            unsupported_exe_ = mem_.exe_name;
+            mem_.detach();
+            reset_session();
+            return false;
+        }
+        unsupported_exe_.clear();
+    }
     if (mem_.pid != last_pid_) {
         reset_session();
         last_pid_ = mem_.pid;
@@ -498,6 +514,23 @@ bool PESEngine::ensure_attached() {
     uint64_t c = 0, p = 0, m = 0;
     sync_pointers(c, p, m);
     return true;
+}
+
+void PESEngine::set_target_process(const std::string& exe_utf8, uint32_t pid) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (shutting_down_.load(std::memory_order_acquire)) return;
+    int need = MultiByteToWideChar(CP_UTF8, 0, exe_utf8.data(), static_cast<int>(exe_utf8.size()), nullptr, 0);
+    std::wstring w(static_cast<size_t>(std::max(need, 0)), L'x');
+    if (need > 0) MultiByteToWideChar(CP_UTF8, 0, exe_utf8.data(), static_cast<int>(exe_utf8.size()), w.data(), need);
+    const bool changed = (_wcsicmp(w.c_str(), mem_.target_exe.c_str()) != 0) || pid != mem_.target_pid;
+    if (changed && mem_.attached()) hooks_.disable_all();   // devolve o codigo original ao processo que vai ser largado
+    mem_.set_target(w, pid);
+    if (changed) {
+        vlock_ = ValueLockState{};   // a trava pertence ao processo anterior
+        unsupported_exe_.clear();
+        last_pid_ = 0;
+        reset_session();
+    }
 }
 
 void PESEngine::reset_session() {
@@ -1059,7 +1092,16 @@ StatusSnapshot PESEngine::get_status() {
     StatusSnapshot st;
     st.seq = ++status_seq_;
     st.conflict_other_wb = detect_legacy_workbench_running();
+    {
+        const std::wstring& te = mem_.target_exe;
+        if (!te.empty()) {
+            int need = WideCharToMultiByte(CP_UTF8, 0, te.data(), static_cast<int>(te.size()), nullptr, 0, nullptr, nullptr);
+            st.target_exe.assign(static_cast<size_t>(std::max(need, 0)), 'x');
+            if (need > 0) WideCharToMultiByte(CP_UTF8, 0, te.data(), static_cast<int>(te.size()), st.target_exe.data(), need, nullptr, nullptr);
+        }
+    }
     if (!ensure_attached()) {
+        st.target_unsupported = !unsupported_exe_.empty();
         st.access_denied = mem_.access_denied;
         if (vlock_.active) drop_value_lock_locked();   // jogo fechado: a trava nao tem mais onde escrever
         st.val_lock_lost = vlock_lost_;

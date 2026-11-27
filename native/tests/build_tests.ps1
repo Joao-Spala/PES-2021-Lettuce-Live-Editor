@@ -21,7 +21,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if ($LASTEXITCODE -ne 0) { Write-Host "test_engine FALHOU"; exit $LASTEXITCODE }
 
 Write-Host "[services] test_services"
-& $Clang @Common "$NativeDir\tests\test_services.cpp" "$Src\engine\backup_retention.cpp" "$Src\engine\action_log.cpp" "$Src\engine\update_check.cpp" "$Src\ui\theme.cpp" "$Src\ui\i18n_es.cpp" @ImGui -lwinhttp -lole32 -lshell32 -luser32 -lgdi32 -o "$Out\test_services.exe"
+& $Clang @Common "$NativeDir\tests\test_services.cpp" "$Src\engine\backup_retention.cpp" "$Src\engine\action_log.cpp" "$Src\engine\update_check.cpp" "$Src\ui\theme.cpp" "$Src\ui\i18n_es.cpp" "$Src\engine\win32_mem.cpp" @ImGui -lwinhttp -lole32 -lshell32 -luser32 -lgdi32 -o "$Out\test_services.exe"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & "$Out\test_services.exe"
 if ($LASTEXITCODE -ne 0) { Write-Host "test_services FALHOU"; exit $LASTEXITCODE }

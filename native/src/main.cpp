@@ -607,6 +607,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
             {"24_narrow_packstudio",    980, 1080, 1, 0, 3},
             {"25_wide_prefs",          1920, 1200, 0, 0, 5},
             {"26_narrow_prefs",         980, 1080, 0, 0, 5},
+            {"36_wide_proc_picker",    1920, 1200, 0, 0, 10},
+            {"37_narrow_proc_picker",   980, 1080, 0, 0, 10},
             {"34_wide_prefs_services", 1920, 1200, 0, 0, 9},
             {"35_narrow_prefs_services",980, 1080, 0, 0, 9},
             {"27_tall_player_bio",     1920, 2300, 3, 0, 0},

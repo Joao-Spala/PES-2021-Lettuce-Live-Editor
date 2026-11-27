@@ -41,6 +41,19 @@ std::string sanitize_version_tag(const std::string& v) {
     return out;
 }
 
+// Nome de executavel salvo em settings: sem separadores de caminho, aspas, curingas nem controles, ate 100 caracteres
+std::string sanitize_exe_name(const std::string& v) {
+    std::string out;
+    for (unsigned char c : v) {
+        if (out.size() >= 100) break;
+        if (c < 0x20 || c == 0x7F || c == '\\' || c == '/' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') continue;
+        out.push_back(static_cast<char>(c));
+    }
+    while (!out.empty() && (out.back() == ' ' || out.back() == '.')) out.pop_back();
+    while (!out.empty() && out.front() == ' ') out.erase(out.begin());
+    return out;
+}
+
 // Geometria salva a mao ou corrompida nao pode estourar a aritmetica de RECT
 int clamp_geom(const std::string& v) {
     long x = std::strtol(v.c_str(), nullptr, 10);
@@ -319,6 +332,7 @@ AppSettings parse_settings(std::istream& f) {
         else if (k == "update_dismissed") s.update_dismissed = sanitize_version_tag(v);
         else if (k == "backup_keep") s.backup_keep_idx = std::clamp(std::atoi(v.c_str()), 0, backups::kKeepOptionCount - 1);
         else if (k == "action_log") s.action_log = (v != "0");
+        else if (k == "game_process") s.game_process = sanitize_exe_name(v);
         else if (k == "first_run_done") { s.first_run_done = (v == "1"); has_first_run = true; }
     }
     // Arquivo de uma versao anterior (existe, mas sem a chave): quem ja usava o app nao ve o guia de boas-vindas
@@ -353,6 +367,7 @@ void write_settings(std::ostream& f, const AppSettings& s) {
     f << "backup_keep=" << std::clamp(s.backup_keep_idx, 0, backups::kKeepOptionCount - 1) << "\n";
     f << "action_log=" << (s.action_log ? 1 : 0) << "\n";
     f << "first_run_done=" << (s.first_run_done ? 1 : 0) << "\n";
+    f << "game_process=" << sanitize_exe_name(s.game_process) << "\n";
 }
 
 void save_settings(const AppSettings& s) {
