@@ -415,6 +415,9 @@ public:
     // `pid` fixa uma instancia quando ha mais de um processo com o mesmo nome (0 = qualquer). Solta o processo atual.
     void set_target_process(const std::string& exe_utf8, uint32_t pid);
 
+    // Texto de diagnostico para colar ao pedir ajuda: versao, processo, ganchos, ponteiros achados e contadores.
+    std::string diagnostics_report();
+
     // Quantos backups manter (0 = todos). A poda so roda depois de gravar um backup novo.
     void set_backup_keep(int keep) { backup_keep_.store(keep < 0 ? 0 : keep, std::memory_order_relaxed); }
 
@@ -585,6 +588,12 @@ private:
     uint64_t addr_match_mgr_ = 0;
     uint32_t last_pid_ = 0;
     std::string unsupported_exe_;   // alvo manual recusado por nao parecer um jogo (modulo pequeno)
+    // Espera entre tentativas quando o gancho ou a area do app no processo nao sobem (evita varrer a memoria a cada ciclo)
+    uint64_t rehook_next_tick_ = 0;
+    uint32_t rehook_fail_ = 0;
+    uint64_t init_retry_tick_ = 0;
+    bool init_fail_logged_ = false;
+    uint32_t career_changes_ = 0;   // quantas vezes o ponteiro da carreira mudou desde o attach (diagnostico)
     uint64_t last_career_ = 0;
     uint64_t last_written_career_ = UINT64_MAX;
     uint64_t last_written_mmgr_ = UINT64_MAX;

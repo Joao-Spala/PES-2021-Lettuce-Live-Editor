@@ -1,5 +1,6 @@
 #include "pes_engine.hpp"
 #include "app_dirs.hpp"
+#include "action_log.hpp"
 #include "backup_retention.hpp"
 #include "skill_presets.hpp"
 #include <unordered_set>
@@ -480,7 +481,20 @@ bool PESEngine::ensure_attached() {
 
     if (mem_.attached() && mem_.pid == last_pid_ && hooks_.state_base) {
         if (!hooks_.active_hooks[1] || !hooks_.verify_hook_alive(1)) {
-            hooks_.enable_hook_1_player();
+            // Sem o gancho: tenta de novo com espera, em vez de varrer a memoria do jogo a cada ciclo do poller
+            const uint64_t now = GetTickCount64();
+            if (now >= rehook_next_tick_) {
+                if (hooks_.enable_hook_1_player()) {
+                    rehook_fail_ = 0;
+                    rehook_next_tick_ = 0;
+                } else {
+                    ++rehook_fail_;
+                    rehook_next_tick_ = now + (rehook_fail_ < 4 ? 1000ULL : 8000ULL);
+                    if (rehook_fail_ == 1 || rehook_fail_ == 4) {
+                        actionlog::write("ERROR", "Capture hook could not be installed (attempt " + std::to_string(rehook_fail_) + "). This game build may differ from PES 2021 v1.7.2.0.");
+                    }
+                }
+            }
         }
         return true;
     }
@@ -508,9 +522,26 @@ bool PESEngine::ensure_attached() {
         reset_session();
         last_pid_ = mem_.pid;
     }
-    if (!hooks_.init_state()) return false;
+    if (GetTickCount64() < init_retry_tick_) return false;   // a area do app no processo nao subiu: espera antes de insistir
+    if (!hooks_.init_state()) {
+        init_retry_tick_ = GetTickCount64() + 3000ULL;
+        if (!init_fail_logged_) {
+            init_fail_logged_ = true;
+            actionlog::write("ERROR", "Could not allocate the helper area inside " + mem_.exe_name + ". Retrying every 3 s.");
+        }
+        return false;
+    }
+    init_retry_tick_ = 0;
+    init_fail_logged_ = false;
+    career_changes_ = 0;
+    rehook_fail_ = 0;
+    rehook_next_tick_ = 0;
     discover_singletons();
-    hooks_.enable_hook_1_player();
+    const bool hook_ok = hooks_.enable_hook_1_player();
+    actionlog::write("INFO", "Attached to " + mem_.exe_name + " (pid " + std::to_string(mem_.pid) + ", module " +
+                             std::to_string(mem_.module_size / (1024 * 1024)) + " MB). Capture hook: " + (hook_ok ? "ok" : "FAILED") +
+                             ". Career pointer: " + (addr_career_owner_ ? "found" : "NOT found") +
+                             ". Match pointer: " + (addr_match_mgr_ ? "found" : "NOT found") + ".");
     uint64_t c = 0, p = 0, m = 0;
     sync_pointers(c, p, m);
     return true;
@@ -531,6 +562,49 @@ void PESEngine::set_target_process(const std::string& exe_utf8, uint32_t pid) {
         last_pid_ = 0;
         reset_session();
     }
+}
+
+std::string PESEngine::diagnostics_report() {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    std::string r = "Lettuce Live Editor diagnostics\r\n";
+    char b[256];
+    if (!mem_.attached()) {
+        r += "game: not attached\r\n";
+        if (!unsupported_exe_.empty()) r += "refused process (not a compatible game): " + unsupported_exe_ + "\r\n";
+        std::string te;
+        if (!mem_.target_exe.empty()) {
+            int need = WideCharToMultiByte(CP_UTF8, 0, mem_.target_exe.data(), static_cast<int>(mem_.target_exe.size()), nullptr, 0, nullptr, nullptr);
+            te.assign(static_cast<size_t>(std::max(need, 0)), 'x');
+            if (need > 0) WideCharToMultiByte(CP_UTF8, 0, mem_.target_exe.data(), static_cast<int>(mem_.target_exe.size()), te.data(), need, nullptr, nullptr);
+        }
+        r += "manual target: " + (te.empty() ? std::string("automatic") : te) + "\r\n";
+        r += std::string("access denied: ") + (mem_.access_denied ? "yes" : "no") + "\r\n";
+        return r;
+    }
+    std::snprintf(b, sizeof(b), "game: %s  pid %u  module base 0x%llX  size %u MB\r\n", mem_.exe_name.c_str(), mem_.pid,
+                  static_cast<unsigned long long>(mem_.module_base), mem_.module_size / (1024u * 1024u));
+    r += b;
+    r += "hooks active:";
+    for (int i = 0; i < 8; ++i) {
+        std::snprintf(b, sizeof(b), " [%d]=%d", i, hooks_.active_hooks[static_cast<size_t>(i)] ? 1 : 0);
+        r += b;
+    }
+    r += "\r\n";
+    r += std::string("capture hook alive: ") + (hooks_.state_base && hooks_.verify_hook_alive(1) ? "yes" : "no") +
+         "  reinstall failures: " + std::to_string(rehook_fail_) + "\r\n";
+    HookStateBlock sb{};
+    if (hooks_.read_state_block(sb)) {
+        std::snprintf(b, sizeof(b), "capture hits: S1=%u S2=%u S3=%u S4=%u\r\n", sb.hitsCapture[0], sb.hitsCapture[1], sb.hitsCapture[2], sb.hitsCapture[3]);
+        r += b;
+    }
+    r += std::string("career pointer source found: ") + (addr_career_owner_ ? "yes" : "no") +
+         "   match pointer source found: " + (addr_match_mgr_ ? "yes" : "no") + "\r\n";
+    std::snprintf(b, sizeof(b), "career pointer: 0x%llX  (changes since attach: %u)\r\n", static_cast<unsigned long long>(last_career_), career_changes_);
+    r += b;
+    std::snprintf(b, sizeof(b), "captured player pointer: 0x%llX   in match: %s\r\n", static_cast<unsigned long long>(manual_player_addr_), last_in_match_ ? "yes" : "no");
+    r += b;
+    r += std::string("value lock: ") + (vlock_.active ? "on" : "off") + "\r\n";
+    return r;
 }
 
 void PESEngine::reset_session() {
@@ -620,6 +694,7 @@ void PESEngine::sync_pointers(uint64_t& out_career, uint64_t& out_player, uint64
 
     if (career != last_career_) {
         last_career_ = career;
+        ++career_changes_;
         reset_career_caches();
         mem_.write_u64(hooks_.sym_addr(HookSym::ptrPlayer), 0);
     }

@@ -5742,6 +5742,20 @@ void WorkbenchApp::render_prefs_services() {
         std::filesystem::create_directories(std::filesystem::path(w), ec);
         ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     }
+
+    // ---- Diagnostico
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Diagnóstico", "Diagnostics"));
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Se algo não funcionar (por exemplo em outro jogo ou versão), copie o relatório e cole ao pedir ajuda, junto com o arquivo workbench.log da pasta de registros.",
+        "If something does not work (for example on another game or version), copy the report and paste it when asking for help, together with workbench.log from the logs folder."));
+    ImGui::PopTextWrapPos();
+    if (ImGui::Button(T(L, "Copiar relatório##diag_copy", "Copy report##diag_copy"))) {
+        const std::string rep = std::string("Lettuce Live Editor v") + kAppVersion + "\r\n" + engine_.diagnostics_report();
+        ImGui::SetClipboardText(rep.c_str());
+        toasts_.push(T(L, "Relatório copiado!", "Report copied!"));
+    }
 }
 
 void WorkbenchApp::render_connection_hint(const FontBank& fonts) {
