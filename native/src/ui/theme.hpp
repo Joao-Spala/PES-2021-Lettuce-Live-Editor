@@ -22,7 +22,7 @@ struct AppSettings {
     int win_x = 0, win_y = 0, win_w = 0, win_h = 0; // geometria restaurada (0 = padrao)
     bool win_max = false;
     // Servicos opcionais (v14.1)
-    bool check_updates = false;      // opt-in: consulta o GitHub uma vez por abertura
+    bool auto_update = true;         // padrao ligado: consulta o GitHub ao abrir e instala versoes assinadas
     std::string update_dismissed;    // tag da versao cujo aviso foi dispensado (ex.: "v14.2.0")
     int backup_keep_idx = 0;         // indice em backups::kKeepOptions (0 = guardar todos)
     bool action_log = true;          // log local das acoes (Documentos\Lettuce Live Editor\Logs)

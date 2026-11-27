@@ -5508,6 +5508,14 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     prefs_tab_ = (modal_kind == 9) ? 1 : 0;
     if (modal_kind == 6) update_manual_ = true;
     if (modal_kind == 6) update_checker_.qa_force(update::State::Available, update::Release{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"});
+    // QA do auto-updater: 11 = instalada (reiniciar), 12 = baixando, 13 = recusada por assinatura
+    if (modal_kind >= 11 && modal_kind <= 13) {
+        update_manual_ = true;
+        const update::Release qr{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"};
+        if (modal_kind == 11) update_checker_.qa_force(update::State::Installed, qr);
+        if (modal_kind == 12) update_checker_.qa_force(update::State::Installing, qr);
+        if (modal_kind == 13) update_checker_.qa_force(update::State::Available, qr, update::kNoteRefused);
+    }
     if (modal_kind == 10) {   // seletor de processo com uma lista fixa
         qa_fake_procs_ = true;
         proc_list_.clear();
@@ -5576,12 +5584,12 @@ void WorkbenchApp::start_services_once() {
     if (services_started_) return;
     services_started_ = true;
     actionlog::write("INFO", std::string("Lettuce Live Editor v") + kAppVersion + " started");
-    if (settings_.check_updates) start_update_check();
+    if (settings_.auto_update) start_update_check();
 }
 
 void WorkbenchApp::start_update_check() {
     void* h = hwnd_;
-    update_checker_.start(kAppVersion, [h]() {
+    update_checker_.start(kAppVersion, settings_.auto_update, [h]() {
         if (h) PostMessageW(static_cast<HWND>(h), kWmStatusUpdated, 0, 0);
     });
 }
@@ -5597,11 +5605,55 @@ void WorkbenchApp::refresh_backup_info() {
     backup_info_.bytes = backups::total_bytes(entries);
 }
 
+void WorkbenchApp::start_update_install() {
+    void* h = hwnd_;
+    update_checker_.install(kAppVersion, [h]() {
+        if (h) PostMessageW(static_cast<HWND>(h), kWmStatusUpdated, 0, 0);
+    });
+}
+
+void WorkbenchApp::restart_for_update() {
+    Lang L = settings_.lang;
+    // O app novo espera este processo fechar (ele solta os ganchos do jogo ao sair) e so entao abre
+    if (!selfupdate::relaunch(selfupdate::current_exe_path())) {
+        toasts_.push(T(L, "Não foi possível reiniciar. Abra o app de novo.", "Could not restart. Open the app again."), true);
+        return;
+    }
+    if (hwnd_) PostMessageW(static_cast<HWND>(hwnd_), WM_CLOSE, 0, 0);
+}
+
+void WorkbenchApp::log_update_state(const update::Snapshot& snap) {
+    if (snap.state == update_logged_state_ && snap.note == update_logged_note_) return;
+    update_logged_state_ = snap.state;
+    update_logged_note_ = snap.note;
+    switch (snap.state) {
+        case update::State::Installed:
+            actionlog::write("INFO", "Update " + snap.release.tag + " installed (signature and SHA-256 verified). Restart to use it.");
+            break;
+        case update::State::Available:
+            if (snap.note.empty()) actionlog::write("INFO", "Update " + snap.release.tag + " available");
+            else actionlog::write("ERROR", "Update " + snap.release.tag + " not installed: " + snap.note + (snap.detail.empty() ? "" : " (" + snap.detail + ")"));
+            break;
+        case update::State::Installing:
+            actionlog::write("INFO", "Downloading update " + snap.release.tag);
+            break;
+        default:
+            break;
+    }
+}
+
 void WorkbenchApp::render_update_banner(const FontBank& fonts) {
     const update::Snapshot snap = update_checker_.snapshot();
-    if (snap.state != update::State::Available) return;
-    if (!settings_.check_updates && !update_manual_) return;   // opcao desligada depois de uma consulta: some o aviso
-    if (snap.release.tag == settings_.update_dismissed) return;
+    log_update_state(snap);
+    const bool installing = snap.state == update::State::Installing;
+    const bool installed = snap.state == update::State::Installed;
+    const bool available = snap.state == update::State::Available;
+    if (!installing && !installed && !available) return;
+    if (installed && update_restart_hidden_) return;
+    if (available) {
+        if (!settings_.auto_update && !update_manual_) return;   // opcao desligada depois de uma consulta: some o aviso
+        if (snap.release.tag == settings_.update_dismissed) return;
+    }
     Lang L = settings_.lang;
     ImFont* f_bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
 
@@ -5612,18 +5664,55 @@ void WorkbenchApp::render_update_banner(const FontBank& fonts) {
     ImGui::BeginChild("##update_banner", ImVec2(0, 0),
                       ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding);
     if (f_bold) ImGui::PushFont(f_bold);
-    ImGui::TextColored(col::AccentSoft, "%s %s", T(L, "Nova versão disponível:", "New version available:"), snap.release.tag.c_str());
+    if (installing) ImGui::TextColored(col::AccentSoft, "%s %s", T(L, "Baixando a atualização", "Downloading the update"), snap.release.tag.c_str());
+    else if (installed) ImGui::TextColored(col::GreenSoft, "%s %s", T(L, "Atualização instalada:", "Update installed:"), snap.release.tag.c_str());
+    else ImGui::TextColored(col::AccentSoft, "%s %s", T(L, "Nova versão disponível:", "New version available:"), snap.release.tag.c_str());
     if (f_bold) ImGui::PopFont();
-    ImGui::TextColored(col::Subtext, "%s v%s", T(L, "Você está na versão", "You are on"), kAppVersion);
-    ImGui::Spacing();
-    if (btn_primary(T(L, "Abrir página da versão##upd_open", "Open release page##upd_open")) && update::is_trusted_release_url(snap.release.url)) {
-        const std::wstring w = utf8_to_wide(snap.release.url);
-        ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+
+    if (installing) {
+        ImGui::TextColored(col::Subtext, "%s", T(L, "Conferindo a assinatura e trocando o executável...", "Checking the signature and replacing the executable..."));
+    } else if (installed) {
+        ImGui::TextColored(col::Subtext, "%s", T(L, "Reinicie o app para usar a nova versão.", "Restart the app to use the new version."));
+    } else {
+        ImGui::TextColored(col::Subtext, "%s v%s", T(L, "Você está na versão", "You are on"), kAppVersion);
+        const char* why = nullptr;
+        if (snap.note == update::kNoteUnsigned) why = T(L, "Esta versão não traz atualização automática. Baixe pela página da versão.", "This version has no automatic update. Download it from the release page.");
+        else if (snap.note == update::kNoteDownload) why = T(L, "Não foi possível baixar agora. Tente de novo ou abra a página da versão.", "Could not download right now. Try again or open the release page.");
+        else if (snap.note == update::kNoteRefused) why = T(L, "A atualização foi recusada por segurança: assinatura ou versão não conferem. Nada foi instalado.", "The update was refused for safety: signature or version do not match. Nothing was installed.");
+        else if (snap.note == update::kNoteWrite) why = T(L, "Sem permissão para trocar o executável nesta pasta. Baixe pela página da versão.", "No permission to replace the executable in this folder. Download it from the release page.");
+        if (why) {
+            ImGui::PushStyleColor(ImGuiCol_Text, col::GoldSoft);
+            ImGui::TextWrapped("%s", why);
+            ImGui::PopStyleColor();
+        }
     }
-    ImGui::SameLine(0, std::round(8.0f * dpi_scale_));
-    if (ImGui::Button(T(L, "Dispensar esta versão##upd_dismiss", "Dismiss this version##upd_dismiss"))) {
-        settings_.update_dismissed = snap.release.tag;
-        save_settings(settings_);
+    ImGui::Spacing();
+    const float gap8 = std::round(8.0f * dpi_scale_);
+    auto open_page = [&]() {
+        if (update::is_trusted_release_url(snap.release.url)) {
+            const std::wstring w = utf8_to_wide(snap.release.url);
+            ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
+    };
+    if (installed) {
+        if (btn_primary(T(L, "Reiniciar agora##upd_restart", "Restart now##upd_restart"))) restart_for_update();
+        ImGui::SameLine(0, gap8);
+        if (ImGui::Button(T(L, "Depois##upd_later", "Later##upd_later"))) update_restart_hidden_ = true;
+    } else if (available) {
+        // Instalar fica disponivel enquanto o motivo nao for definitivo (sem assinatura, recusa ou sem permissao)
+        const bool can_install = snap.note.empty() || snap.note == update::kNoteDownload;
+        if (can_install) {
+            if (btn_primary(T(L, "Atualizar agora##upd_install", "Update now##upd_install"))) start_update_install();
+            ImGui::SameLine(0, gap8);
+            if (ImGui::Button(T(L, "Abrir página da versão##upd_open", "Open release page##upd_open"))) open_page();
+        } else {
+            if (btn_primary(T(L, "Abrir página da versão##upd_open", "Open release page##upd_open"))) open_page();
+        }
+        ImGui::SameLine(0, gap8);
+        if (ImGui::Button(T(L, "Dispensar esta versão##upd_dismiss", "Dismiss this version##upd_dismiss"))) {
+            settings_.update_dismissed = snap.release.tag;
+            save_settings(settings_);
+        }
     }
     ImGui::EndChild();
     ImGui::PopStyleVar(2);
@@ -5660,20 +5749,20 @@ void WorkbenchApp::render_prefs_services() {
     // ---- Atualizacoes
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
     ImGui::TextColored(col::Subtext, "%s", T(L, "Atualizações", "Updates"));
-    bool upd_v = settings_.check_updates;
-    if (toggle_switch("##sw_updates", T(L, "Avisar quando houver nova versão", "Notify me about new versions"), &upd_v)) {
-        settings_.check_updates = upd_v;
+    bool upd_v = settings_.auto_update;
+    if (toggle_switch("##sw_updates", T(L, "Atualizar automaticamente", "Update automatically"), &upd_v)) {
+        settings_.auto_update = upd_v;
         save_settings(settings_);
         if (upd_v) start_update_check();
     }
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
     wrapped_colored(col::Muted, "%s", T(L,
-        "Consulta o GitHub uma vez ao abrir o app. Não envia nenhum dado seu e não baixa nada: só mostra o link da versão. Desligado por padrão.",
-        "Checks GitHub once when the app opens. It sends no data about you and downloads nothing: it only shows the release link. Off by default."));
+        "Consulta o GitHub ao abrir o app e instala as versões novas, que só valem com a assinatura do mantenedor. Não envia nenhum dado seu. A versão nova passa a valer quando você reinicia. Ligado por padrão.",
+        "Checks GitHub when the app opens and installs new versions, which only count with the maintainer's signature. It sends no data about you. The new version takes effect when you restart. On by default."));
     ImGui::PopTextWrapPos();
     {
         const update::Snapshot snap = update_checker_.snapshot();
-        const bool busy = (snap.state == update::State::Checking);
+        const bool busy = (snap.state == update::State::Checking || snap.state == update::State::Installing);
         ImGui::BeginDisabled(busy);
         if (ImGui::Button(T(L, "Verificar agora##upd_now", "Check now##upd_now"))) { update_manual_ = true; start_update_check(); }
         ImGui::EndDisabled();
@@ -5681,6 +5770,10 @@ void WorkbenchApp::render_prefs_services() {
         switch (snap.state) {
             case update::State::Checking:
                 ImGui::TextColored(col::Subtext, "%s", T(L, "Verificando...", "Checking...")); break;
+            case update::State::Installing:
+                ImGui::TextColored(col::Subtext, "%s %s", T(L, "Baixando", "Downloading"), snap.release.tag.c_str()); break;
+            case update::State::Installed:
+                ImGui::TextColored(col::GreenSoft, "%s %s", T(L, "Instalada, reinicie para usar:", "Installed, restart to use it:"), snap.release.tag.c_str()); break;
             case update::State::UpToDate:
                 ImGui::TextColored(col::GreenSoft, "%s (v%s)", T(L, "Você está na versão mais recente", "You are on the latest version"), kAppVersion); break;
             case update::State::Available:

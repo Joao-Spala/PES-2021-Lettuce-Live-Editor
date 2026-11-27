@@ -238,15 +238,15 @@ static void test_action_log() {
 
 static void test_settings() {
     using namespace pes::ui;
-    // Valores padrao seguros: nada de rede, backups ilimitados
+    // Valores padrao: atualizacao automatica ligada, backups ilimitados
     AppSettings d;
-    CHECK(!d.check_updates);
+    CHECK(d.auto_update);
     CHECK(d.backup_keep_idx == 0);
     CHECK(d.action_log);
 
     // Ida e volta
     AppSettings s;
-    s.check_updates = true;
+    s.auto_update = false;
     s.update_dismissed = "v14.2.0";
     s.backup_keep_idx = 3;
     s.action_log = false;
@@ -256,21 +256,26 @@ static void test_settings() {
     write_settings(out, s);
     std::istringstream in(out.str());
     AppSettings r = parse_settings(in);
-    CHECK(r.check_updates && r.update_dismissed == "v14.2.0" && r.backup_keep_idx == 3);
+    CHECK(!r.auto_update && r.update_dismissed == "v14.2.0" && r.backup_keep_idx == 3);
     CHECK(!r.action_log && r.lang == Lang::EN && r.currency_idx == 2);
 
-    // Arquivo de versao anterior (sem as chaves novas): nada de rede, backups ilimitados
+    // Arquivo de versao anterior (sem as chaves novas): atualizacao automatica ligada, backups ilimitados
     std::istringstream old_file("lang=pt\ncurrency=1\ntheme=0\naccent=5\n");
     AppSettings o = parse_settings(old_file);
-    CHECK(!o.check_updates && o.backup_keep_idx == 0 && o.action_log);
+    CHECK(o.auto_update && o.backup_keep_idx == 0 && o.action_log);
     CHECK(o.currency_idx == 1);
+    // A chave da 14.1 (check_updates=0 era so o padrao, ninguem escolheu) nao desliga a atualizacao
+    std::istringstream v141("check_updates=0\nlang=en\n");
+    CHECK(parse_settings(v141).auto_update);
 
     // Arquivo editado a mao / corrompido
-    std::istringstream bad("backup_keep=999\nupdate_dismissed=v1;rm -rf /\r\ncheck_updates=yes\nfirst_run_done=0\naction_log=0\n");
+    std::istringstream bad("backup_keep=999\nupdate_dismissed=v1;rm -rf /\r\nauto_update=yes\nfirst_run_done=0\naction_log=0\n");
     AppSettings b = parse_settings(bad);
     CHECK(b.backup_keep_idx == pes::backups::kKeepOptionCount - 1);
     CHECK(b.update_dismissed == "v1rm-rf");    // so [0-9A-Za-z.+-]
-    CHECK(!b.check_updates);                     // so "1" liga
+    CHECK(b.auto_update);                        // valor estranho nao desliga: so "0" desliga
+    std::istringstream off("auto_update=0\n");
+    CHECK(!parse_settings(off).auto_update);
     CHECK(!b.action_log);
 
     // Chave que existiu em versoes anteriores (first_run_done) e ignorada sem efeito
@@ -284,7 +289,7 @@ static void test_settings() {
 
     std::istringstream empty("");
     AppSettings e = parse_settings(empty);
-    CHECK(!e.check_updates && e.action_log && e.game_process.empty());   // vazio: so os padroes
+    CHECK(e.auto_update && e.action_log && e.game_process.empty());   // vazio: so os padroes
     std::printf("Ajustes: padroes, migracao e valores corrompidos PASS\n");
 }
 

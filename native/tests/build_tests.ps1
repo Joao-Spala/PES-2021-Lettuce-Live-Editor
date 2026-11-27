@@ -26,8 +26,14 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & "$Out\test_image_scan.exe"
 if ($LASTEXITCODE -ne 0) { Write-Host "test_image_scan FALHOU"; exit $LASTEXITCODE }
 
+Write-Host "[update] test_self_update"
+& $Clang @Common "$NativeDir\tests\test_self_update.cpp" "$Src\engine\self_update.cpp" "$Src\engine\update_check.cpp" -lwinhttp -lbcrypt -lws2_32 -o "$Out\test_self_update.exe"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& "$Out\test_self_update.exe"
+if ($LASTEXITCODE -ne 0) { Write-Host "test_self_update FALHOU"; exit $LASTEXITCODE }
+
 Write-Host "[services] test_services"
-& $Clang @Common "$NativeDir\tests\test_services.cpp" "$Src\engine\backup_retention.cpp" "$Src\engine\action_log.cpp" "$Src\engine\update_check.cpp" "$Src\ui\theme.cpp" "$Src\ui\i18n_es.cpp" "$Src\engine\win32_mem.cpp" @ImGui -lwinhttp -lole32 -lshell32 -luser32 -lgdi32 -o "$Out\test_services.exe"
+& $Clang @Common "$NativeDir\tests\test_services.cpp" "$Src\engine\backup_retention.cpp" "$Src\engine\action_log.cpp" "$Src\engine\update_check.cpp" "$Src\engine\self_update.cpp" "$Src\ui\theme.cpp" "$Src\ui\i18n_es.cpp" "$Src\engine\win32_mem.cpp" @ImGui -lwinhttp -lbcrypt -lole32 -lshell32 -luser32 -lgdi32 -o "$Out\test_services.exe"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & "$Out\test_services.exe"
 if ($LASTEXITCODE -ne 0) { Write-Host "test_services FALHOU"; exit $LASTEXITCODE }
