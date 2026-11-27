@@ -11,6 +11,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include "../engine/app_dirs.hpp"
+#include "../engine/backup_retention.hpp"
 
 namespace pes::ui {
 
@@ -19,12 +21,37 @@ namespace {
 std::filesystem::path get_settings_path() {
     wchar_t appdata[MAX_PATH]{};
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appdata))) {
-        std::filesystem::path dir = std::filesystem::path(appdata) / L"PES2021Workbench";
+        // %APPDATA%\Lettuce Live Editor (a pasta antiga "PES2021Workbench" e movida uma vez, com o settings.ini)
+        std::filesystem::path dir = pes::dirs::migrate_dir(std::filesystem::path(appdata), pes::dirs::kAppFolder, pes::dirs::kLegacyDataFolder);
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         return dir / L"settings.ini";
     }
     return L"settings.ini";
+}
+
+// Tag de versao salva em settings: so [0-9A-Za-z.+-], ate 40 caracteres (o arquivo e editavel pelo usuario)
+std::string sanitize_version_tag(const std::string& v) {
+    std::string out;
+    for (char c : v) {
+        if (out.size() >= 40) break;
+        const bool ok = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c == '-' || c == '+';
+        if (ok) out.push_back(c);
+    }
+    return out;
+}
+
+// Nome de executavel salvo em settings: sem separadores de caminho, aspas, curingas nem controles, ate 100 caracteres
+std::string sanitize_exe_name(const std::string& v) {
+    std::string out;
+    for (unsigned char c : v) {
+        if (out.size() >= 100) break;
+        if (c < 0x20 || c == 0x7F || c == '\\' || c == '/' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') continue;
+        out.push_back(static_cast<char>(c));
+    }
+    while (!out.empty() && (out.back() == ' ' || out.back() == '.')) out.pop_back();
+    while (!out.empty() && out.front() == ' ') out.erase(out.begin());
+    return out;
 }
 
 // Geometria salva a mao ou corrompida nao pode estourar a aritmetica de RECT
@@ -91,9 +118,9 @@ void apply_visual_theme(int idx) {
 int current_visual_theme() { return g_visual_theme; }
 const char* brand_title() { return "Lettuce Live Editor"; }
 const char* brand_tag() { return "PES 2021"; }
-const char* theme_name(int idx, bool en) {
+const char* theme_name(int idx, Lang lang) {
     const Palette& p = kPalettes[std::clamp(idx, 0, kThemeCount - 1)];
-    return en ? p.name_en : p.name_pt;
+    return T(lang, p.name_pt, p.name_en);
 }
 int theme_default_accent(int idx) { return kPalettes[std::clamp(idx, 0, kThemeCount - 1)].default_accent; }
 
@@ -114,9 +141,9 @@ void set_accent_theme(int idx) {
     col::Accent = a.main;
     col::AccentSoft = a.soft;
 }
-const char* accent_name(int idx, bool en) {
+const char* accent_name(int idx, Lang lang) {
     const auto& a = kAccents[std::clamp(idx, 0, kAccentCount - 1)];
-    return en ? a.en : a.pt;
+    return T(lang, a.pt, a.en);
 }
 void theme_preview(int idx, ImVec4 out[4]) {
     const Palette& p = kPalettes[std::clamp(idx, 0, kThemeCount - 1)];
@@ -276,18 +303,17 @@ void build_font_bank(FontBank& bank, float dpi_scale) {
     io.Fonts->Build();
 }
 
-AppSettings load_settings() {
+AppSettings parse_settings(std::istream& f) {
     AppSettings s;
-    std::ifstream f(get_settings_path());
-    if (!f) return s;
     std::string line;
     bool has_theme = false;
     while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
         auto eq = line.find('=');
         if (eq == std::string::npos) continue;
         std::string k = line.substr(0, eq);
         std::string v = line.substr(eq + 1);
-        if (k == "lang") s.lang = (v == "en") ? Lang::EN : Lang::PT;
+        if (k == "lang") s.lang = (v == "en") ? Lang::EN : ((v == "es") ? Lang::ES : Lang::PT);
         else if (k == "currency") s.currency_idx = std::clamp(std::atoi(v.c_str()), 0, 3);
         else if (k == "font") s.font_idx = std::clamp(std::atoi(v.c_str()), 0, 3);
         else if (k == "econ_sync") s.econ_sync_mode = std::clamp(std::atoi(v.c_str()), 0, 3);
@@ -301,11 +327,42 @@ AppSettings load_settings() {
         else if (k == "win_w") s.win_w = clamp_geom(v);
         else if (k == "win_h") s.win_h = clamp_geom(v);
         else if (k == "win_max") s.win_max = (v == "1");
+        else if (k == "check_updates") s.check_updates = (v == "1");
+        else if (k == "update_dismissed") s.update_dismissed = sanitize_version_tag(v);
+        else if (k == "backup_keep") s.backup_keep_idx = std::clamp(std::atoi(v.c_str()), 0, backups::kKeepOptionCount - 1);
+        else if (k == "action_log") s.action_log = (v != "0");
+        else if (k == "game_process") s.game_process = sanitize_exe_name(v);
     }
     // Arquivo anterior aos temas: adota tambem a cor de destaque do tema padrao (identidade completa)
     // (so migra quem ainda usava o destaque padrao antigo: uma cor escolhida de proposito e mantida)
     if (!has_theme && s.accent_idx == 0) s.accent_idx = theme_default_accent(s.theme_idx);
     return s;
+}
+
+AppSettings load_settings() {
+    std::ifstream f(get_settings_path());
+    if (!f) return AppSettings{};
+    return parse_settings(f);
+}
+
+void write_settings(std::ostream& f, const AppSettings& s) {
+    f << "lang=" << (s.lang == Lang::EN ? "en" : (s.lang == Lang::ES ? "es" : "pt")) << "\n";
+    f << "currency=" << s.currency_idx << "\n";
+    f << "font=" << s.font_idx << "\n";
+    f << "econ_sync=" << s.econ_sync_mode << "\n";
+    f << "sidebar_collapsed=" << (s.sidebar_collapsed ? 1 : 0) << "\n";
+    f << "theme=" << s.theme_idx << "\n";
+    f << "ui_scale=" << s.ui_scale_idx << "\n";
+    f << "accent=" << s.accent_idx << "\n";
+    f << "topmost=" << (s.topmost ? 1 : 0) << "\n";
+    f << "win_x=" << s.win_x << "\n" << "win_y=" << s.win_y << "\n";
+    f << "win_w=" << s.win_w << "\n" << "win_h=" << s.win_h << "\n";
+    f << "win_max=" << (s.win_max ? 1 : 0) << "\n";
+    f << "check_updates=" << (s.check_updates ? 1 : 0) << "\n";
+    f << "update_dismissed=" << sanitize_version_tag(s.update_dismissed) << "\n";
+    f << "backup_keep=" << std::clamp(s.backup_keep_idx, 0, backups::kKeepOptionCount - 1) << "\n";
+    f << "action_log=" << (s.action_log ? 1 : 0) << "\n";
+    f << "game_process=" << sanitize_exe_name(s.game_process) << "\n";
 }
 
 void save_settings(const AppSettings& s) {
@@ -316,18 +373,7 @@ void save_settings(const AppSettings& s) {
     {
         std::ofstream f(tmp, std::ios::trunc);
         if (!f) return;
-        f << "lang=" << (s.lang == Lang::EN ? "en" : "pt") << "\n";
-        f << "currency=" << s.currency_idx << "\n";
-        f << "font=" << s.font_idx << "\n";
-        f << "econ_sync=" << s.econ_sync_mode << "\n";
-        f << "sidebar_collapsed=" << (s.sidebar_collapsed ? 1 : 0) << "\n";
-        f << "theme=" << s.theme_idx << "\n";
-        f << "ui_scale=" << s.ui_scale_idx << "\n";
-        f << "accent=" << s.accent_idx << "\n";
-        f << "topmost=" << (s.topmost ? 1 : 0) << "\n";
-        f << "win_x=" << s.win_x << "\n" << "win_y=" << s.win_y << "\n";
-        f << "win_w=" << s.win_w << "\n" << "win_h=" << s.win_h << "\n";
-        f << "win_max=" << (s.win_max ? 1 : 0) << "\n";
+        write_settings(f, s);
         if (!f.good()) return;
     }
     std::error_code ec;

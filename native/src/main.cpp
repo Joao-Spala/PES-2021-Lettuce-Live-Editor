@@ -605,6 +605,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
             {"21_narrow_player_poslab", 980, 1080, 3, 2, 0},
             {"22_narrow_match",         980, 1080, 6, 0, 0},
             {"24_narrow_packstudio",    980, 1080, 1, 0, 3},
+            {"25_wide_prefs",          1920, 1200, 0, 0, 5},
+            {"26_narrow_prefs",         980, 1080, 0, 0, 5},
+            {"36_wide_proc_picker",    1920, 1200, 0, 0, 10},
+            {"37_narrow_proc_picker",   980, 1080, 0, 0, 10},
+            {"34_wide_prefs_services", 1920, 1200, 0, 0, 9},
+            {"35_narrow_prefs_services",980, 1080, 0, 0, 9},
+            {"27_tall_player_bio",     1920, 2300, 3, 0, 0},
+            {"28_tall_player_bio_lock",1920, 2300, 3, 0, 8},
+            {"29_wide_offline_dash",   1920, 1200, 0, 0, 7},
+            {"32_wide_update_banner",  1920, 1200, 0, 0, 6},
+            {"33_narrow_update_banner", 980, 1080, 0, 0, 6},
         };
         int last_w = -1, last_h = -1;
         for (const auto& s : shots) {

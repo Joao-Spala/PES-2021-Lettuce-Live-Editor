@@ -1,4 +1,7 @@
 #include "pes_engine.hpp"
+#include "app_dirs.hpp"
+#include "action_log.hpp"
+#include "backup_retention.hpp"
 #include "skill_presets.hpp"
 #include <unordered_set>
 #include <filesystem>
@@ -25,6 +28,9 @@ static std::filesystem::path fs_path_from_utf8(std::string_view s);
 namespace {
 
 constexpr int kUndoMaxDepth = 10;
+// Teto de registros da tabela de atletas. A tabela comeca em career+0 e nao pode passar do primeiro campo conhecido da
+// estrutura da carreira (o ano, em +0x1642A24): acima disso o contador nao descreve a tabela. O contador do PES 2021 e 24434.
+constexpr uint32_t kMaxPlayerRecords = 0x01642A24u / data::PLAYER_RECORD_SIZE;
 
 bool detect_legacy_workbench_running() {
     static double last_check = -10.0;
@@ -478,7 +484,35 @@ bool PESEngine::ensure_attached() {
 
     if (mem_.attached() && mem_.pid == last_pid_ && hooks_.state_base) {
         if (!hooks_.active_hooks[1] || !hooks_.verify_hook_alive(1)) {
-            hooks_.enable_hook_1_player();
+            // Sem o gancho: tenta de novo com espera, em vez de varrer a memoria do jogo a cada ciclo do poller
+            const uint64_t now = GetTickCount64();
+            if (now >= rehook_next_tick_) {
+                if (hooks_.enable_hook_1_player()) {
+                    rehook_fail_ = 0;
+                    rehook_next_tick_ = 0;
+                } else {
+                    ++rehook_fail_;
+                    rehook_next_tick_ = now + (rehook_fail_ < 4 ? 1000ULL : 8000ULL);
+                    if (rehook_fail_ == 1 || rehook_fail_ == 4) {
+                        actionlog::write("ERROR", "Capture hook could not be installed (attempt " + std::to_string(rehook_fail_) + "). This game build may differ from the verified ones, or the helper area is full.");
+                    }
+                }
+            }
+        }
+        // Assinatura ou ponteiro que nao foi achado no attach (o jogo pode ainda estar liberando o codigo): tenta de novo
+        // com intervalo crescente (5 s ate 60 s). Nunca reprocessa o que ja foi achado (fica em cache).
+        if (hooks_.known_missing() != 0 || !addr_career_owner_ || !addr_match_mgr_) {
+            const uint64_t now = GetTickCount64();
+            if (now >= compat_recheck_tick_) {
+                const uint64_t step = std::min<uint64_t>(60000ULL, 5000ULL << std::min<uint32_t>(compat_rechecks_, 4));
+                ++compat_rechecks_;
+                compat_recheck_tick_ = now + step;
+                compat_missing_ = hooks_.missing_features();
+                if (!addr_career_owner_ || !addr_match_mgr_) discover_singletons();
+                if (compat_missing_ == 0 && addr_career_owner_ && addr_match_mgr_) {
+                    actionlog::write("INFO", "All signatures resolved after retry " + std::to_string(compat_rechecks_) + ".");
+                }
+            }
         }
         return true;
     }
@@ -486,16 +520,144 @@ bool PESEngine::ensure_attached() {
         reset_session();
         return false;
     }
+    // Processo escolhido a mao que nao e um jogo (modulo pequeno e nome desconhecido): nao aloca nem grava nada nele
+    {
+        const std::wstring wname = [&] {
+            int need = MultiByteToWideChar(CP_UTF8, 0, mem_.exe_name.data(), static_cast<int>(mem_.exe_name.size()), nullptr, 0);
+            std::wstring w(static_cast<size_t>(std::max(need, 0)), L'x');
+            if (need > 0) MultiByteToWideChar(CP_UTF8, 0, mem_.exe_name.data(), static_cast<int>(mem_.exe_name.size()), w.data(), need);
+            return w;
+        }();
+        if (!is_supported_game_exe(wname.c_str()) && mem_.module_size < kMinGameModuleBytes) {
+            unsupported_exe_ = mem_.exe_name;
+            mem_.detach();
+            reset_session();
+            return false;
+        }
+        unsupported_exe_.clear();
+    }
     if (mem_.pid != last_pid_) {
+        hooks_.forget_process();   // estado, areas e assinaturas eram do processo anterior: nada disso vale neste
         reset_session();
         last_pid_ = mem_.pid;
     }
-    if (!hooks_.init_state()) return false;
+    if (GetTickCount64() < init_retry_tick_) return false;   // a area do app no processo nao subiu: espera antes de insistir
+    if (!hooks_.init_state()) {
+        init_retry_tick_ = GetTickCount64() + 3000ULL;
+        if (!init_fail_logged_) {
+            init_fail_logged_ = true;
+            actionlog::write("ERROR", "Could not allocate the helper area inside " + mem_.exe_name + ". Retrying every 3 s.");
+        }
+        return false;
+    }
+    init_retry_tick_ = 0;
+    init_fail_logged_ = false;
+    career_changes_ = 0;
+    rehook_fail_ = 0;
+    rehook_next_tick_ = 0;
+    compat_rechecks_ = 0;
+    compat_recheck_tick_ = GetTickCount64() + 5000ULL;
+    compat_missing_ = hooks_.missing_features();
     discover_singletons();
-    hooks_.enable_hook_1_player();
+    const bool hook_ok = hooks_.enable_hook_1_player();
+    actionlog::write(compat_missing_ ? "ERROR" : "INFO",
+                     std::string("Build ") + (identify_build(hooks_.sigs.image()) ? "in the verified list" : "NOT in the verified list") + ", missing features mask 0x" +
+                     [&] { char b[16]; std::snprintf(b, sizeof(b), "%X", compat_missing_); return std::string(b); }());
+    actionlog::write("INFO", "Attached to " + mem_.exe_name + " (pid " + std::to_string(mem_.pid) + ", module " +
+                             std::to_string(mem_.module_size / (1024 * 1024)) + " MB). Capture hook: " + (hook_ok ? "ok" : "FAILED") +
+                             ". Career pointer: " + (addr_career_owner_ ? "found" : "NOT found") +
+                             ". Match pointer: " + (addr_match_mgr_ ? "found" : "NOT found") + ".");
     uint64_t c = 0, p = 0, m = 0;
     sync_pointers(c, p, m);
     return true;
+}
+
+void PESEngine::set_target_process(const std::string& exe_utf8, uint32_t pid) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (shutting_down_.load(std::memory_order_acquire)) return;
+    int need = MultiByteToWideChar(CP_UTF8, 0, exe_utf8.data(), static_cast<int>(exe_utf8.size()), nullptr, 0);
+    std::wstring w(static_cast<size_t>(std::max(need, 0)), L'x');
+    if (need > 0) MultiByteToWideChar(CP_UTF8, 0, exe_utf8.data(), static_cast<int>(exe_utf8.size()), w.data(), need);
+    const bool changed = (_wcsicmp(w.c_str(), mem_.target_exe.c_str()) != 0) || pid != mem_.target_pid;
+    if (changed && mem_.attached()) hooks_.disable_all();   // devolve o codigo original ao processo que vai ser largado
+    mem_.set_target(w, pid);
+    if (changed) {
+        vlock_ = ValueLockState{};   // a trava pertence ao processo anterior
+        unsupported_exe_.clear();
+        last_pid_ = 0;
+        reset_session();
+    }
+}
+
+std::string PESEngine::diagnostics_report() {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    std::string r = "Lettuce Live Editor diagnostics\r\n";
+    char b[256];
+    if (!mem_.attached()) {
+        r += "game: not attached\r\n";
+        if (!unsupported_exe_.empty()) r += "refused process (not a compatible game): " + unsupported_exe_ + "\r\n";
+        std::string te;
+        if (!mem_.target_exe.empty()) {
+            int need = WideCharToMultiByte(CP_UTF8, 0, mem_.target_exe.data(), static_cast<int>(mem_.target_exe.size()), nullptr, 0, nullptr, nullptr);
+            te.assign(static_cast<size_t>(std::max(need, 0)), 'x');
+            if (need > 0) WideCharToMultiByte(CP_UTF8, 0, mem_.target_exe.data(), static_cast<int>(mem_.target_exe.size()), te.data(), need, nullptr, nullptr);
+        }
+        r += "manual target: " + (te.empty() ? std::string("automatic") : te) + "\r\n";
+        r += std::string("access denied: ") + (mem_.access_denied ? "yes" : "no") + "\r\n";
+        return r;
+    }
+    std::snprintf(b, sizeof(b), "game: %s  pid %u  module base 0x%llX  size %u MB\r\n", mem_.exe_name.c_str(), mem_.pid,
+                  static_cast<unsigned long long>(mem_.module_base), mem_.module_size / (1024u * 1024u));
+    r += b;
+    r += "hooks active:";
+    for (int i = 0; i < 8; ++i) {
+        std::snprintf(b, sizeof(b), " [%d]=%d", i, hooks_.active_hooks[static_cast<size_t>(i)] ? 1 : 0);
+        r += b;
+    }
+    r += "\r\n";
+    r += std::string("capture hook alive: ") + (hooks_.state_base && hooks_.verify_hook_alive(1) ? "yes" : "no") +
+         "  reinstall failures: " + std::to_string(rehook_fail_) + "\r\n";
+    HookStateBlock sb{};
+    if (hooks_.read_state_block(sb)) {
+        std::snprintf(b, sizeof(b), "capture hits: S1=%u S2=%u S3=%u S4=%u\r\n", sb.hitsCapture[0], sb.hitsCapture[1], sb.hitsCapture[2], sb.hitsCapture[3]);
+        r += b;
+    }
+    r += std::string("career pointer source found: ") + (addr_career_owner_ ? "yes" : "no") +
+         "   match pointer source found: " + (addr_match_mgr_ ? "yes" : "no") + "\r\n";
+    std::snprintf(b, sizeof(b), "career pointer: 0x%llX  (changes since attach: %u)\r\n", static_cast<unsigned long long>(last_career_), career_changes_);
+    r += b;
+    std::snprintf(b, sizeof(b), "captured player pointer: 0x%llX   in match: %s\r\n", static_cast<unsigned long long>(manual_player_addr_), last_in_match_ ? "yes" : "no");
+    r += b;
+    r += std::string("value lock: ") + (vlock_.active ? "on" : "off") + "\r\n";
+    r += hooks_.compat_report();
+    if (last_career_) {
+        const uint32_t uc = get_user_club_handle(last_career_);
+        std::snprintf(b, sizeof(b), "user club handle: 0x%X\r\n", uc);
+        r += b;
+        get_user_squad_addresses(last_career_, true);
+        std::snprintf(b, sizeof(b), "squad scan: count field %u (used %u, max %u), read %llu of %llu bytes, records in your club: %u (rejected as invalid: %u), squad found: %zu\r\n",
+                      squad_diag_.count_field, squad_diag_.count_used, kMaxPlayerRecords, static_cast<unsigned long long>(squad_diag_.bytes_read),
+                      static_cast<unsigned long long>(squad_diag_.bytes_wanted), squad_diag_.same_club, squad_diag_.rejected, squad_cache_.addrs.size());
+        r += b;
+        if (manual_player_addr_ > 0x10000ULL) {
+            const uint32_t pc = mem_.read_u32(manual_player_addr_ + 0x12CULL);
+            std::snprintf(b, sizeof(b), "captured player club handle: 0x%X (%s)\r\n", pc, pc == uc ? "same as your club" : "different from your club");
+            r += b;
+            if (manual_player_addr_ > last_career_) {
+                const uint64_t d = manual_player_addr_ - last_career_;
+                std::snprintf(b, sizeof(b), "captured player table index: %llu (record aligned: %s, table count field: %u)\r\n",
+                              static_cast<unsigned long long>(d / data::PLAYER_RECORD_SIZE),
+                              d % data::PLAYER_RECORD_SIZE == 0 ? "yes" : "no", squad_diag_.count_field);
+                r += b;
+            }
+        }
+        const int32_t y = static_cast<int32_t>(mem_.read_u16(last_career_ + 0x01642A24ULL));
+        const int32_t tb = mem_.read_i32(last_career_ + 0x016ECBF4ULL);
+        const int32_t gs = mem_.read_i32(last_career_ + 0x016ECC08ULL);
+        std::snprintf(b, sizeof(b), "career fields: year %d, transfer budget %d, salary cap %d\r\n", y, tb, gs);
+        r += b;
+    }
+    return r;
 }
 
 void PESEngine::reset_session() {
@@ -532,42 +694,36 @@ void PESEngine::shutdown() {
     bool expected = false;
     if (!shutting_down_.compare_exchange_strong(expected, true)) return;
     std::lock_guard<std::recursive_mutex> g(lock_);
+    vlock_ = ValueLockState{};
     hooks_.disable_all();
     mem_.detach();
 }
 
 void PESEngine::discover_singletons() {
-    uint64_t base = mem_.module_base;
-    uint64_t fast_career = base + 0x3714240ULL;
-    uint64_t fast_match = base + 0x3702208ULL;
-    if (mem_.read_u64(fast_career) > 0x10000ULL) {
-        addr_career_owner_ = fast_career;
-        addr_match_mgr_ = fast_match;
-        return;
-    }
+    // Ponteiros globais achados SO por assinatura unica no codigo do processo (nada de RVA fixo de um executavel).
+    // Cada endereco precisa cair dentro da imagem do jogo: um endereco fora dela e descartado.
+    addr_career_owner_ = 0;
+    addr_match_mgr_ = 0;
+    const ImageInfo& img = hooks_.sigs.image();
+    auto in_image = [&](uint64_t a) { return img.valid && a >= img.base && a + 8 <= img.base + img.size_of_image; };
 
-    if (uint64_t call_site = mem_.aob_scan_region(
-            base + 0x1000ULL, base + 0x2540000ULL,
-            "E8 ?? ?? ?? ?? 48 8B 48 48 48 8D 81 E0 CB 6E 01")) {
-        int32_t rel_call = mem_.read_i32(call_site + 1);
-        uint64_t fn_getter = static_cast<uint64_t>(static_cast<int64_t>(call_site + 5) + rel_call);
+    if (uint64_t call_site = hooks_.sigs.find(sig::kCareerGetter)) {
+        const int32_t rel_call = mem_.read_i32(call_site + 1);
+        const uint64_t fn_getter = static_cast<uint64_t>(static_cast<int64_t>(call_site + 5) + rel_call);
         uint8_t hdr[7]{};
-        if (mem_.read_into(fn_getter, hdr, 7) && hdr[0] == 0x48 && hdr[1] == 0x8B && hdr[2] == 0x05) {
+        if (in_image(fn_getter) && mem_.read_into(fn_getter, hdr, 7) && hdr[0] == 0x48 && hdr[1] == 0x8B && hdr[2] == 0x05) {
             int32_t disp = 0;
             std::memcpy(&disp, hdr + 3, 4);
-            addr_career_owner_ = static_cast<uint64_t>(static_cast<int64_t>(fn_getter + 7) + disp);
+            const uint64_t a = static_cast<uint64_t>(static_cast<int64_t>(fn_getter + 7) + disp);
+            if (in_image(a)) addr_career_owner_ = a;
         }
     }
-    if (!addr_career_owner_) addr_career_owner_ = fast_career;
-
-    if (uint64_t match_site = mem_.aob_scan_region(
-            base + 0x1000ULL, base + 0x2540000ULL,
-            "48 8B 05 ?? ?? ?? ?? 4C 8B E2 45 33 FF 48 8B B0 70 02 00 00")) {
-        int32_t disp = mem_.read_i32(match_site + 3);
-        addr_match_mgr_ = static_cast<uint64_t>(static_cast<int64_t>(match_site + 7) + disp);
-    } else {
-        addr_match_mgr_ = fast_match;
+    if (uint64_t match_site = hooks_.sigs.find(sig::kMatchMgr)) {
+        const int32_t disp = mem_.read_i32(match_site + 3);
+        const uint64_t a = static_cast<uint64_t>(static_cast<int64_t>(match_site + 7) + disp);
+        if (in_image(a)) addr_match_mgr_ = a;
     }
+    hooks_.sigs.release_code();
 }
 
 void PESEngine::sync_pointers(uint64_t& out_career, uint64_t& out_player, uint64_t& out_match_state, HookStateBlock* out_state) {
@@ -584,6 +740,7 @@ void PESEngine::sync_pointers(uint64_t& out_career, uint64_t& out_player, uint64
 
     if (career != last_career_) {
         last_career_ = career;
+        ++career_changes_;
         reset_career_caches();
         mem_.write_u64(hooks_.sym_addr(HookSym::ptrPlayer), 0);
     }
@@ -780,7 +937,7 @@ std::string PESEngine::backup_squad_locked(std::string_view tag) {
     auto r = export_squad_pack_json(tag);
     if (!r.ok || r.text.empty()) return {};
     try {
-        std::filesystem::path dir = fs_path_from_utf8(get_packs_directory()) / L"Backups";
+        std::filesystem::path dir = fs_path_from_utf8(get_backups_directory());
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         std::time_t t = std::time(nullptr);
@@ -796,7 +953,16 @@ std::string PESEngine::backup_squad_locked(std::string_view tag) {
         std::ofstream f(file, std::ios::binary | std::ios::trunc);
         if (!f) return {};
         f.write(r.text.data(), static_cast<std::streamsize>(r.text.size()));
-        f.close();
+        f.close();   // o ultimo flush acontece aqui: so depois dele o estado do stream vale
+        const bool wrote_ok = !f.fail();
+        if (!wrote_ok) {
+            std::error_code rm_ec;
+            std::filesystem::remove(file, rm_ec); // backup incompleto nao conta como backup
+            return {};
+        }
+        // Retencao opt-in: poda os mais antigos so depois de o novo estar gravado (o novo e protegido)
+        const int keep = backup_keep_.load(std::memory_order_relaxed);
+        if (keep > 0) pes::backups::prune(dir, keep, file);
         auto u8 = file.u8string();
         return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
     } catch (...) {
@@ -869,10 +1035,11 @@ uint32_t PESEngine::get_user_club_handle(uint64_t career) {
     if (!career) return 0;
     uint32_t uc = mem_.read_u32(career + 0x01642A2CULL);
     if (uc && uc != 0xFFFFFFFFu) return uc;
+    const uint32_t table_limit = player_table_count(career);
     uint64_t h0 = mem_.read_u64(career + 0x016EE854ULL);
     if ((h0 >> 32) != 0) {
         uint32_t lo = static_cast<uint32_t>(h0 & 0xFFFFFFFFULL);
-        if (lo < 30000u) {
+        if (lo < table_limit) {
             uint32_t c0 = mem_.read_u32(career + static_cast<uint64_t>(lo) * data::PLAYER_RECORD_SIZE + 0x12CULL);
             if (c0 && c0 != 0xFFFFFFFFu) return c0;
         }
@@ -880,12 +1047,49 @@ uint32_t PESEngine::get_user_club_handle(uint64_t career) {
     uint64_t bal_h = mem_.read_u64(career + 0x01819540ULL);
     if ((bal_h >> 32) != 0) {
         uint32_t lo = static_cast<uint32_t>(bal_h & 0xFFFFFFFFULL);
-        if (lo < 30000u) {
+        if (lo < table_limit) {
             uint32_t c1 = mem_.read_u32(career + static_cast<uint64_t>(lo) * data::PLAYER_RECORD_SIZE + 0x12CULL);
             if (c1 && c1 != 0xFFFFFFFFu) return c1;
         }
     }
     return 0;
+}
+
+uint32_t PESEngine::player_table_count(uint64_t career) {
+    if (!career) return 0;
+    const uint32_t field = mem_.read_u32(career + 0x00D0BCE8ULL);
+    uint32_t count = (field == 0 || field > kMaxPlayerRecords) ? 30000u : field;
+    // O atleta capturado tem que estar dentro da tabela: se o indice dele passa do contador, o contador nao descreve
+    // a tabela inteira neste jogo e a leitura precisa ir ate ele (com folga).
+    if (manual_player_addr_ > career) {
+        const uint64_t d = manual_player_addr_ - career;
+        if (d % data::PLAYER_RECORD_SIZE == 0) {
+            const uint64_t idx = d / data::PLAYER_RECORD_SIZE;
+            if (idx < kMaxPlayerRecords && idx >= count) count = static_cast<uint32_t>(std::min<uint64_t>(kMaxPlayerRecords, idx + 4096));
+        }
+    }
+    return count;
+}
+
+uint32_t PESEngine::read_player_table(uint64_t career, std::vector<uint8_t>& raw, uint32_t count, uint64_t* bytes_read) {
+    raw.assign(static_cast<size_t>(count) * data::PLAYER_RECORD_SIZE, 0);
+    // Blocos de 8 MB. Tudo ou nada: uma tabela cortada no meio daria elenco parcial e buscas incompletas sem aviso.
+    size_t got = 0;
+    bool ok = true;
+    for (size_t off = 0; off < raw.size(); off += 0x800000) {
+        const size_t n = std::min<size_t>(0x800000, raw.size() - off);
+        if (!mem_.read_into(career + off, raw.data() + off, n)) {
+            ok = false;
+            break;
+        }
+        got = off + n;
+    }
+    if (bytes_read) *bytes_read = got;
+    if (!ok) {
+        raw.clear();
+        return 0;
+    }
+    return count;
 }
 
 const std::vector<uint64_t>& PESEngine::get_user_squad_addresses(uint64_t career, bool force_rescan, std::vector<uint8_t>* out_raw_table) {
@@ -910,24 +1114,33 @@ const std::vector<uint64_t>& PESEngine::get_user_squad_addresses(uint64_t career
     }
 
     if (need) {
-        uint32_t count = mem_.read_u32(career + 0x00D0BCE8ULL);
-        if (count == 0 || count > 30001u) count = 30000u;
+        const uint32_t count_field = mem_.read_u32(career + 0x00D0BCE8ULL);
         std::vector<uint8_t> local_buf;
         std::vector<uint8_t>& raw = out_raw_table ? *out_raw_table : local_buf;
-        raw.resize(static_cast<size_t>(count) * data::PLAYER_RECORD_SIZE);
+        uint32_t count = player_table_count(career);
+        squad_diag_.club_handle = uc;
+        squad_diag_.count_field = count_field;
+        squad_diag_.count_used = count;
+        squad_diag_.bytes_wanted = static_cast<uint64_t>(count) * data::PLAYER_RECORD_SIZE;
+        uint64_t got_bytes = 0;
+        count = read_player_table(career, raw, count, &got_bytes);
+        squad_diag_.bytes_read = got_bytes;
+        squad_diag_.same_club = 0;
+        squad_diag_.rejected = 0;
         std::vector<uint64_t> addrs;
         addrs.reserve(48);
-        if (mem_.read_into(career, raw.data(), raw.size())) {
-            for (uint32_t i = 0; i < count; ++i) {
-                size_t off = static_cast<size_t>(i) * data::PLAYER_RECORD_SIZE;
-                uint32_t club_h = 0;
-                std::memcpy(&club_h, raw.data() + off + 0x12C, 4);
-                if (club_h == uc) {
-                    uint32_t pid = 0;
-                    std::memcpy(&pid, raw.data() + off + 0x30, 4);
-                    if (pid != 0 && pid != 0xFFFFFFFFu) {
-                        addrs.push_back(career + off);
-                    }
+        for (uint32_t i = 0; i < count; ++i) {
+            size_t off = static_cast<size_t>(i) * data::PLAYER_RECORD_SIZE;
+            uint32_t club_h = 0;
+            std::memcpy(&club_h, raw.data() + off + 0x12C, 4);
+            if (club_h == uc) {
+                ++squad_diag_.same_club;
+                uint32_t pid = 0;
+                std::memcpy(&pid, raw.data() + off + 0x30, 4);
+                if (pid != 0 && pid != 0xFFFFFFFFu && is_sane_player_buf(raw.data() + off)) {
+                    addrs.push_back(career + off);
+                } else {
+                    ++squad_diag_.rejected;   // casa com o clube mas nao parece um registro de atleta valido
                 }
             }
         }
@@ -939,8 +1152,10 @@ const std::vector<uint64_t>& PESEngine::get_user_squad_addresses(uint64_t career
     return squad_cache_.addrs;
 }
 
-void PESEngine::get_available_salary_budget(uint64_t career, bool force_refresh, int32_t& out_avail, int32_t& out_gross, int32_t& out_wages) {
+void PESEngine::get_available_salary_budget(uint64_t career, bool force_refresh, int32_t& out_avail, int32_t& out_gross, int32_t& out_wages,
+                                            bool* squad_found) {
     out_avail = out_gross = out_wages = 0;
+    if (squad_found) *squad_found = false;
     if (!career) return;
     int32_t gross = mem_.read_i32(career + 0x016ECC08ULL);
     double now = now_sec();
@@ -948,6 +1163,7 @@ void PESEngine::get_available_salary_budget(uint64_t career, bool force_refresh,
         out_gross = gross;
         out_wages = wage_cache_sum_;
         out_avail = gross - wage_cache_sum_;
+        if (squad_found) *squad_found = wage_cache_found_;
         return;
     }
 
@@ -968,6 +1184,8 @@ void PESEngine::get_available_salary_budget(uint64_t career, bool force_refresh,
     }
 
     const auto& addrs = get_user_squad_addresses(career, force_refresh);
+    if (squad_found) *squad_found = !addrs.empty();
+    wage_cache_found_ = !addrs.empty();
     int32_t sum_sal = 0;
     std::vector<uint64_t> seen;
     seen.reserve(addrs.size());
@@ -1019,10 +1237,17 @@ FinancesSnapshot PESEngine::set_finances(std::optional<std::string_view> trf_str
         w_raw = parse_human_money_to_raw(*sal_str);
         if (!w_raw.has_value()) return {false, "invalid_money"};
     }
+    // O teto salarial e gravado como "valor digitado + folha atual". Sem achar o elenco a folha vira 0 e o jogo
+    // mostraria o saldo negativo, entao nao grava nada (nem o orcamento de transferencias).
+    int32_t wages = 0;
+    if (w_raw.has_value()) {
+        int32_t avail = 0, gross = 0;
+        bool squad_found = false;
+        get_available_salary_budget(career, true, avail, gross, wages, &squad_found);
+        if (!squad_found) return {false, "squad_not_found"};
+    }
     if (t_raw.has_value()) mem_.write_i32(career + 0x016ECBF4ULL, *t_raw);
     if (w_raw.has_value()) {
-        int32_t avail = 0, gross = 0, wages = 0;
-        get_available_salary_budget(career, true, avail, gross, wages);
         int64_t new_gross = std::clamp<int64_t>(static_cast<int64_t>(*w_raw) + wages, 0, 2147483647LL);
         mem_.write_i32(career + 0x016ECC08ULL, static_cast<int32_t>(new_gross));
     }
@@ -1047,14 +1272,33 @@ StatusSnapshot PESEngine::get_status() {
     StatusSnapshot st;
     st.seq = ++status_seq_;
     st.conflict_other_wb = detect_legacy_workbench_running();
+    {
+        const std::wstring& te = mem_.target_exe;
+        if (!te.empty()) {
+            int need = WideCharToMultiByte(CP_UTF8, 0, te.data(), static_cast<int>(te.size()), nullptr, 0, nullptr, nullptr);
+            st.target_exe.assign(static_cast<size_t>(std::max(need, 0)), 'x');
+            if (need > 0) WideCharToMultiByte(CP_UTF8, 0, te.data(), static_cast<int>(te.size()), st.target_exe.data(), need, nullptr, nullptr);
+        }
+    }
     if (!ensure_attached()) {
+        st.target_unsupported = !unsupported_exe_.empty();
         st.access_denied = mem_.access_denied;
+        if (vlock_.active) drop_value_lock_locked();   // jogo fechado: a trava nao tem mais onde escrever
+        st.val_lock_lost = vlock_lost_;
         return st;
     }
+    tick_value_lock_locked();
+    st.compat_missing = hooks_.known_missing();
 
     uint64_t career = 0, p_addr = 0, match_state = 0;
     HookStateBlock sb{};
     sync_pointers(career, p_addr, match_state, &sb);
+
+    st.val_lock_active = vlock_.active;
+    st.val_lock = vlock_.cfg;
+    st.val_lock_addr = vlock_.addr;
+    st.val_lock_name = vlock_.name;
+    st.val_lock_lost = vlock_lost_;
 
     st.attached = true;
     st.exe = mem_.exe_name;
@@ -1208,6 +1452,90 @@ PlayerDetails PESEngine::get_player_details(uint64_t addr) {
     uint8_t buf[data::PLAYER_RECORD_SIZE]{};
     if (!mem_.read_into(p, buf, sizeof(buf)) || !is_sane_player_buf(buf)) return {false, "read_failed"};
     return build_player_details_from_buf(p, career, buf);
+}
+
+// ---- Travas de valores -------------------------------------------------------------------------
+
+void PESEngine::drop_value_lock_locked() {
+    if (!vlock_.active) return;
+    vlock_ = ValueLockState{};
+    ++vlock_lost_;
+}
+
+void PESEngine::clear_value_lock() {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    vlock_ = ValueLockState{};   // desligar por vontade do usuario nao conta como perda
+}
+
+ActionResult PESEngine::set_value_lock(const ValueLockConfig& cfg_in, uint64_t addr) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (!cfg_in.any()) {
+        vlock_ = ValueLockState{};
+        return {true, "ok"};
+    }
+    if (!ensure_attached()) return {false, "not_connected"};
+    uint64_t career = 0, p = 0, ms = 0;
+    sync_pointers(career, p, ms);
+    if (addr > 0x10000ULL) p = addr;
+    if (p <= 0x10000ULL) return {false, "no_player"};
+    uint8_t buf[data::PLAYER_RECORD_SIZE]{};
+    if (!mem_.read_into(p, buf, sizeof(buf)) || !is_sane_player_buf(buf)) return {false, "read_failed"};
+
+    const ValueLockConfig cfg = clamp_lock_config(cfg_in);
+    const uint32_t pid = record_player_id(buf);
+
+    ValueLockState st;
+    st.active = true;
+    st.cfg = cfg;
+    st.addr = p;
+    st.player_id = pid;
+    st.proc_pid = mem_.pid;
+    {
+        PlayerDetails d = build_player_details_from_buf(p, career, buf);
+        st.name = d.name;
+    }
+    vlock_ = std::move(st);
+    tick_value_lock_locked();   // efeito imediato, sem esperar o proximo ciclo
+    return {true, "ok"};
+}
+
+void PESEngine::tick_value_lock_locked() {
+    if (!vlock_.active) return;
+    // Outro processo ou registro diferente do que foi travado: desliga em vez de escrever no lugar errado
+    if (!mem_.attached() || mem_.pid != vlock_.proc_pid || vlock_.addr <= 0x10000ULL) {
+        drop_value_lock_locked();
+        return;
+    }
+    uint8_t buf[data::PLAYER_RECORD_SIZE]{};
+    // O jogo recarrega os atletas (novo save, nova partida) em outro endereco e o bloco antigo continua legivel
+    // com os valores velhos. Se o atleta capturado agora tem o mesmo id, a trava passa a seguir esse registro.
+    if (manual_player_addr_ > 0x10000ULL && manual_player_addr_ != vlock_.addr) {
+        uint8_t cand[data::PLAYER_RECORD_SIZE]{};
+        if (mem_.read_into(manual_player_addr_, cand, sizeof(cand)) && is_sane_player_buf(cand) &&
+            record_player_id(cand) == vlock_.player_id) {
+            vlock_.addr = manual_player_addr_;
+        }
+    }
+    if (!mem_.read_into(vlock_.addr, buf, sizeof(buf)) || !is_sane_player_buf(buf)) {
+        // Telas de carregamento podem falhar uma leitura: so desliga depois de varias seguidas
+        if (++vlock_.bad_reads >= 6) drop_value_lock_locked();
+        return;
+    }
+    vlock_.bad_reads = 0;
+    if (record_player_id(buf) != vlock_.player_id) {
+        drop_value_lock_locked();
+        return;
+    }
+    const uint64_t p = vlock_.addr;
+    LockWrite writes[3];
+    const int n = plan_lock_writes(buf, sizeof(buf), vlock_.cfg, writes);
+    for (int i = 0; i < n; ++i) {
+        switch (writes[i].field) {
+            case LockField::Stamina: mem_.set_bits(p + kLockStaminaByte, 0, 7, writes[i].value); break;
+            case LockField::Arrow:   mem_.set_bits(p + kLockArrowByte, 0, 3, writes[i].value); break;
+            case LockField::Injury:  mem_.write_u8(p + kLockInjuryByte, 0); break;
+        }
+    }
 }
 
 PlayerDetails PESEngine::set_player_quick_condition(std::optional<int> stamina, std::optional<int> arrow, bool heal, uint64_t addr, std::optional<bool> blink) {
@@ -1835,6 +2163,7 @@ ActionResult PESEngine::run_squad_commander(std::string_view mode, const std::ve
 
     std::vector<uint8_t> raw_table;
     const auto all_addrs = get_user_squad_addresses(career, true, &raw_table);
+    if (all_addrs.empty()) return {false, "squad_not_found"};
     std::vector<uint64_t> addrs;
     if (only) {
         std::unordered_set<uint64_t> want(only->begin(), only->end());
@@ -1984,7 +2313,7 @@ ActionResult PESEngine::apply_skill_preset(int preset_id, const std::vector<uint
     std::string backup_path;
     if (list.size() > 1 || replace) {
         backup_path = backup_squad_locked("antes_preset_habilidades");
-        if (backup_path.empty()) return {false, "backup_failed"};
+        if (backup_path.empty()) return {false, (career && get_user_squad_addresses(career, true).empty()) ? "squad_not_found" : "backup_failed"};
     }
 
     std::vector<BatchUndoItem> batch_backup;
@@ -2041,11 +2370,9 @@ SearchResult PESEngine::search_players(std::string_view query, int pos_filter, i
     sync_pointers(career, p_cur, ms);
     if (!career) return {false, "no_career"};
 
-    uint32_t count = mem_.read_u32(career + 0x00D0BCE8ULL);
-    if (count == 0 || count > 30001u) count = 30000u;
-
-    std::vector<uint8_t> raw(static_cast<size_t>(count) * data::PLAYER_RECORD_SIZE);
-    if (!mem_.read_into(career, raw.data(), raw.size())) return {false, "read_failed"};
+    std::vector<uint8_t> raw;
+    const uint32_t count = read_player_table(career, raw, player_table_count(career));
+    if (count == 0) return {false, "read_failed"};
 
     std::string q_norm = norm_text_utf8(query);
     bool has_q = !q_norm.empty();
@@ -2120,8 +2447,7 @@ ScoutListsResult PESEngine::get_scout_lists() {
     sync_pointers(career, p_cur, ms);
     if (!career) return {false, "no_career"};
 
-    uint32_t count = mem_.read_u32(career + 0x00D0BCE8ULL);
-    if (count == 0 || count > 30001u) count = 30000u;
+    const uint32_t count = player_table_count(career);
 
     ScoutListsResult res;
     res.ok = true;
@@ -2440,10 +2766,9 @@ ActionResult PESEngine::import_scout_lists_json(std::string_view json_str, bool 
         return {false, "invalid_json"};
     }
 
-    uint32_t count = mem_.read_u32(career + 0x00D0BCE8ULL);
-    if (count == 0 || count > 30001u) count = 30000u;
-    std::vector<uint8_t> raw(static_cast<size_t>(count) * data::PLAYER_RECORD_SIZE);
-    if (!mem_.read_into(career, raw.data(), raw.size())) return {false, "read_failed"};
+    std::vector<uint8_t> raw;
+    const uint32_t count = read_player_table(career, raw, player_table_count(career));
+    if (count == 0) return {false, "read_failed"};
 
     // Indices por ID do atleta e por nome normalizado (so vale se o nome for unico)
     std::unordered_map<uint32_t, uint32_t> by_pid;
@@ -2550,7 +2875,9 @@ ActionResult PESEngine::set_bal_focus(int points, bool lock_enabled) {
     sync_pointers(career, cur_p, ms);
     if (!career) return {false, "no_career"};
     int pts = std::clamp(points, 0, 99);
-    if (pts > 21 || lock_enabled) hooks_.enable_hook_4_bal_cap();
+    bool cap_ok = true;
+    if (pts > 21 || lock_enabled) cap_ok = hooks_.enable_hook_4_bal_cap();
+    if (!cap_ok && pts > 21) return {false, "feature_unavailable"};   // sem o ajuste do limite o jogo nao aceita acima de 21
     bal_lock_target_ = static_cast<uint8_t>(pts);
     mem_.write_u8(career + 0x016ECBEAULL, bal_lock_target_);
     mem_.write_u32(hooks_.sym_addr(HookSym::cfgLockBALFocusPoints), lock_enabled ? 1u : 0u);
@@ -2909,11 +3236,25 @@ bool parse_roster_pack_json(std::string_view json_str, RosterPack& out_pack) {
     }
 }
 
+std::string get_backups_directory() {
+    std::filesystem::path dir = fs_path_from_utf8(get_packs_directory()) / L"Backups";
+    auto u8 = dir.u8string();
+    return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+}
+
+std::string get_logs_directory() {
+    // Ao lado de Packs: Documentos\Lettuce Live Editor\Logs
+    std::filesystem::path dir = fs_path_from_utf8(get_packs_directory()).parent_path() / L"Logs";
+    auto u8 = dir.u8string();
+    return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+}
+
 std::string get_packs_directory() {
     wchar_t doc_path[MAX_PATH]{};
     std::filesystem::path dir;
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_PERSONAL, nullptr, SHGFP_TYPE_CURRENT, doc_path)) && doc_path[0]) {
-        dir = std::filesystem::path(doc_path) / L"PES 2021 Workbench" / L"Packs";
+        // Documentos\Lettuce Live Editor\Packs (a pasta antiga "PES 2021 Workbench" e movida uma vez)
+        dir = pes::dirs::migrate_dir(std::filesystem::path(doc_path), pes::dirs::kAppFolder, pes::dirs::kLegacyDocsFolder) / L"Packs";
     } else {
         dir = std::filesystem::current_path() / L"Packs";
     }
@@ -3037,7 +3378,7 @@ ActionResult PESEngine::export_squad_pack_json(std::string_view custom_label) {
 
     std::vector<uint8_t> raw_table;
     const auto addrs = get_user_squad_addresses(career, true, &raw_table);
-    if (addrs.empty()) return {false, "no_player"};
+    if (addrs.empty()) return {false, "squad_not_found"};
 
     uint32_t uc = get_user_club_handle(career);
     std::string club_name = decode_club_handle(uc, career).second;
@@ -3174,10 +3515,9 @@ PackPreviewResult PESEngine::preview_pack_import(
             cands.push_back(std::move(tc));
         }
     } else {
-        uint32_t count = mem_.read_u32(career + 0x00D0BCE8ULL);
-        if (count == 0 || count > 30001u) count = 30000u;
-        std::vector<uint8_t> raw(static_cast<size_t>(count) * data::PLAYER_RECORD_SIZE);
-        if (!mem_.read_into(career, raw.data(), raw.size())) {
+        std::vector<uint8_t> raw;
+        const uint32_t count = read_player_table(career, raw, player_table_count(career));
+        if (count == 0) {
             res.code = "read_failed";
             return res;
         }

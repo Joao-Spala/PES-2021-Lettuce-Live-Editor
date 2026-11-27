@@ -1,5 +1,8 @@
 #include "workbench_ui.hpp"
 #include "../engine/skill_presets.hpp"
+#include "../engine/action_log.hpp"
+#include "../engine/backup_retention.hpp"
+#include "../app_version.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -63,7 +66,11 @@ bool status_materially_changed(const StatusSnapshot& a, const StatusSnapshot& b)
         a.career != b.career || a.in_match != b.in_match || a.mode_code != b.mode_code ||
         a.club != b.club || a.training_mode != b.training_mode || a.stamina_mode != b.stamina_mode ||
         a.freeze_clock != b.freeze_clock || a.bal_focus != b.bal_focus || a.bal_lock != b.bal_lock ||
-        a.hooks != b.hooks || a.has_player != b.has_player || a.has_finances != b.has_finances) {
+        a.hooks != b.hooks || a.has_player != b.has_player || a.has_finances != b.has_finances ||
+        a.val_lock_active != b.val_lock_active || !(a.val_lock == b.val_lock) ||
+        a.val_lock_addr != b.val_lock_addr || a.val_lock_lost != b.val_lock_lost ||
+        a.val_lock_name != b.val_lock_name || a.target_exe != b.target_exe || a.target_unsupported != b.target_unsupported ||
+        a.compat_missing != b.compat_missing) {
         return true;
     }
     if (a.has_finances && (a.finances.transfer_raw != b.finances.transfer_raw ||
@@ -214,6 +221,10 @@ std::string pick_save_json_dialog(HWND owner, const std::string& init_dir, const
 WorkbenchApp::WorkbenchApp(PESEngine& engine) : engine_(engine) {
     settings_ = load_settings();
     engine_.set_econ_sync_mode(static_cast<EconSyncMode>(std::clamp(settings_.econ_sync_mode, 0, 3)));
+    actionlog::set_directory(std::filesystem::path(utf8_to_wide(get_logs_directory())));
+    actionlog::set_enabled(settings_.action_log);
+    apply_backup_retention();
+    engine_.set_target_process(settings_.game_process, 0);   // processo escolhido a mao em outra sessao (vazio = automatico)
 }
 
 WorkbenchApp::~WorkbenchApp() {
@@ -237,6 +248,9 @@ void WorkbenchApp::start_background_poller(void* hwnd_raw) {
             bool changed = first || status_materially_changed(prev, snap);
             first = false;
             if (changed) {
+                if (prev.seq == 0 || snap.attached != prev.attached) {
+                    actionlog::write("INFO", snap.attached ? std::string("Game attached: ") + snap.exe : std::string("Game not connected"));
+                }
                 prev = snap;
                 {
                     std::lock_guard<std::mutex> g(status_mtx_);
@@ -248,6 +262,8 @@ void WorkbenchApp::start_background_poller(void* hwnd_raw) {
             }
             // Fast 250ms polling when active (C++ get_status takes <0.05ms), 2000ms when minimized/offline
             int sleep_ms = (minimized_.load(std::memory_order_relaxed) || !prev.attached) ? 2000 : 250;
+            // Com trava ativa o ciclo nao passa de 500 ms, mesmo com o app minimizado (a trava so escreve ao dar o ciclo)
+            if (prev.val_lock_active) sleep_ms = std::min(sleep_ms, 500);
             std::unique_lock<std::mutex> lk(poll_cv_mtx_);
             poll_cv_.wait_for(lk, std::chrono::milliseconds(sleep_ms), [this]() {
                 return !poller_running_.load(std::memory_order_relaxed) || poll_wake_flag_;
@@ -408,7 +424,7 @@ void WorkbenchApp::record_solver_action(const PlayerDetails& r, const char* tag_
         for (size_t i = 0; i < lim; ++i) {
             const auto& df = r.action_diffs[i];
             const auto* sd = find_stat_def(df.fid);
-            const char* sn = sd ? (L == Lang::EN ? sd->en : sd->pt) : "?";
+            const char* sn = sd ? T(L, sd->pt, sd->en) : "?";
             int delta = df.new_val - df.old_val;
             char seg[64];
             std::snprintf(seg, sizeof(seg), "%s%s %+d", (i > 0 ? ", " : ""), sn, delta);
@@ -433,7 +449,12 @@ void WorkbenchApp::record_solver_action(const PlayerDetails& r, const char* tag_
     }
 }
 
-void WorkbenchApp::record_meta_action(int pos_id, int orig_ovr, int final_ovr, const std::string& note_pt, const std::string& note_en) {
+const char* WorkbenchApp::log_tag(Lang L, const std::string& pt, const std::string& en, const std::string& es) {
+    if (L == Lang::ES && !es.empty()) return es.c_str();
+    return T(L, pt.c_str(), en.c_str());
+}
+
+void WorkbenchApp::record_meta_action(int pos_id, int orig_ovr, int final_ovr, const std::string& note_pt, const std::string& note_en, const std::string& note_es) {
     PosLabLogEntry e;
     e.time_str = cur_hms();
     e.pos_id = pos_id;
@@ -443,6 +464,7 @@ void WorkbenchApp::record_meta_action(int pos_id, int orig_ovr, int final_ovr, c
     e.pri_ovr = player_.ovr;
     e.tag_pt = note_pt;
     e.tag_en = note_en;
+    e.tag_es = note_es;
     poslab_log_.insert(poslab_log_.begin(), std::move(e));
     if (poslab_log_.size() > 30) poslab_log_.resize(30);
 }
@@ -531,7 +553,7 @@ uint8_t WorkbenchApp::scout_mask_of(uint64_t addr) const {
 void WorkbenchApp::scout_report(const ActionResult& r, const char* verb_pt, const char* verb_en, int target_slot) {
     Lang L = settings_.lang;
     const char* lname = "";
-    for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == target_slot) { lname = (L == Lang::EN) ? sl.en : sl.pt; break; }
+    for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == target_slot) { lname = T(L, sl.pt, sl.en); break; }
     if (!r.ok) {
         if (r.code == "scout_full") toasts_.push(T(L, "Lista de destino cheia. Nada foi alterado.", "Target list is full. Nothing changed."), true);
         else if (r.code == "scout_dup") toasts_.push(T(L, "Esses atletas já estão na lista.", "Those players are already on the list."), true);
@@ -556,7 +578,7 @@ void WorkbenchApp::render_scout_list_menu(const char* popup_id, uint64_t addr) {
     for (const auto& sl : data::SCOUT_LISTS) {
         bool in_l = (mask & (1u << (sl.slot - 1))) != 0;
         char lbl[96];
-        std::snprintf(lbl, sizeof(lbl), "%s##mn%d", (L == Lang::EN) ? sl.en : sl.pt, sl.slot);
+        std::snprintf(lbl, sizeof(lbl), "%s##mn%d", T(L, sl.pt, sl.en), sl.slot);
         if (ImGui::Checkbox(lbl, &in_l)) { toggle_slot = sl.slot; was_in = !in_l; }
     }
     ImGui::EndPopup();
@@ -601,6 +623,7 @@ void WorkbenchApp::run_squad_cmd_impl(const char* mode, const std::vector<uint64
 }
 
 bool WorkbenchApp::render_frame(const FontBank& fonts) {
+    start_services_once();
     // Pull latest status snapshot from background thread (lock held <1us)
     {
         std::lock_guard<std::mutex> g(status_mtx_);
@@ -637,6 +660,18 @@ bool WorkbenchApp::render_frame(const FontBank& fonts) {
                 std::snprintf(match_sec_buf_, sizeof(match_sec_buf_), "%02d", st_.match_sec);
             }
             prev_in_match_ = st_.in_match;
+        }
+    }
+
+    if (st_.val_lock_lost != last_lock_lost_) {
+        const bool more = st_.val_lock_lost > last_lock_lost_;
+        last_lock_lost_ = st_.val_lock_lost;
+        if (more) {
+            lock_ui_ = ValueLockConfig{};   // a trava caiu: a tela volta ao estado desligado
+            lock_ui_addr_ = 0;
+            toasts_.push(T(settings_.lang,
+                "Travas desligadas: o jogo fechou ou o atleta travado mudou.",
+                "Locks turned off: the game closed or the locked player changed."), true);
         }
     }
 
@@ -755,6 +790,8 @@ bool WorkbenchApp::render_frame(const FontBank& fonts) {
         ImGui::Dummy(ImVec2(0, std::round(10.0f * dpi_scale_)));
     }
 
+    render_update_banner(fonts);
+
     switch (current_view_) {
         case View::Dashboard: render_view_dashboard(fonts); break;
         case View::Squad:     render_view_squad(fonts); break;
@@ -773,6 +810,7 @@ bool WorkbenchApp::render_frame(const FontBank& fonts) {
     ImGui::EndGroup();
 
     render_modals(fonts);
+    render_process_picker(fonts);
 
     ImGui::End();
     ImGui::PopFont();
@@ -848,21 +886,39 @@ void WorkbenchApp::render_titlebar(const FontBank& fonts, float tb_h) {
         ImVec4 c_bd(c_fg.x, c_fg.y, c_fg.z, 0.45f);
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, conn_h * 0.5f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f * dpi_scale_, 2.0f));
-        if (styled_button(conn_lbl, c_bg, c_bd, c_fg, ImVec2(conn_w, conn_h))) {
-            bool ok = engine_.ensure_attached();
-            st_ = engine_.get_status();
-            wake_poller();
-            toasts_.push(ok ? (std::string(T(L, "Conectado a ", "Connected to ")) + st_.exe)
-                            : (st_.access_denied ? T(L, "Acesso negado: execute como Administrador.", "Access denied: run as Administrator.")
-                                                 : T(L, "PES 2021 não encontrado.", "PES 2021 not found.")), !ok);
-        }
+        const bool conn_clicked = styled_button(conn_lbl, c_bg, c_bd, c_fg, ImVec2(conn_w, conn_h));
         ImVec2 bmin = ImGui::GetItemRectMin();
         ImVec2 bmax = ImGui::GetItemRectMax();
+        if (conn_clicked) {
+            ImGui::SetNextWindowPos(ImVec2(bmax.x, bmax.y + 6.0f * dpi_scale_), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+            ImGui::OpenPopup("##conn_menu");
+        }
+        if (ImGui::BeginPopup("##conn_menu")) {
+            if (ImGui::MenuItem(T(L, "Reconectar", "Reconnect"))) {
+                bool ok = engine_.ensure_attached();
+                st_ = engine_.get_status();
+                wake_poller();
+                std::string msg;
+                if (ok) msg = std::string(T(L, "Conectado a ", "Connected to ")) + st_.exe;
+                else if (st_.access_denied) msg = T(L, "Acesso negado: execute como Administrador.", "Access denied: run as Administrator.");
+                else if (st_.target_unsupported) msg = T(L, "O processo escolhido não parece ser um jogo compatível. Nada foi gravado nele.", "The chosen process does not look like a compatible game. Nothing was written to it.");
+                else if (!st_.target_exe.empty()) msg = std::string(T(L, "Processo não encontrado: ", "Process not found: ")) + st_.target_exe;
+                else msg = T(L, "PES 2021 não encontrado.", "PES 2021 not found.");
+                toasts_.push(msg, !ok);
+            }
+            if (ImGui::MenuItem(T(L, "Escolher processo...", "Choose process..."))) {
+                open_proc_picker_ = true;
+            }
+            if (!settings_.game_process.empty() && ImGui::MenuItem(T(L, "Voltar à detecção automática", "Back to automatic detection"))) {
+                apply_process_target(std::string(), 0);
+            }
+            ImGui::EndPopup();
+        }
         draw_led_dot(dl, ImVec2(bmin.x + 12.0f * dpi_scale_, (bmin.y + bmax.y) * 0.5f),
                      3.6f * dpi_scale_, c_fg, st_.attached);
         track_interactive();
         show_tip_if_hovered(T(L, "Conexão com o jogo", "Game Connection"),
-                            T(L, "Clique para reconectar e verificar os hooks x64 no PES 2021.", "Click to reconnect and verify x64 hooks in PES 2021."));
+                            T(L, "Clique para reconectar ou escolher outro processo, como no Cheat Engine.", "Click to reconnect or pick another process, like in Cheat Engine."));
         ImGui::PopStyleVar(2);
     }
     if (fonts.small_bold) ImGui::PopFont();
@@ -1030,7 +1086,7 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
     std::snprintf(cur_btn, sizeof(cur_btn), "%s %s", kCurrencies[settings_.currency_idx].sym, kCurrencies[settings_.currency_idx].code);
     float cur_w = calc_btn_w(cur_btn);
 
-    const char* lang_btn = (L == Lang::EN) ? "EN" : "PT-BR";
+    const char* lang_btn = (L == Lang::EN) ? "EN" : ((L == Lang::ES) ? "ES" : "PT-BR");
     float lang_w = calc_btn_w(lang_btn);
 
     const float gap = std::round(8.0f * dpi_scale_);
@@ -1139,15 +1195,22 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
 
     ImGui::SameLine(0, gap);
     if (styled_button(lang_btn, col::BgCard, col::Border, col::AccentSoft, ImVec2(lang_w, ctrl_h))) {
-        settings_.lang = (L == Lang::EN) ? Lang::PT : Lang::EN;
+        // Ciclo PT -> EN -> ES -> PT
+        if (L == Lang::PT) settings_.lang = Lang::EN;
+        else if (L == Lang::EN) settings_.lang = Lang::ES;
+        else settings_.lang = Lang::PT;
         save_settings(settings_);
         if (has_player_details_) sync_player_form_buffers();
     }
-    show_tip_if_hovered(T(L, "Idioma", "Language"), T(L, "Alternar entre Português e Inglês", "Toggle Portuguese / English"));
+    show_tip_if_hovered(T(L, "Idioma", "Language"), T(L, "Alternar idioma (Português / Inglês / Espanhol)", "Cycle language (Portuguese / English / Spanish)"));
 
     ImGui::SameLine(0, gap);
     ImVec2 prefs_pos = ImGui::GetCursorScreenPos();
-    if (icon_button(Icon::Gear, prefs_btn_lbl, col::BgCard, col::Border, col::Text, ImVec2(prefs_w, ctrl_h))) {
+    bool prefs_clicked = icon_button(Icon::Gear, prefs_btn_lbl, col::BgCard, col::Border, col::Text, ImVec2(prefs_w, ctrl_h));
+#ifdef PES_QA_DUMP
+    if (qa_open_prefs_) { prefs_clicked = true; qa_open_prefs_ = false; }
+#endif
+    if (prefs_clicked) {
         ImGui::SetNextWindowPos(ImVec2(prefs_pos.x + prefs_w, prefs_pos.y + ctrl_h + 6.0f * dpi_scale_), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
         ImGui::OpenPopup("##prefs_popup");
     }
@@ -1158,8 +1221,9 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
 void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
     Lang L = settings_.lang;
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
-    ImGui::SetNextWindowSizeConstraints(ImVec2(300.0f * dpi_scale_, 0.0f), ImVec2(420.0f * dpi_scale_, 600.0f * dpi_scale_));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(300.0f * dpi_scale_, 0.0f), ImVec2(420.0f * dpi_scale_, 640.0f * dpi_scale_));
     if (!ImGui::BeginPopup("##prefs_popup")) return;
+    if (ImGui::IsWindowAppearing()) refresh_backup_info();   // a aba Servicos mostra o espaco usado por backups
 
     {
         const float es = std::round(30.0f * dpi_scale_);
@@ -1175,6 +1239,28 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
         ImGui::EndGroup();
     }
     ImGui::Spacing();
+
+    // Duas abas: Aparencia (tema, escala, destaque) e Servicos (versao, backups, registro). Evita um popup gigante.
+    {
+        const float tab_gap = std::round(6.0f * dpi_scale_);
+        const float tab_w = std::max(80.0f * dpi_scale_, (ImGui::GetContentRegionAvail().x - tab_gap) * 0.5f);
+        const float tab_h = std::round(30.0f * dpi_scale_);
+        const char* tab_lbl[2] = {T(L, "Aparência##ptab0", "Appearance##ptab0"), T(L, "Serviços##ptab1", "Services##ptab1")};
+        for (int i = 0; i < 2; ++i) {
+            if (i > 0) ImGui::SameLine(0, tab_gap);
+            const bool act = (prefs_tab_ == i);
+            if (styled_button(tab_lbl[i], act ? col::Accent : col::BgCard, act ? col::AccentSoft : col::Border, act ? ImVec4(1, 1, 1, 1) : col::Subtext, ImVec2(tab_w, tab_h))) {
+                if (i == 1 && prefs_tab_ != 1) refresh_backup_info();
+                prefs_tab_ = i;
+            }
+        }
+        ImGui::Spacing();
+    }
+    if (prefs_tab_ == 1) {
+        render_prefs_services();
+        ImGui::EndPopup();
+        return;
+    }
 
     // Tema visual: cartoes de pre-visualizacao clicaveis
     ImGui::TextColored(col::Subtext, "%s", T(L, "Tema visual", "Visual theme"));
@@ -1200,7 +1286,7 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
             tdl->AddRectFilled(ImVec2(tp.x + 14.0f * dpi_scale_, tp.y + 26.0f * dpi_scale_), ImVec2(tp.x + tw * 0.52f, tp.y + 30.0f * dpi_scale_), ImGui::GetColorU32(pv[3]), 2.0f);
             tdl->AddCircleFilled(ImVec2(tp.x + tw * 0.80f, tp.y + th * 0.42f), 9.0f * dpi_scale_, ImGui::GetColorU32(pv[2]), 20);
             tdl->AddCircleFilled(ImVec2(tp.x + tw * 0.80f + 5.0f * dpi_scale_, tp.y + th * 0.42f - 4.0f * dpi_scale_), 4.0f * dpi_scale_, ImGui::GetColorU32(pv[3]), 16);
-            const char* tn = theme_name(i, L == Lang::EN);
+            const char* tn = theme_name(i, L);
             ImVec2 tsz = ImGui::CalcTextSize(tn);
             tdl->AddText(ImVec2(tp.x + 14.0f * dpi_scale_, tp.y + th - 8.0f * dpi_scale_ - tsz.y - 2.0f), ImGui::GetColorU32(ImVec4(0.93f, 0.96f, 0.92f, 1.0f)), tn);
             tdl->AddRect(tp, ImVec2(tp.x + tw, tp.y + th), tact ? ImGui::GetColorU32(pv[3]) : ImGui::GetColorU32(thov ? col::BorderLit : col::Border), trnd, 0, tact ? 2.0f : 1.0f);
@@ -1262,7 +1348,7 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
         bool act = (settings_.accent_idx == i);
         ImVec4 sw = accent_swatch(i);
         const bool sw_click = styled_button(lbl, ImVec4(sw.x, sw.y, sw.z, act ? 1.0f : 0.55f), act ? col::Text : sw, col::Text, ImVec2(sw_w, bh));
-        show_tip_if_hovered(accent_name(i, L == Lang::EN), T(L, "Cor de destaque", "Accent colour"));
+        show_tip_if_hovered(accent_name(i, L), T(L, "Cor de destaque", "Accent colour"));
         if (act) {
             ImVec2 a0 = ImGui::GetItemRectMin(), a1 = ImGui::GetItemRectMax();
             draw_icon(ImGui::GetWindowDrawList(), Icon::Check, ImVec2((a0.x + a1.x) * 0.5f, (a0.y + a1.y) * 0.5f), bh * 0.5f, ImGui::GetColorU32(ImVec4(1, 1, 1, 1)));
@@ -1290,7 +1376,7 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
     if (st_.in_match) draw_pill(T(L, "● EM PARTIDA", "● IN MATCH"), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.18f), ImVec4(0.063f, 0.725f, 0.506f, 0.55f));
     else draw_pill(T(L, "● Fora de Partida", "● Not in Match"), col::Subtext, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f), col::Border);
 
-    wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.", "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
+    render_connection_hint(fonts);
     ImGui::Spacing();
 
     // 3 Responsive KPI Cards (equal height when 3-column, illuminated top accent + icon medallions)
@@ -1447,7 +1533,7 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
             ImGui::SameLine(0, 8.0f * dpi_scale_);
             draw_pos_chip(L, st_.player.pos, std::round(38.0f * dpi_scale_), std::round(22.0f * dpi_scale_), fonts.small_bold ? fonts.small_bold : bold);
             ImGui::SameLine(0, 6.0f * dpi_scale_);
-            draw_arrow_badge(st_.player.arrow, std::round(22.0f * dpi_scale_), st_.player.blink);
+            draw_arrow_badge(st_.player.arrow, std::round(22.0f * dpi_scale_), st_.player.blink, settings_.lang);
             ImGui::TextColored(col::Subtext, "%s  |  %d%s", fmt_club(L, st_.player.club).c_str(), st_.player.age, T(L, "a", "y"));
             draw_stamina_bar(st_.player.stamina, 92.0f);
             ImGui::EndGroup();
@@ -1576,18 +1662,17 @@ void WorkbenchApp::apply_preset_cmd(bool to_selection) {
 void WorkbenchApp::render_preset_controls(const FontBank& fonts, bool compact) {
     (void)fonts;
     Lang L = settings_.lang;
-    const bool en = (L == Lang::EN);
     const auto& list = presets::kSkillPresets;
     preset_idx_ = std::clamp(preset_idx_, 0, static_cast<int>(list.size()) - 1);
     const auto& cur = list[static_cast<size_t>(preset_idx_)];
     ImGui::SetNextItemWidth(std::round((compact ? 190.0f : 260.0f) * dpi_scale_));
-    if (ImGui::BeginCombo("##skill_preset", en ? cur.en : cur.pt)) {
+    if (ImGui::BeginCombo("##skill_preset", T(L, cur.pt, cur.en))) {
         for (size_t i = 0; i < list.size(); ++i) {
-            if (ImGui::Selectable(en ? list[i].en : list[i].pt, static_cast<int>(i) == preset_idx_)) preset_idx_ = static_cast<int>(i);
+            if (ImGui::Selectable(T(L, list[i].pt, list[i].en), static_cast<int>(i) == preset_idx_)) preset_idx_ = static_cast<int>(i);
         }
         ImGui::EndCombo();
     }
-    show_tip_if_hovered(en ? cur.en : cur.pt, en ? cur.desc_en : cur.desc_pt);
+    show_tip_if_hovered(T(L, cur.pt, cur.en), T(L, cur.desc_pt, cur.desc_en));
     flow_next(48.0f * dpi_scale_ + ImGui::CalcTextSize(T(L, "Substituir habilidades", "Replace skills")).x, 12.0f * dpi_scale_);
     toggle_switch("##sw_preset_repl", T(L, "Substituir habilidades", "Replace skills"), &preset_replace_);
     show_tip_if_hovered(T(L, "Substituir habilidades", "Replace skills"),
@@ -1596,7 +1681,7 @@ void WorkbenchApp::render_preset_controls(const FontBank& fonts, bool compact) {
 }
 
 namespace {
-const char* journal_action_label(const std::string& code, bool en) {
+const char* journal_action_label(const std::string& code, Lang L) {
     struct M { const char* c; const char* pt; const char* en; };
     static const M k[] = {
         {"ovr_dna", "OVR com DNA", "OVR with DNA"}, {"econ_recal", "Recalibrar economia", "Recalibrate economy"},
@@ -1615,14 +1700,13 @@ const char* journal_action_label(const std::string& code, bool en) {
         {"reg_pos", "Posição principal", "Primary position"}, {"stat", "Atributo", "Attribute"},
         {"stats_batch", "Atributos em lote", "Attributes batch"}, {"team_role", "Função no time", "Team role"},
     };
-    for (const auto& m : k) if (code == m.c) return en ? m.en : m.pt;
+    for (const auto& m : k) if (code == m.c) return T(L, m.pt, m.en);
     return code.c_str();
 }
 } // namespace
 
 void WorkbenchApp::render_history_popup(const FontBank& fonts) {
     Lang L = settings_.lang;
-    const bool en = (L == Lang::EN);
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
     ImGui::SetNextWindowSizeConstraints(ImVec2(440.0f * dpi_scale_, 0.0f), ImVec2(640.0f * dpi_scale_, 560.0f * dpi_scale_));
     if (!ImGui::BeginPopup("##hist_popup")) return;
@@ -1659,7 +1743,7 @@ void WorkbenchApp::render_history_popup(const FontBank& fonts) {
         char who[96];
         if (j.players > 1) std::snprintf(who, sizeof(who), "%d %s", j.players, T(L, "atletas", "players"));
         else std::snprintf(who, sizeof(who), "%s", j.label.c_str());
-        ImGui::TextColored(col::AccentSoft, "%s", journal_action_label(j.action, en));
+        ImGui::TextColored(col::AccentSoft, "%s", journal_action_label(j.action, L));
         ImGui::SameLine(0, 8.0f * dpi_scale_);
         ImGui::TextColored(col::Subtext, "%s", who);
         const char* ub = T(L, "Desfazer até aqui", "Undo to here");
@@ -1703,6 +1787,12 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
     if (icon_btn_primary(Icon::Refresh, T(L, "Atualizar", "Refresh"))) reload_squad();
 
     ImGui::Spacing();
+
+    // Conectado a uma carreira e sem nenhum atleta: diz o que houve em vez de mostrar uma tabela em branco
+    if (squad_.players.empty() && st_.attached && st_.career > 0) {
+        wrapped_colored(col::GoldSoft, "%s", fmt_code_msg(L, "squad_not_found").c_str());
+        ImGui::Spacing();
+    }
 
     int n = static_cast<int>(squad_.players.size());
     int exp_c = 0, inj_c = 0, u23_c = 0;
@@ -1957,7 +2047,7 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
             if (p->exp_y > 0) ImGui::TextColored(p->is_expiring ? col::GoldSoft : col::Subtext, "%d", p->exp_y);
             else ImGui::TextColored(col::Muted, "-");
             ImGui::TableSetColumnIndex(5); ImGui::Text("%s", fmt_money(p->salary_raw, settings_.currency_idx, L).c_str());
-            ImGui::TableSetColumnIndex(6); draw_arrow_badge(p->arrow, std::round(22.0f * dpi_scale_), p->blink);
+            ImGui::TableSetColumnIndex(6); draw_arrow_badge(p->arrow, std::round(22.0f * dpi_scale_), p->blink, settings_.lang);
             ImGui::TableSetColumnIndex(7); draw_stamina_bar(p->stamina, 62.0f);
             ImGui::TableSetColumnIndex(8);
             if (p->injury > 0) {
@@ -2082,13 +2172,13 @@ void WorkbenchApp::render_view_finances(const FontBank& fonts) {
         else toast_code(r.code, true);
     }
     flow_next(calc_btn_w(T(L, "+10M Transf.", "+10M Transfer")));
-    if (btn_green(T(L, "+10M Transf.", "+10M Transfer"))) { auto r = engine_.add_finance_delta(true, 100000); if (r.ok) { fin_ = r; reload_finances(); } }
+    if (btn_green(T(L, "+10M Transf.", "+10M Transfer"))) { auto r = engine_.add_finance_delta(true, 100000); if (r.ok) { fin_ = r; reload_finances(); } else toast_code(r.code, true); }
     flow_next(calc_btn_w(T(L, "+100M Transf.", "+100M Transfer")));
-    if (btn_green(T(L, "+100M Transf.", "+100M Transfer"))) { auto r = engine_.add_finance_delta(true, 1000000); if (r.ok) { fin_ = r; reload_finances(); } }
+    if (btn_green(T(L, "+100M Transf.", "+100M Transfer"))) { auto r = engine_.add_finance_delta(true, 1000000); if (r.ok) { fin_ = r; reload_finances(); } else toast_code(r.code, true); }
     flow_next(calc_btn_w(T(L, "+10M Salários", "+10M Salary")));
-    if (btn_gold(T(L, "+10M Salários", "+10M Salary"))) { auto r = engine_.add_finance_delta(false, 100000); if (r.ok) { fin_ = r; reload_finances(); } }
+    if (btn_gold(T(L, "+10M Salários", "+10M Salary"))) { auto r = engine_.add_finance_delta(false, 100000); if (r.ok) { fin_ = r; reload_finances(); } else toast_code(r.code, true); }
     flow_next(calc_btn_w(T(L, "+50M Salários", "+50M Salary")));
-    if (btn_gold(T(L, "+50M Salários", "+50M Salary"))) { auto r = engine_.add_finance_delta(false, 500000); if (r.ok) { fin_ = r; reload_finances(); } }
+    if (btn_gold(T(L, "+50M Salários", "+50M Salary"))) { auto r = engine_.add_finance_delta(false, 500000); if (r.ok) { fin_ = r; reload_finances(); } else toast_code(r.code, true); }
     end_studio_card();
 }
 
@@ -2160,7 +2250,7 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
     ImGui::SameLine(0, 9.0f * dpi_scale_);
     page_title(player_.name.c_str(), fonts, bold);
     ImGui::SameLine(0, 9.0f * dpi_scale_);
-    draw_arrow_badge(player_.arrow, std::round(23.0f * dpi_scale_), player_.blink);
+    draw_arrow_badge(player_.arrow, std::round(23.0f * dpi_scale_), player_.blink, settings_.lang);
 
     const char* foot_txt = player_.foot ? T(L, "Canhoto", "Left Foot") : T(L, "Destro", "Right Foot");
     ImGui::PushStyleColor(ImGuiCol_Text, col::Subtext);
@@ -2337,7 +2427,7 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
         for (size_t i = 0; i < lim; ++i) {
             const auto& df = last_edit_.diffs[i];
             const auto* sd = find_stat_def(df.fid);
-            const char* sn = sd ? (L == Lang::EN ? sd->en : sd->pt) : "?";
+            const char* sn = sd ? T(L, sd->pt, sd->en) : "?";
             int d = df.new_val - df.old_val;
             char sb[64];
             std::snprintf(sb, sizeof(sb), "%s %+d (%d)", sn, d, df.new_val);
@@ -2456,15 +2546,17 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
             if (r.ok) { player_ = r; sync_player_form_buffers(); wake_poller(); toasts_.push(blink_v ? T(L, "Seta piscando ativada!", "Blinking arrow on!") : T(L, "Seta piscando desativada.", "Blinking arrow off.")); }
         }
         show_tip_if_hovered(T(L, "Seta piscando", "Blinking arrow"),
-            T(L, "Flag independente da cor da seta (bit 7 do byte 0x146 do registro). Funciona com qualquer cor. No manual da Konami, o ícone piscando indica um atleta influenciado por uma Função no Time: dar mais minutos a ele pode render uma evolução real.",
-                 "Flag independent of the arrow colour (bit 7 of record byte 0x146). Works with any colour. In Konami's manual, the blinking icon marks a player influenced by a Team Role: giving him more minutes can lead to a real breakthrough."));
+            T(L, "Flag separada da cor da seta (bit 7 do byte 0x146 do registro). Funciona com qualquer cor. Segundo o manual da Konami, o ícone piscando marca um atleta influenciado por uma função no time, e dar mais minutos a ele pode gerar uma evolução real (breakthrough).",
+                 "Flag separate from the arrow colour (bit 7 of record byte 0x146). Works with any colour. According to Konami's manual, the blinking icon marks a player influenced by a Team Role, and giving him more minutes can lead to a real breakthrough."));
         ImGui::PushStyleColor(ImGuiCol_Text, col::Muted);
-        ImGui::TextWrapped("%s", T(L, "Faz o ícone de forma do atleta piscar na Master Liga. Só liga a flag, nenhum atributo é alterado.",
-                                      "Makes the player's form icon blink in Master League. It only sets the flag and changes no attributes."));
+        ImGui::TextWrapped("%s", T(L, "Faz o ícone da seta piscar nas listas do jogo. A Master Liga usa esse aviso para marcar um atleta que está sendo influenciado por uma função no time. Aqui você só liga ou desliga o aviso: a cor da seta e os atributos não mudam.",
+                                      "Makes the arrow icon blink in the game's lists. Master League uses this marker for a player being influenced by a Team Role. Here you only turn the marker on or off: the arrow colour and the attributes do not change."));
         ImGui::PopStyleColor();
         end_studio_card();
     }
 
+    ImGui::Spacing();
+    render_value_lock_card(fonts);
     ImGui::Spacing();
 
     // Dedicated Quick Contract & Finances Card (1-click updates without digging through Bio)
@@ -3027,8 +3119,8 @@ void WorkbenchApp::render_poslab_log_card(const FontBank& fonts, float max_h) {
         for (size_t i = 0; i < diffs.size(); ++i) {
             const auto& df = diffs[i];
             const auto* sd = find_stat_def(df.fid);
-            const char* sn = sd ? (L == Lang::EN ? sd->en : sd->pt) : "?";
-            const char* desc = sd ? (L == Lang::EN ? sd->desc_en : sd->desc_pt) : "";
+            const char* sn = sd ? T(L, sd->pt, sd->en) : "?";
+            const char* desc = sd ? T(L, sd->desc_pt, sd->desc_en) : "";
             int d = df.new_val - df.old_val;
             char chip[96];
             std::snprintf(chip, sizeof(chip), "%s %d->%d (%+d)", sn, df.old_val, df.new_val, d);
@@ -3073,7 +3165,7 @@ void WorkbenchApp::render_poslab_log_card(const FontBank& fonts, float max_h) {
                     std::snprintf(ob, sizeof(ob), "%d -> %d (%+d)", e.orig_ovr, e.final_ovr, e.final_ovr - e.orig_ovr);
                     ImGui::TextColored(up ? col::GreenSoft : col::RedSoft, "%s", ob);
                 } else {
-                    ImGui::TextColored(col::AccentSoft, "%s", T(L, e.tag_pt.c_str(), e.tag_en.c_str()));
+                    ImGui::TextColored(col::AccentSoft, "%s", log_tag(L, e.tag_pt, e.tag_en, e.tag_es));
                 }
                 if (e.reg_pos >= 0 && e.pos_id != e.reg_pos && e.pri_ovr > 0) {
                     ImGui::SameLine(0, 6);
@@ -3084,7 +3176,7 @@ void WorkbenchApp::render_poslab_log_card(const FontBank& fonts, float max_h) {
                     ImGui::Spacing();
                     render_diff_chips(e.diffs);
                 } else if (e.orig_ovr != e.final_ovr) {
-                    ImGui::TextColored(col::Subtext, "%s", T(L, e.tag_pt.c_str(), e.tag_en.c_str()));
+                    ImGui::TextColored(col::Subtext, "%s", log_tag(L, e.tag_pt, e.tag_en, e.tag_es));
                 }
 
                 ImGui::EndChild();
@@ -3207,7 +3299,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
             for (size_t i = 0; i < last.diffs.size(); ++i) {
                 const auto& df = last.diffs[i];
                 const auto* sd = find_stat_def(df.fid);
-                const char* sn = sd ? (L == Lang::EN ? sd->en : sd->pt) : "?";
+                const char* sn = sd ? T(L, sd->pt, sd->en) : "?";
                 int d = df.new_val - df.old_val;
                 char cp[80];
                 std::snprintf(cp, sizeof(cp), "%s %+d", sn, d);
@@ -3219,7 +3311,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                 }
                 ImVec4 fg = (d > 0) ? col::GreenSoft : col::Orange;
                 draw_pill(cp, fg, ImVec4(fg.x, fg.y, fg.z, 0.16f), ImVec4(fg.x, fg.y, fg.z, 0.48f));
-                if (sd) show_tip_if_hovered(sn, L == Lang::EN ? sd->desc_en : sd->desc_pt);
+                if (sd) show_tip_if_hovered(sn, T(L, sd->desc_pt, sd->desc_en));
             }
             }
             ImGui::EndChild();
@@ -3342,7 +3434,8 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                             wake_poller();
                             record_meta_action(pid, old_o, player_.positions[pid].ovr,
                                 std::string("Principal: ") + pos_short(Lang::PT, old_reg) + " -> " + pos_short(Lang::PT, pid),
-                                std::string("Primary: ") + pos_short(Lang::EN, old_reg) + " -> " + pos_short(Lang::EN, pid));
+                                std::string("Primary: ") + pos_short(Lang::EN, old_reg) + " -> " + pos_short(Lang::EN, pid),
+                                std::string("Principal: ") + pos_short(Lang::ES, old_reg) + " -> " + pos_short(Lang::ES, pid));
                             std::string msg = T(L, "Posição principal alterada!", "Primary position updated!");
                             if (r.econ_delta.applied) {
                                 std::string el = fmt_econ_delta_line(r.econ_delta);
@@ -3398,7 +3491,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
         const auto& cp = presets::kSkillPresets[static_cast<size_t>(std::clamp(preset_idx_, 0, static_cast<int>(presets::kSkillPresets.size()) - 1))];
         ImGui::Spacing();
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextColored(col::Muted, "%s", (L == Lang::EN) ? cp.desc_en : cp.desc_pt);
+        ImGui::TextColored(col::Muted, "%s", T(L, cp.desc_pt, cp.desc_en));
         ImGui::PopTextWrapPos();
     }
     end_studio_card();
@@ -3412,13 +3505,13 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
         T(L, "Define a inteligência de movimentação sem bola nas posições compatíveis.", "Controls off-the-ball movement intelligence in compatible positions."));
     ImGui::SameLine(0, 10);
     char pos_tag[96];
-    std::snprintf(pos_tag, sizeof(pos_tag), "%s: %s", T(L, "Ativa em", "Active at"), (L == Lang::EN) ? ps.pos_en : ps.pos_pt);
+    std::snprintf(pos_tag, sizeof(pos_tag), "%s: %s", T(L, "Ativa em", "Active at"), T(L, ps.pos_pt, ps.pos_en));
     draw_pill(pos_tag, col::AccentSoft, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.16f), ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.42f));
     ImGui::Spacing();
     ImGui::SetNextItemWidth(std::min(380.0f, ImGui::GetContentRegionAvail().x));
-    if (ImGui::BeginCombo("##pstyle_sel", (L == Lang::EN) ? ps.en : ps.pt)) {
+    if (ImGui::BeginCombo("##pstyle_sel", T(L, ps.pt, ps.en))) {
         for (const auto& s : data::PLAYING_STYLES) {
-            if (ImGui::Selectable((L == Lang::EN) ? s.en : s.pt, s.id == cur_st)) {
+            if (ImGui::Selectable(T(L, s.pt, s.en), s.id == cur_st)) {
                 auto r = engine_.set_playing_style(s.id);
                 if (r.ok) { player_ = r; toasts_.push(T(L, "Estilo de jogo atualizado!", "Playing style updated!")); }
             }
@@ -3428,7 +3521,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
     ImGui::Spacing();
     ImGui::TextColored(col::Subtext, "%s", "");
     ImGui::SameLine(0, 0);
-    ImGui::TextWrapped("%s", (L == Lang::EN) ? ps.desc_en : ps.desc_pt);
+    ImGui::TextWrapped("%s", T(L, ps.desc_pt, ps.desc_en));
     end_studio_card();
 
     ImGui::Spacing();
@@ -3464,7 +3557,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
         bool any_in_cat = false;
         for (size_t i = 0; i < data::PLAYER_SKILLS.size(); ++i) {
             if (data::PLAYER_SKILLS[i].cat != c.cat) continue;
-            const char* nm = (L == Lang::EN) ? data::PLAYER_SKILLS[i].en : data::PLAYER_SKILLS[i].pt;
+            const char* nm = T(L, data::PLAYER_SKILLS[i].pt, data::PLAYER_SKILLS[i].en);
             if (sk_qn.empty() || norm_text_utf8(nm).find(sk_qn) != std::string::npos) { any_in_cat = true; break; }
         }
         if (!any_in_cat) continue;
@@ -3475,7 +3568,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
         for (size_t i = 0; i < data::PLAYER_SKILLS.size(); ++i) {
             const auto& sk = data::PLAYER_SKILLS[i];
             if (sk.cat != c.cat) continue;
-            const char* nm = (L == Lang::EN) ? sk.en : sk.pt;
+            const char* nm = T(L, sk.pt, sk.en);
             if (!sk_qn.empty() && norm_text_utf8(nm).find(sk_qn) == std::string::npos) continue;
             bool on = player_.skills[i];
             char chip_lbl[96];
@@ -3498,7 +3591,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
                              ImVec2(bmin.x + 11.0f * dpi_scale_, (bmin.y + bmax.y) * 0.5f),
                              3.2f * dpi_scale_, col::GreenSoft, true);
             }
-            show_tip_if_hovered(nm, (L == Lang::EN) ? sk.desc_en : sk.desc_pt);
+            show_tip_if_hovered(nm, T(L, sk.desc_pt, sk.desc_en));
             ImGui::PopID();
         }
     }
@@ -3519,7 +3612,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
     const float max_x2 = ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x;
     for (size_t i = 0; i < data::COM_AI_STYLES.size(); ++i) {
         const auto& ai = data::COM_AI_STYLES[i];
-        const char* nm = (L == Lang::EN) ? ai.en : ai.pt;
+        const char* nm = T(L, ai.pt, ai.en);
         bool on = player_.com_ai[i];
         char chip_lbl[96];
         if (on) std::snprintf(chip_lbl, sizeof(chip_lbl), "   %s", nm);
@@ -3540,7 +3633,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
                          ImVec2(bmin.x + 11.0f * dpi_scale_, (bmin.y + bmax.y) * 0.5f),
                          3.2f * dpi_scale_, col::Cyan, true);
         }
-        show_tip_if_hovered(nm, (L == Lang::EN) ? ai.desc_en : ai.desc_pt);
+        show_tip_if_hovered(nm, T(L, ai.desc_pt, ai.desc_en));
         ImGui::PopID();
     }
     end_studio_card();
@@ -3561,7 +3654,7 @@ void WorkbenchApp::render_ptab_role(const FontBank& fonts) {
     const auto& cur_role = data::TEAM_ROLES[rid];
 
     auto fmt_role_opt = [&](const data::TeamRoleInfo& r) -> std::string {
-        std::string base = (L == Lang::EN) ? r.en : r.pt;
+        std::string base = T(L, r.pt, r.en);
         if (r.captain) base += T(L, "  ★ Capitão", "  ★ Captain");
         return base;
     };
@@ -3648,9 +3741,9 @@ void WorkbenchApp::render_ptab_role(const FontBank& fonts) {
         ImGui::Spacing();
     }
 
-    ImGui::TextWrapped("%s", (L == Lang::EN) ? cur_role.desc_en : cur_role.desc_pt);
+    ImGui::TextWrapped("%s", T(L, cur_role.desc_pt, cur_role.desc_en));
 
-    const char* cap_desc = (L == Lang::EN) ? cur_role.captain_en : cur_role.captain_pt;
+    const char* cap_desc = T(L, cur_role.captain_pt, cur_role.captain_en);
     if (cur_role.captain && cap_desc && cap_desc[0]) {
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.961f, 0.620f, 0.043f, 0.10f));
@@ -3753,10 +3846,10 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
     toggle_switch("##sw_free", free_lbl, &srch_free_);
 
     const char* sc_opts[4] = {
-        (L == Lang::EN) ? data::SCOUT_LISTS[0].en : data::SCOUT_LISTS[0].pt,
-        (L == Lang::EN) ? data::SCOUT_LISTS[1].en : data::SCOUT_LISTS[1].pt,
-        (L == Lang::EN) ? data::SCOUT_LISTS[2].en : data::SCOUT_LISTS[2].pt,
-        (L == Lang::EN) ? data::SCOUT_LISTS[3].en : data::SCOUT_LISTS[3].pt,
+        T(L, data::SCOUT_LISTS[0].pt, data::SCOUT_LISTS[0].en),
+        T(L, data::SCOUT_LISTS[1].pt, data::SCOUT_LISTS[1].en),
+        T(L, data::SCOUT_LISTS[2].pt, data::SCOUT_LISTS[2].en),
+        T(L, data::SCOUT_LISTS[3].pt, data::SCOUT_LISTS[3].en),
     };
     float sc_w = calc_combo_width(sc_opts, 4, 175.0f * dpi_scale_, 260.0f * dpi_scale_);
     const char* send_lbl = T(L, "Enviar para:", "Send to:");
@@ -3766,10 +3859,10 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
     ImGui::SameLine(0, 6);
     ImGui::SetNextItemWidth(sc_w);
     const char* sc_lbl = sc_opts[0];
-    for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == srch_target_scout_) { sc_lbl = (L == Lang::EN) ? sl.en : sl.pt; break; }
+    for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == srch_target_scout_) { sc_lbl = T(L, sl.pt, sl.en); break; }
     if (ImGui::BeginCombo("##stgt", sc_lbl)) {
         for (const auto& sl : data::SCOUT_LISTS) {
-            if (ImGui::Selectable((L == Lang::EN) ? sl.en : sl.pt, srch_target_scout_ == sl.slot)) srch_target_scout_ = sl.slot;
+            if (ImGui::Selectable(T(L, sl.pt, sl.en), srch_target_scout_ == sl.slot)) srch_target_scout_ = sl.slot;
         }
         ImGui::EndCombo();
     }
@@ -3933,7 +4026,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
                 ImGui::TableNextColumn();
                 char cid[24]; std::snprintf(cid, sizeof(cid), "##scc%d", sl.slot);
                 begin_studio_card(cid, std::round(186.0f * dpi_scale_), false, act ? &col::AccentSoft : accents[ci]);
-                section_label((L == Lang::EN) ? sl.en : sl.pt, fonts);
+                section_label(T(L, sl.pt, sl.en), fonts);
                 char cnt[24]; std::snprintf(cnt, sizeof(cnt), "%d / %d", n, sl.cap);
                 if (fonts.title_bold) ImGui::PushFont(fonts.title_bold);
                 ImGui::TextColored(n >= sl.cap ? col::RedSoft : col::Text, "%s", cnt);
@@ -4024,14 +4117,14 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
             // Destino: qualquer lista diferente da ativa
             if (scout_move_target_ == active_scout_slot_) scout_move_target_ = (active_scout_slot_ % 4) + 1;
             const char* tgt_lbl = "";
-            for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == scout_move_target_) tgt_lbl = (L == Lang::EN) ? sl.en : sl.pt;
+            for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == scout_move_target_) tgt_lbl = T(L, sl.pt, sl.en);
             float cw = std::round(190.0f * dpi_scale_);
             flow_next(cw, 10.0f * dpi_scale_);
             ImGui::SetNextItemWidth(cw);
             if (ImGui::BeginCombo("##sc_tgt", tgt_lbl)) {
                 for (const auto& sl : data::SCOUT_LISTS) {
                     if (sl.slot == active_scout_slot_) continue;
-                    if (ImGui::Selectable((L == Lang::EN) ? sl.en : sl.pt, scout_move_target_ == sl.slot)) scout_move_target_ = sl.slot;
+                    if (ImGui::Selectable(T(L, sl.pt, sl.en), scout_move_target_ == sl.slot)) scout_move_target_ = sl.slot;
                 }
                 ImGui::EndCombo();
             }
@@ -4172,7 +4265,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
             else ImGui::TextColored(col::Muted, "-");
             ImGui::TableSetColumnIndex(6); ImGui::Text("%s", fmt_money(e->market_raw, settings_.currency_idx, L).c_str());
             ImGui::TableSetColumnIndex(7); ImGui::Text("%s", fmt_money(e->salary_raw, settings_.currency_idx, L).c_str());
-            ImGui::TableSetColumnIndex(8); draw_arrow_badge(e->arrow, std::round(22.0f * dpi_scale_), e->blink);
+            ImGui::TableSetColumnIndex(8); draw_arrow_badge(e->arrow, std::round(22.0f * dpi_scale_), e->blink, settings_.lang);
             ImGui::TableSetColumnIndex(9);
             {
                 const uint8_t mk = static_cast<uint8_t>(scout_mask_of(e->addr) & ~own_bit);
@@ -5231,6 +5324,9 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
 
 #ifdef PES_QA_DUMP
 void WorkbenchApp::qa_populate_fixture() {
+    if (const char* ql = std::getenv("PES_QA_LANG")) {   // QA: idioma so em memoria, nunca grava no settings.ini
+        settings_.lang = (ql[0] == 'e' && ql[1] == 's') ? Lang::ES : ((ql[0] == 'e') ? Lang::EN : Lang::PT);
+    }
     st_.attached = true;
     st_.exe = "PES2021.exe";
     st_.pid = 26960;
@@ -5408,6 +5504,39 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     open_cmd_modal_ = (modal_kind == 1);
     open_json_modal_ = (modal_kind == 2);
     open_pack_modal_ = (modal_kind == 3);
+    qa_open_prefs_ = (modal_kind == 5 || modal_kind == 9);
+    prefs_tab_ = (modal_kind == 9) ? 1 : 0;
+    if (modal_kind == 6) update_manual_ = true;
+    if (modal_kind == 6) update_checker_.qa_force(update::State::Available, update::Release{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"});
+    if (modal_kind == 10) {   // seletor de processo com uma lista fixa
+        qa_fake_procs_ = true;
+        proc_list_.clear();
+        auto add = [&](uint32_t pid, const char* exe, const char* title, bool win, bool rec, bool is64 = true) {
+            ProcessInfo p; p.pid = pid; p.exe = exe; p.title = title; p.has_window = win; p.recognized = rec; p.is_64bit = is64;
+            proc_list_.push_back(std::move(p));
+        };
+        add(31892, "PES2021.exe", "eFootball PES 2021", true, true);
+        add(18420, "FL_2027.exe", "Football Life 2027", true, true);
+        add(5120, "chrome.exe", "Google Chrome", true, false);
+        add(7344, "Discord.exe", "Discord", true, false);
+        add(9020, "explorer.exe", "Explorador de Arquivos", true, false);
+        add(2210, "notepad.exe", "Sem título - Bloco de Notas", true, false);
+        add(4408, "game32.exe", "Jogo antigo", true, false, false);
+        proc_selected_pid_ = 18420;
+        proc_selected_exe_ = "FL_2027.exe";
+        open_proc_picker_ = true;
+    }
+    if (modal_kind == 8) {   // trava ativa no atleta aberto
+        st_.val_lock_active = true;
+        st_.val_lock.stamina = true; st_.val_lock.stamina_value = 100;
+        st_.val_lock.arrow = true; st_.val_lock.arrow_value = 4;
+        st_.val_lock.injury = true;
+        st_.val_lock_addr = player_.addr;
+        st_.val_lock_name = player_.name;
+    }
+    if (modal_kind == 7) {   // jogo desconectado: mostra o cartao de primeiros passos
+        st_.attached = false; st_.career = 0; st_.has_player = false; st_.access_denied = false;
+    }
     if (modal_kind == 2) {
         json_is_export_ = true;
         json_title_ = "Exportar JSON - G. DE ARRASCAETA";
@@ -5438,5 +5567,505 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     }
 }
 #endif
+
+// ---------------------------------------------------------------------------------------------
+// Servicos opcionais (v14.1): aviso de versao, retencao de backups, log local e guia de primeiros passos
+// ---------------------------------------------------------------------------------------------
+
+void WorkbenchApp::start_services_once() {
+    if (services_started_) return;
+    services_started_ = true;
+    actionlog::write("INFO", std::string("Lettuce Live Editor v") + kAppVersion + " started");
+    if (settings_.check_updates) start_update_check();
+}
+
+void WorkbenchApp::start_update_check() {
+    void* h = hwnd_;
+    update_checker_.start(kAppVersion, [h]() {
+        if (h) PostMessageW(static_cast<HWND>(h), kWmStatusUpdated, 0, 0);
+    });
+}
+
+void WorkbenchApp::apply_backup_retention() {
+    const int idx = std::clamp(settings_.backup_keep_idx, 0, backups::kKeepOptionCount - 1);
+    engine_.set_backup_keep(backups::kKeepOptions[idx]);
+}
+
+void WorkbenchApp::refresh_backup_info() {
+    const auto entries = backups::list(std::filesystem::path(utf8_to_wide(get_backups_directory())));
+    backup_info_.count = static_cast<int>(entries.size());
+    backup_info_.bytes = backups::total_bytes(entries);
+}
+
+void WorkbenchApp::render_update_banner(const FontBank& fonts) {
+    const update::Snapshot snap = update_checker_.snapshot();
+    if (snap.state != update::State::Available) return;
+    if (!settings_.check_updates && !update_manual_) return;   // opcao desligada depois de uma consulta: some o aviso
+    if (snap.release.tag == settings_.update_dismissed) return;
+    Lang L = settings_.lang;
+    ImFont* f_bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.13f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.55f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(16.0f * dpi_scale_), std::round(10.0f * dpi_scale_)));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, std::round(10.0f * dpi_scale_));
+    ImGui::BeginChild("##update_banner", ImVec2(0, 0),
+                      ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding);
+    if (f_bold) ImGui::PushFont(f_bold);
+    ImGui::TextColored(col::AccentSoft, "%s %s", T(L, "Nova versão disponível:", "New version available:"), snap.release.tag.c_str());
+    if (f_bold) ImGui::PopFont();
+    ImGui::TextColored(col::Subtext, "%s v%s", T(L, "Você está na versão", "You are on"), kAppVersion);
+    ImGui::Spacing();
+    if (btn_primary(T(L, "Abrir página da versão##upd_open", "Open release page##upd_open")) && update::is_trusted_release_url(snap.release.url)) {
+        const std::wstring w = utf8_to_wide(snap.release.url);
+        ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    }
+    ImGui::SameLine(0, std::round(8.0f * dpi_scale_));
+    if (ImGui::Button(T(L, "Dispensar esta versão##upd_dismiss", "Dismiss this version##upd_dismiss"))) {
+        settings_.update_dismissed = snap.release.tag;
+        save_settings(settings_);
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(2);
+    ImGui::Dummy(ImVec2(0, std::round(10.0f * dpi_scale_)));
+}
+
+void WorkbenchApp::render_prefs_services() {
+    Lang L = settings_.lang;
+    const float wrap_w = 330.0f * dpi_scale_;
+    const float gap = std::round(6.0f * dpi_scale_);
+    const float bh = std::round(30.0f * dpi_scale_);
+
+    // ---- Conexao com o jogo (seletor de processo)
+    ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Conexão com o jogo", "Game connection"));
+    {
+        std::string cur = settings_.game_process.empty()
+            ? std::string(T(L, "Automática (PES 2021 e Football Life)", "Automatic (PES 2021 and Football Life)"))
+            : std::string(T(L, "Processo escolhido: ", "Chosen process: ")) + settings_.game_process;
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+        wrapped_colored(col::Muted, "%s", cur.c_str());
+        ImGui::PopTextWrapPos();
+        if (ImGui::Button(T(L, "Escolher processo...##proc_open", "Choose process...##proc_open"))) {
+            open_proc_picker_ = true;
+            ImGui::CloseCurrentPopup();
+        }
+        if (!settings_.game_process.empty()) {
+            ImGui::SameLine(0, gap);
+            if (ImGui::Button(T(L, "Automática##proc_auto", "Automatic##proc_auto"))) apply_process_target(std::string(), 0);
+        }
+    }
+
+    // ---- Atualizacoes
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Atualizações", "Updates"));
+    bool upd_v = settings_.check_updates;
+    if (toggle_switch("##sw_updates", T(L, "Avisar quando houver nova versão", "Notify me about new versions"), &upd_v)) {
+        settings_.check_updates = upd_v;
+        save_settings(settings_);
+        if (upd_v) start_update_check();
+    }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Consulta o GitHub uma vez ao abrir o app. Não envia nenhum dado seu e não baixa nada: só mostra o link da versão. Desligado por padrão.",
+        "Checks GitHub once when the app opens. It sends no data about you and downloads nothing: it only shows the release link. Off by default."));
+    ImGui::PopTextWrapPos();
+    {
+        const update::Snapshot snap = update_checker_.snapshot();
+        const bool busy = (snap.state == update::State::Checking);
+        ImGui::BeginDisabled(busy);
+        if (ImGui::Button(T(L, "Verificar agora##upd_now", "Check now##upd_now"))) { update_manual_ = true; start_update_check(); }
+        ImGui::EndDisabled();
+        ImGui::SameLine(0, gap);
+        switch (snap.state) {
+            case update::State::Checking:
+                ImGui::TextColored(col::Subtext, "%s", T(L, "Verificando...", "Checking...")); break;
+            case update::State::UpToDate:
+                ImGui::TextColored(col::GreenSoft, "%s (v%s)", T(L, "Você está na versão mais recente", "You are on the latest version"), kAppVersion); break;
+            case update::State::Available:
+                ImGui::TextColored(col::AccentSoft, "%s %s", T(L, "Disponível:", "Available:"), snap.release.tag.c_str()); break;
+            case update::State::Failed:
+                ImGui::TextColored(col::GoldSoft, "%s", T(L, "Não foi possível verificar agora.", "Could not check right now.")); break;
+            default:
+                ImGui::TextColored(col::Muted, "%s v%s", T(L, "Versão atual:", "Current version:"), kAppVersion); break;
+        }
+    }
+
+    // ---- Backups do elenco
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Backups do elenco", "Squad backups"));
+    {
+        const float bw = std::max(40.0f * dpi_scale_, (ImGui::GetContentRegionAvail().x - gap * static_cast<float>(backups::kKeepOptionCount - 1)) / static_cast<float>(backups::kKeepOptionCount));
+        for (int i = 0; i < backups::kKeepOptionCount; ++i) {
+            if (i > 0) ImGui::SameLine(0, gap);
+            char lbl[48];
+            if (backups::kKeepOptions[i] == 0) std::snprintf(lbl, sizeof(lbl), "%s##bk%d", T(L, "Todos", "All"), i);
+            else std::snprintf(lbl, sizeof(lbl), "%d##bk%d", backups::kKeepOptions[i], i);
+            const bool act = (settings_.backup_keep_idx == i);
+            if (styled_button(lbl, act ? col::Accent : col::BgCard, act ? col::AccentSoft : col::Border, col::Text, ImVec2(bw, bh)) && !act) {
+                settings_.backup_keep_idx = i;
+                save_settings(settings_);
+                apply_backup_retention();
+            }
+        }
+    }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Quantos backups JSON manter. Os mais antigos só são apagados depois que um novo backup é salvo, e nunca o novo. Padrão: todos.",
+        "How many JSON backups to keep. The oldest are only deleted after a new backup is saved, and never the new one. Default: all."));
+    ImGui::PopTextWrapPos();
+    {
+        char info[96];
+        const double mb = static_cast<double>(backup_info_.bytes) / (1024.0 * 1024.0);
+        std::snprintf(info, sizeof(info), "%d %s, %.1f MB", backup_info_.count, T(L, "backups em disco", "backups on disk"), mb);
+        ImGui::TextColored(col::Subtext, "%s", info);
+        ImGui::SameLine(0, gap);
+        if (ImGui::Button(T(L, "Abrir pasta##bk_open", "Open folder##bk_open"))) {
+            const std::wstring w = utf8_to_wide(get_backups_directory());
+            std::error_code ec;
+            std::filesystem::create_directories(std::filesystem::path(w), ec);
+            ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
+    }
+
+    // ---- Registro local
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Registro de ações", "Action log"));
+    bool log_v = settings_.action_log;
+    if (toggle_switch("##sw_actionlog", T(L, "Salvar registro local das ações", "Save a local action log"), &log_v)) {
+        settings_.action_log = log_v;
+        actionlog::set_enabled(log_v);
+        save_settings(settings_);
+    }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Grava no seu computador, em Documentos\\Lettuce Live Editor\\Logs, os avisos exibidos para ajudar a reproduzir problemas. Nada é enviado.",
+        "Written on your computer, in Documents\\Lettuce Live Editor\\Logs, it keeps the notices shown to help reproduce problems. Nothing is sent."));
+    ImGui::PopTextWrapPos();
+    if (ImGui::Button(T(L, "Abrir pasta##log_open", "Open folder##log_open"))) {
+        const std::wstring w = utf8_to_wide(get_logs_directory());
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(w), ec);
+        ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    }
+
+    // ---- Diagnostico
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Diagnóstico", "Diagnostics"));
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Se algo não funcionar (por exemplo em outro jogo ou versão), copie o relatório e cole ao pedir ajuda, junto com o arquivo workbench.log da pasta de registros.",
+        "If something does not work (for example on another game or version), copy the report and paste it when asking for help, together with workbench.log from the logs folder."));
+    ImGui::PopTextWrapPos();
+    if (ImGui::Button(T(L, "Copiar relatório##diag_copy", "Copy report##diag_copy"))) {
+        const std::string rep = std::string("Lettuce Live Editor v") + kAppVersion + "\r\n" + engine_.diagnostics_report();
+        ImGui::SetClipboardText(rep.c_str());
+        toasts_.push(T(L, "Relatório copiado!", "Report copied!"));
+    }
+}
+
+void WorkbenchApp::render_connection_hint(const FontBank& fonts) {
+    (void)fonts;
+    Lang L = settings_.lang;
+    const bool career_ok = st_.attached && st_.career > 0;
+    // Executavel com assinaturas que nao casaram: parte dos recursos fica desligada por seguranca e o usuario precisa saber
+    const bool compat_warn = st_.attached && !st_.access_denied && st_.compat_missing != 0;
+    // Conectado e com carreira: volta a descricao normal da tela. A dica ocupa a mesma linha, entao nada se desloca.
+    if (career_ok && !st_.access_denied && !compat_warn) {
+        wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.",
+                                                 "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
+        return;
+    }
+    std::string msg;
+    ImVec4 tone = col::AccentSoft;
+    bool can_pick = !st_.attached;
+    if (st_.access_denied) {
+        msg = T(L, "O jogo está como administrador. Abra este app também como administrador.", "The game is elevated. Open this app as Administrator too.");
+        tone = col::GoldSoft;
+        can_pick = false;
+    } else if (st_.target_unsupported) {
+        msg = T(L, "O processo escolhido não parece ser um jogo compatível. Nada foi gravado nele.", "The chosen process does not look like a compatible game. Nothing was written to it.");
+        tone = col::GoldSoft;
+    } else if (!st_.attached) {
+        msg = st_.target_exe.empty()
+            ? std::string(T(L, "Aguardando o PES 2021 ou o Football Life. A conexão é automática.", "Waiting for PES 2021 or Football Life. The connection is automatic."))
+            : std::string(T(L, "Procurando o processo escolhido: ", "Looking for the chosen process: ")) + st_.target_exe;
+        tone = col::Subtext;
+    } else if (compat_warn) {
+        msg = T(L, "Executável diferente: recursos incompatíveis desligados. Veja Serviços > Diagnóstico.",
+                   "Different executable: unsupported features are off. See Services > Diagnostics.");
+        tone = col::GoldSoft;
+    } else {
+        msg = T(L, "Jogo conectado. Entre na Master Liga ou no Rumo ao Estrelato para liberar o resto.", "Game connected. Enter Master League or Become a Legend to unlock the rest.");
+        tone = col::GreenSoft;
+    }
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const float lh = ImGui::GetTextLineHeight();
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    draw_led_dot(dl, ImVec2(p.x + 4.0f * dpi_scale_, p.y + lh * 0.5f), 3.4f * dpi_scale_, tone, !st_.attached);
+    ImGui::Dummy(ImVec2(14.0f * dpi_scale_, lh));
+    ImGui::SameLine(0, 0);
+    ImGui::TextColored(tone, "%s", msg.c_str());
+    if (can_pick) {
+        ImGui::SameLine(0, 12.0f * dpi_scale_);
+        if (ImGui::SmallButton(T(L, "Escolher processo...##hint_proc", "Choose process...##hint_proc"))) open_proc_picker_ = true;
+    }
+}
+
+void WorkbenchApp::render_value_lock_card(const FontBank& fonts) {
+    Lang L = settings_.lang;
+    ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
+    const bool lock_on = st_.val_lock_active;
+    const bool lock_here = lock_on && player_.addr != 0 && st_.val_lock_addr == player_.addr;
+
+    begin_studio_card("##value_lock", 0.0f, false, lock_on ? &col::Gold : nullptr);
+    card_header(T(L, "Travar valores", "Lock values"), bold,
+        T(L, "Mantém o fôlego, a seta de forma e a lesão do atleta nos valores escolhidos, regravando a cada ciclo. Vale para um atleta por vez.",
+             "Keeps the player's stamina, form arrow and injury at the chosen values, rewriting them every cycle. Works for one player at a time."));
+    ImGui::SameLine(0, 10.0f * dpi_scale_);
+    if (lock_on) draw_pill(T(L, "ATIVO", "ACTIVE"), col::GoldSoft, ImVec4(col::Gold.x, col::Gold.y, col::Gold.z, 0.16f), ImVec4(col::Gold.x, col::Gold.y, col::Gold.z, 0.5f), true);
+    else draw_pill(T(L, "Desligado", "Off"), col::Subtext, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f), col::Border, true);
+    ImGui::Spacing();
+
+    // Os controles mostram o que foi enviado por ultimo para este atleta (o retorno do poller demora um ciclo e
+    // faria o interruptor piscar). Sem envio recente, seguem o motor. Em outro atleta, tudo comeca desligado.
+    ValueLockConfig cfg;
+    if (lock_ui_addr_ != 0 && lock_ui_addr_ == player_.addr) cfg = lock_ui_;
+    else if (lock_here) cfg = st_.val_lock;
+    else { cfg = lock_ui_; cfg.stamina = cfg.arrow = cfg.injury = false; }
+    bool changed = false;
+    bool toggled = false;
+
+    if (lock_on && !lock_here) {
+        ImGui::PushTextWrapPos(0.0f);
+        const std::string lock_msg = std::string(T(L, "Trava ativa em: ", "Lock active on: ")) + st_.val_lock_name + ". " +
+                                     T(L, "Ligar uma trava aqui a move para este atleta.", "Turning a lock on here moves it to this player.");
+        wrapped_colored(col::GoldSoft, "%s", lock_msg.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing();
+    }
+
+    const float ctrl_w = std::max(160.0f * dpi_scale_, ImGui::GetContentRegionAvail().x - 24.0f * dpi_scale_);
+    {
+        bool v = cfg.stamina;
+        if (toggle_switch("##lk_stam", T(L, "Manter fôlego", "Keep stamina"), &v)) { cfg.stamina = v; changed = toggled = true; }
+        ImGui::BeginDisabled(!cfg.stamina);
+        ImGui::SetNextItemWidth(ctrl_w);
+        if (ImGui::SliderInt("##lk_stam_v", &cfg.stamina_value, 0, 100, "%d%%")) changed = true;
+        ImGui::EndDisabled();
+        ImGui::Spacing();
+    }
+    {
+        bool v = cfg.arrow;
+        if (toggle_switch("##lk_arrow", T(L, "Manter seta de forma", "Keep form arrow"), &v)) { cfg.arrow = v; changed = toggled = true; }
+        ImGui::BeginDisabled(!cfg.arrow);
+        const int picked = draw_arrow_picker("##lk_apick", cfg.arrow_value, L, ctrl_w, bold);
+        ImGui::EndDisabled();
+        if (cfg.arrow && picked >= 0 && picked != cfg.arrow_value) { cfg.arrow_value = picked; changed = true; }
+        ImGui::Spacing();
+    }
+    {
+        bool v = cfg.injury;
+        if (toggle_switch("##lk_inj", T(L, "Manter sem lesão", "Keep injury-free"), &v)) { cfg.injury = v; changed = toggled = true; }
+    }
+
+    if (changed) {
+        lock_ui_ = cfg;
+        lock_ui_addr_ = player_.addr;
+        auto r = engine_.set_value_lock(cfg, player_.addr);
+        if (r.ok) {
+            wake_poller();
+            if (toggled) toasts_.push(cfg.any() ? T(L, "Trava aplicada!", "Lock applied!") : T(L, "Travas desligadas.", "Locks turned off."));
+        } else {
+            lock_ui_ = ValueLockConfig{};   // nao deixa a tela marcada se o motor recusou
+            lock_ui_addr_ = 0;
+            toast_code(r.code, true);
+        }
+    }
+
+    ImGui::Spacing();
+    if (lock_on) {
+        if (ImGui::Button(T(L, "Desligar todas as travas##lk_off", "Turn off all locks##lk_off"))) {
+            engine_.clear_value_lock();
+            lock_ui_ = ValueLockConfig{};
+            lock_ui_addr_ = 0;
+            wake_poller();
+            toasts_.push(T(L, "Travas desligadas.", "Locks turned off."));
+        }
+        ImGui::Spacing();
+    }
+    ImGui::PushTextWrapPos(0.0f);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "A trava se desliga sozinha se o jogo fechar ou se o atleta travado mudar. Ela não entra no histórico de desfazer.",
+        "The lock turns itself off if the game closes or the locked player changes. It is not part of the undo history."));
+    ImGui::PopTextWrapPos();
+    end_studio_card();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Seletor de processo: escolher qualquer processo em execucao para anexar, como o "Open Process" do Cheat Engine
+// ---------------------------------------------------------------------------------------------
+
+void WorkbenchApp::refresh_process_list() {
+#ifdef PES_QA_DUMP
+    if (qa_fake_procs_) return;   // captura de tela: lista fixa, sem expor os processos da maquina de teste
+#endif
+    proc_list_ = list_processes();
+    bool still_there = false;
+    for (const auto& p : proc_list_) {
+        if (p.pid == proc_selected_pid_) { still_there = true; break; }
+    }
+    if (!still_there) {
+        proc_selected_pid_ = 0;
+        proc_selected_exe_.clear();
+    }
+}
+
+void WorkbenchApp::apply_process_target(const std::string& exe, uint32_t pid) {
+    Lang L = settings_.lang;
+    settings_.game_process = exe;
+    save_settings(settings_);
+    engine_.set_target_process(exe, pid);
+    wake_poller();
+    actionlog::write("INFO", exe.empty() ? std::string("Process target: automatic")
+                                         : std::string("Process target: ") + exe + " (pid " + std::to_string(pid) + ")");
+    toasts_.push(exe.empty() ? std::string(T(L, "Detecção automática ativada.", "Automatic detection on."))
+                             : std::string(T(L, "Processo escolhido: ", "Chosen process: ")) + exe);
+}
+
+namespace {
+std::string ascii_lower(const std::string& s) {
+    std::string o = s;
+    for (char& c : o) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    }
+    return o;
+}
+} // namespace
+
+void WorkbenchApp::render_process_picker(const FontBank& fonts) {
+    if (open_proc_picker_) {
+        refresh_process_list();
+        ImGui::OpenPopup("##ProcPicker");
+        open_proc_picker_ = false;
+    }
+    Lang L = settings_.lang;
+    ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    const float w = std::min(780.0f * dpi_scale_, vp->Size.x - 40.0f);
+    const float h = std::min(600.0f * dpi_scale_, vp->Size.y - 40.0f);
+    ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.5f, vp->Pos.y + vp->Size.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(20.0f * dpi_scale_), std::round(16.0f * dpi_scale_)));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, std::round(14.0f * dpi_scale_));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, col::BgCard);
+    ImGui::PushStyleColor(ImGuiCol_Border, col::BorderLit);
+    if (ImGui::BeginPopupModal("##ProcPicker", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+        if (bold) ImGui::PushFont(bold);
+        ImGui::TextColored(col::Text, "%s", T(L, "Escolher processo do jogo", "Choose the game process"));
+        if (bold) ImGui::PopFont();
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextColored(col::Muted, "%s", T(L,
+            "Escolha o processo ao qual o app deve se conectar. Os jogos conhecidos (PES 2021 e Football Life) aparecem primeiro. A escolha fica salva até você voltar à detecção automática.",
+            "Pick the process the app should connect to. Known games (PES 2021 and Football Life) are listed first. The choice is saved until you go back to automatic detection."));
+        ImGui::TextColored(col::GoldSoft, "%s", T(L,
+            "Use só em jogos offline. O app grava na memória do processo escolhido, mas só em processos compatíveis com o PES 2021: em qualquer outro nada é gravado.",
+            "Use it in offline games only. The app writes to the chosen process's memory, but only in processes compatible with PES 2021: in any other nothing is written."));
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing();
+
+        // Filtro, "so com janela" e atualizar
+        const float btn_w = calc_btn_w(T(L, "Atualizar##proc_ref", "Refresh##proc_ref"));
+        ImGui::SetNextItemWidth(std::max(140.0f * dpi_scale_, ImGui::GetContentRegionAvail().x - btn_w - 220.0f * dpi_scale_));
+        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+        ImGui::InputTextWithHint("##proc_flt", T(L, "Filtrar por nome, janela ou PID...", "Filter by name, window or PID..."), proc_filter_, sizeof(proc_filter_));
+        ImGui::SameLine(0, 10.0f * dpi_scale_);
+        toggle_switch("##proc_win", T(L, "Só com janela", "Windowed only"), &proc_only_windows_);
+        ImGui::SameLine(0, 10.0f * dpi_scale_);
+        if (ImGui::Button(T(L, "Atualizar##proc_ref", "Refresh##proc_ref"))) refresh_process_list();
+        ImGui::Spacing();
+
+        const std::string flt = ascii_lower(proc_filter_);
+        const float footer_h = std::round(78.0f * dpi_scale_);
+        const ImGuiTableFlags tf = ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingFixedFit;
+        int shown = 0;
+        if (ImGui::BeginTable("##proc_tbl", 3, tf, ImVec2(0, ImGui::GetContentRegionAvail().y - footer_h))) {
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn(T(L, "PROCESSO", "PROCESS"), ImGuiTableColumnFlags_WidthFixed, std::round(250.0f * dpi_scale_));
+            ImGui::TableSetupColumn("PID", ImGuiTableColumnFlags_WidthFixed, std::round(70.0f * dpi_scale_));
+            ImGui::TableSetupColumn(T(L, "JANELA", "WINDOW"), ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+            for (const auto& p : proc_list_) {
+                if (proc_only_windows_ && !p.has_window && !p.recognized) continue;
+                if (!flt.empty()) {
+                    const std::string hay = ascii_lower(p.exe) + " " + ascii_lower(p.title) + " " + std::to_string(p.pid);
+                    if (hay.find(flt) == std::string::npos) continue;
+                }
+                ++shown;
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                const bool sel = (p.pid == proc_selected_pid_);
+                char rid[48];
+                std::snprintf(rid, sizeof(rid), "##prow%u", p.pid);
+                const ImVec2 row_min = ImGui::GetCursorScreenPos();
+                ImGui::BeginDisabled(!p.is_64bit);
+                if (ImGui::Selectable(rid, sel, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+                    proc_selected_pid_ = p.pid;
+                    proc_selected_exe_ = p.exe;
+                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        apply_process_target(p.exe, p.pid);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                ImGui::EndDisabled();
+                {
+                    // Nome e selo desenhados por cima da linha selecionavel (a linha ocupa a largura toda)
+                    ImDrawList* rdl = ImGui::GetWindowDrawList();
+                    const ImVec4 name_col = p.recognized ? col::GreenSoft : (p.is_64bit ? col::Text : col::Muted);
+                    rdl->AddText(row_min, ImGui::GetColorU32(name_col), p.exe.c_str());
+                    const char* badge = p.recognized ? T(L, "conhecido", "known") : (!p.is_64bit ? "32-bit" : nullptr);
+                    if (badge) {
+                        const float nx = row_min.x + ImGui::CalcTextSize(p.exe.c_str()).x + 8.0f * dpi_scale_;
+                        rdl->AddText(ImVec2(nx, row_min.y), ImGui::GetColorU32(p.recognized ? col::AccentSoft : col::Muted), badge);
+                    }
+                }
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextColored(col::Subtext, "%u", p.pid);
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextColored(col::Subtext, "%s", p.title.c_str());
+            }
+            ImGui::EndTable();
+        }
+        if (shown == 0) {
+            ImGui::TextColored(col::Muted, "%s", T(L, "Nenhum processo encontrado com esse filtro.", "No process matches this filter."));
+        }
+
+        ImGui::Spacing();
+        {
+            const std::string cur = settings_.game_process.empty()
+                ? std::string(T(L, "Conexão atual: automática", "Current connection: automatic"))
+                : std::string(T(L, "Conexão atual: ", "Current connection: ")) + settings_.game_process;
+            ImGui::TextColored(col::Muted, "%s", cur.c_str());
+        }
+        ImGui::BeginDisabled(proc_selected_pid_ == 0);
+        const std::string attach_lbl = std::string(T(L, "Anexar a este processo", "Attach to this process")) + "##proc_go";
+        if (btn_primary(attach_lbl.c_str())) {
+            apply_process_target(proc_selected_exe_, proc_selected_pid_);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine(0, 8.0f * dpi_scale_);
+        if (ImGui::Button(T(L, "Detecção automática##proc_auto2", "Automatic detection##proc_auto2"))) {
+            apply_process_target(std::string(), 0);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine(0, 8.0f * dpi_scale_);
+        if (ImGui::Button(T(L, "Fechar##proc_close", "Close##proc_close")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(2);
+}
 
 } // namespace pes::ui

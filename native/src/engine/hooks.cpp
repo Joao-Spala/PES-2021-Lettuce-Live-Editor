@@ -89,15 +89,13 @@ struct StaleEntry {
     int16_t stale_byte; // -1 means 0xE9
 };
 
-bool iequals_pes2021(const std::string& s) {
-    return _stricmp(s.c_str(), "PES2021.exe") == 0;
-}
-
 } // namespace
 
 bool HookManager::init_state() {
     if (state_base && mem.attached()) return true;
     if (!mem.attached()) return false;
+    sigs.reset();             // processo novo: as assinaturas precisam ser procuradas de novo
+    recover_stale_hooks();    // ganchos que uma instancia anterior deixou no jogo
     uint64_t ptr = mem.alloc_near(mem.module_base, 0x2000);
     if (!ptr) return false;
     std::vector<uint8_t> zeros(0x2000, 0);
@@ -137,16 +135,267 @@ bool HookManager::install_jmp(int hook_id, uint64_t site, uint64_t cave_addr, si
     std::memcpy(&patch[1], &rel32, 4);
 
     if (!mem.write_code_bytes(site, patch.data(), patch.size())) return false;
-    patches[hook_id].push_back({site, std::move(orig)});
+    patches[hook_id].push_back({site, std::move(orig), patch});
+    write_journal();
     return true;
 }
 
-uint64_t HookManager::scan(uint32_t rva_start, uint32_t rva_end, std::string_view pattern) const {
-    return mem.aob_scan_region(mem.module_base + rva_start, mem.module_base + rva_end, pattern);
+uint64_t HookManager::site_of(const SigDef& def) {
+    const uint64_t a = sigs.find(def);
+    sigs.release_code();   // o codigo lido (dezenas de MB) nao precisa ficar na memoria do app
+    if (!a) return 0;
+    // O resultado pode estar em cache de ha tempo: confere os bytes AO VIVO antes de deixar alguem gravar ali
+    Pattern p;
+    if (!parse_pattern(def.pattern, p)) return 0;
+    std::vector<uint8_t> cur(p.bytes.size());
+    if (!mem.read_into(a, cur.data(), cur.size())) return 0;
+    for (size_t i = 0; i < cur.size(); ++i) {
+        if (p.mask[i] == 0xFF && cur[i] != p.bytes[i]) return 0;
+    }
+    return a;
+}
+
+void HookManager::resolve_all() {
+    size_t found = 0;
+    for (const SigDef* d : sig::kAll) {
+        if (sigs.find(*d)) ++found;
+    }
+    // Nenhuma nas secoes executaveis normais: o codigo pode estar numa secao enorme. Plano B, uma vez so.
+    if (found == 0) sigs.resolve_bulk(sig::kAll, sizeof(sig::kAll) / sizeof(sig::kAll[0]));
+    sigs.release_code();
+}
+
+bool HookManager::is_reference_build() {
+    const KnownBuild* b = identify_build(sigs.image());
+    return b && b->reference_rvas;
+}
+
+namespace {
+template <class Ok>
+uint32_t feature_mask(Ok ok) {
+    uint32_t m = 0;
+    if (!(ok(sig::kPlayerA) || ok(sig::kPlayerB) || ok(sig::kPlayerC) || ok(sig::kPlayerD))) m |= kFeatPlayerCapture;
+    if (!(ok(sig::kCareerGetter) && ok(sig::kMatchMgr))) m |= kFeatCareerPointers;
+    if (!ok(sig::kTraining)) m |= kFeatTraining;
+    if (!ok(sig::kBalCap)) m |= kFeatBalCap;
+    if (!(ok(sig::kMatchHud) && ok(sig::kMatchClock))) m |= kFeatMatchClock;
+    if (!ok(sig::kStamina)) m |= kFeatMatchStamina;
+    return m;
+}
+} // namespace
+
+uint32_t HookManager::missing_features() {
+    resolve_all();
+    const uint32_t m = feature_mask([&](const SigDef& d) { return sigs.find(d) != 0; });
+    sigs.release_code();
+    return m;
+}
+
+uint32_t HookManager::known_missing() const {
+    return feature_mask([&](const SigDef& d) {
+        auto it = sigs.results().find(d.id);
+        return it != sigs.results().end() && it->second.unique();
+    });
+}
+
+std::string HookManager::compat_report() {
+    resolve_all();
+    std::string r = sigs.describe();
+    const uint32_t m = missing_features();
+    r += "legacy orphan-hook table: ";
+    r += is_reference_build() ? "applies (reference build)\r\n" : "skipped (different build)\r\n";
+    if (m == 0) {
+        r += "features: all available\r\n";
+    } else {
+        r += "features missing:";
+        if (m & kFeatPlayerCapture) r += " player-capture";
+        if (m & kFeatCareerPointers) r += " career-pointers";
+        if (m & kFeatTraining) r += " training-xp";
+        if (m & kFeatBalCap) r += " bal-focus-cap";
+        if (m & kFeatMatchClock) r += " match-clock";
+        if (m & kFeatMatchStamina) r += " match-stamina";
+        r += "\r\n";
+    }
+    return r;
+}
+
+// ---- Diario dos ganchos dentro da area do app no jogo: permite recuperar ganchos orfaos em qualquer versao ----
+namespace {
+constexpr uint64_t kJournalOff = 0x200;
+constexpr size_t kJournalMax = 15;
+struct JournalHeader {
+    char magic[8];         // "LLEHOOK2"
+    uint32_t owner_pid;    // processo do app dono desta area
+    uint32_t count;
+    uint64_t owner_start;  // FILETIME de criacao do dono: distingue o dono de outro processo que herdou o mesmo PID
+};
+struct JournalEntry {
+    uint64_t site;
+    uint8_t len;
+    uint8_t pad[7];
+    uint8_t orig[16];
+    uint8_t patched[16];
+};
+static_assert(sizeof(JournalHeader) == 24);
+static_assert(sizeof(JournalEntry) == 48);
+static_assert(kJournalOff + sizeof(JournalHeader) + kJournalMax * sizeof(JournalEntry) <= 0x500);
+
+uint64_t process_start_time(HANDLE h) {
+    FILETIME created{}, exited{}, kernel{}, user{};
+    if (!GetProcessTimes(h, &created, &exited, &kernel, &user)) return 0;
+    return (static_cast<uint64_t>(created.dwHighDateTime) << 32) | created.dwLowDateTime;
+}
+
+// O app dono ainda esta rodando? Compara o PID e o horario de criacao (o nome do arquivo pode ser outro: duas copias
+// do app com nomes diferentes podem estar abertas ao mesmo tempo). Em duvida considera vivo: melhor nao mexer.
+bool owner_alive(uint32_t pid, uint64_t start) {
+    if (pid == 0) return false;
+    HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!h) return GetLastError() == ERROR_ACCESS_DENIED;
+    DWORD code = 0;
+    bool alive = GetExitCodeProcess(h, &code) && code == STILL_ACTIVE;
+    if (alive && start != 0) {
+        const uint64_t now_start = process_start_time(h);
+        alive = (now_start == 0) || (now_start == start);   // outro horario = PID reaproveitado por outro programa
+    }
+    CloseHandle(h);
+    return alive;
+}
+} // namespace
+
+void HookManager::write_journal() {
+    if (!state_base || !mem.attached()) return;
+    std::vector<uint8_t> buf(sizeof(JournalHeader) + kJournalMax * sizeof(JournalEntry), 0);
+    JournalHeader hdr{};
+    std::memcpy(hdr.magic, "LLEHOOK2", 8);
+    hdr.owner_pid = GetCurrentProcessId();
+    hdr.owner_start = process_start_time(GetCurrentProcess());
+    uint32_t n = 0;
+    for (const auto& [hid, list] : patches) {
+        for (const auto& rec : list) {
+            if (n >= kJournalMax) break;
+            if (rec.orig.empty() || rec.orig.size() > 16 || rec.patched.size() != rec.orig.size()) continue;
+            JournalEntry e{};
+            e.site = rec.site;
+            e.len = static_cast<uint8_t>(rec.orig.size());
+            std::memcpy(e.orig, rec.orig.data(), rec.orig.size());
+            std::memcpy(e.patched, rec.patched.data(), rec.patched.size());
+            std::memcpy(buf.data() + sizeof(JournalHeader) + n * sizeof(JournalEntry), &e, sizeof(e));
+            ++n;
+        }
+    }
+    hdr.count = n;
+    std::memcpy(buf.data(), &hdr, sizeof(hdr));
+    mem.write_from(state_base + kJournalOff, buf.data(), buf.size());
+}
+
+int HookManager::recover_stale_hooks() {
+    other_instance_live = false;
+    if (!mem.attached() || !mem.handle || !mem.module_base) return 0;
+    int restored_regions = 0;
+    const uint64_t own_start = process_start_time(GetCurrentProcess());
+    const uint64_t lo = mem.module_base > 0x80000000ULL ? mem.module_base - 0x80000000ULL : 0x10000ULL;
+    const uint64_t hi = mem.module_base + 0x80000000ULL;
+    uint64_t addr = lo;
+    MEMORY_BASIC_INFORMATION mbi{};
+    while (addr < hi && VirtualQueryEx(mem.handle, reinterpret_cast<LPCVOID>(addr), &mbi, sizeof(mbi)) == sizeof(mbi)) {
+        const uint64_t base = reinterpret_cast<uint64_t>(mbi.BaseAddress);
+        const uint64_t next = base + mbi.RegionSize;
+        // A area do app e sempre privada, executavel e de 0x2000 bytes
+        if (mbi.State == MEM_COMMIT && mbi.Type == MEM_PRIVATE && mbi.RegionSize == 0x2000 &&
+            mbi.Protect == PAGE_EXECUTE_READWRITE && base != state_base) {
+            std::vector<uint8_t> buf(sizeof(JournalHeader) + kJournalMax * sizeof(JournalEntry));
+            JournalHeader hdr{};
+            if (mem.read_into(base + kJournalOff, buf.data(), buf.size())) {
+                std::memcpy(&hdr, buf.data(), sizeof(hdr));
+                if (std::memcmp(hdr.magic, "LLEHOOK2", 8) == 0 && hdr.count <= kJournalMax) {
+                    // Area desta mesma instancia (PID e horario de criacao iguais): nao e orfa
+                    const bool mine = hdr.owner_pid == GetCurrentProcessId() && (hdr.owner_start == 0 || hdr.owner_start == own_start);
+                    if (!mine && owner_alive(hdr.owner_pid, hdr.owner_start)) {
+                        other_instance_live = true;   // outro app vivo: nao mexe e a limpeza legada tambem nao pode
+                    } else if (!mine) {
+                        bool safe = true;   // so libera a area se nada do jogo ainda salta para ela
+                        for (uint32_t i = 0; i < hdr.count; ++i) {
+                            JournalEntry e{};
+                            std::memcpy(&e, buf.data() + sizeof(JournalHeader) + i * sizeof(JournalEntry), sizeof(e));
+                            if (e.len == 0 || e.len > 16 || e.site <= 0x10000ULL) continue;
+                            uint8_t cur[16]{};
+                            if (!mem.read_into(e.site, cur, e.len)) {
+                                safe = false;
+                                continue;
+                            }
+                            bool ours = std::memcmp(cur, e.patched, e.len) == 0;
+                            if (!ours && e.len >= 5 && cur[0] == 0xE9) {
+                                // salto para esta area mesmo com a cauda diferente do que o gancho gravou
+                                int32_t rel = 0;
+                                std::memcpy(&rel, cur + 1, 4);
+                                const uint64_t target = static_cast<uint64_t>(static_cast<int64_t>(e.site + 5) + rel);
+                                ours = target >= base && target < base + 0x2000ULL;
+                            }
+                            if (!ours) continue;   // ja esta original, ou e de outro: nao e nosso
+                            uint8_t chk[16]{};
+                            if (!mem.write_code_bytes(e.site, e.orig, e.len) || !mem.read_into(e.site, chk, e.len) ||
+                                std::memcmp(chk, e.orig, e.len) != 0) {
+                                safe = false;
+                            }
+                        }
+                        if (safe) {
+                            Sleep(80);   // uma thread do jogo pode estar dentro do codigo do gancho
+                            mem.free_mem(base);
+                            ++restored_regions;
+                        }
+                    }
+                }
+            }
+        }
+        if (next <= addr) break;
+        addr = next;
+    }
+    return restored_regions;
+}
+
+bool HookManager::restore_site(const PatchRecord& rec) {
+    const size_t n = rec.orig.size();
+    if (n == 0 || n > 16) return true;
+    uint8_t cur[16]{};
+    if (!mem.read_into(rec.site, cur, n)) return false;   // ilegivel: nao da para afirmar que voltou ao original
+    if (std::memcmp(cur, rec.orig.data(), n) == 0) return true;
+    bool ours = rec.patched.size() == n && std::memcmp(cur, rec.patched.data(), n) == 0;
+    if (!ours && n >= 5 && cur[0] == 0xE9 && state_base) {
+        int32_t rel = 0;
+        std::memcpy(&rel, cur + 1, 4);
+        const uint64_t target = static_cast<uint64_t>(static_cast<int64_t>(rec.site + 5) + rel);
+        ours = target >= state_base && target < state_base + 0x2000ULL;   // salto para a nossa area
+    }
+    if (!ours) return true;   // bytes de outro (outra instancia ou outro programa): nao e nosso para desfazer
+    if (!mem.write_code_bytes(rec.site, rec.orig.data(), n)) return false;
+    uint8_t chk[16]{};
+    return mem.read_into(rec.site, chk, n) && std::memcmp(chk, rec.orig.data(), n) == 0;
+}
+
+bool HookManager::restore_hook_sites(int hook_id) {
+    auto it = patches.find(hook_id);
+    if (it == patches.end()) return true;
+    bool ok = true;
+    for (const auto& rec : it->second) {
+        if (!restore_site(rec)) ok = false;
+    }
+    return ok;
+}
+
+void HookManager::forget_process() {
+    patches.clear();
+    active_hooks.fill(false);
+    state_base = 0;
+    cave_cursor = 0;
+    other_instance_live = false;
+    sigs.reset();
 }
 
 void HookManager::restore_stale_hook_bytes(int hook_num) {
-    if (!iequals_pes2021(mem.exe_name) || !mem.attached() || !mem.module_base) return;
+    // Tabela de RVAs so vale no executavel de referencia: em qualquer outro ela gravaria em endereco errado
+    if (!mem.attached() || !mem.module_base || !is_reference_build()) return;
+    if (other_instance_live) return;   // outra instancia viva do app tem ganchos aqui: reverter seria brigar com ela
 
     static const std::unordered_map<int, std::vector<StaleEntry>> kStale = {
         {1, {
@@ -202,21 +451,28 @@ bool HookManager::verify_hook_alive(int hook_num) const {
 bool HookManager::enable_hook_1_player() {
     if (active_hooks[1] && verify_hook_alive(1)) return true;
     active_hooks[1] = false;
+    // Um dos 4 pontos pode ter sido pisado por fora enquanto os outros seguem apontando para as nossas cavernas:
+    // devolve o original de tudo o que ainda e nosso antes de refazer, senao esses saltos ficariam sem registro
+    if (!restore_hook_sites(1)) return false;
     patches.erase(1);
+    write_journal();
     if (!init_state()) return false;
     restore_stale_hook_bytes(1);
-    // Keep cave allocation bounded if re-hooking after external stomp
+    // Refazer o gancho gasta caverna nova. Estourado o limite so da para recomecar se nenhum outro gancho usa a area.
     if (cave_cursor > state_base + 0x1600ULL) {
+        if (active_hooks[3] || active_hooks[5] || active_hooks[6]) return false;
         cave_cursor = state_base + 0x500ULL;
     }
     const uint64_t ptr_player = sym_addr(HookSym::ptrPlayer);
+    const uint64_t hits = sym_addr(HookSym::hitsCapture);   // contador por ponto (diagnostico: de qual tela veio a captura)
     int installed = 0;
 
     try {
-        if (uint64_t s1 = scan(0xC6DC00, 0xC6FE00, "CB B8 02 00 00 00 0F 1F 40 00 66 0F 1F 84 00 00 00 00 00 0F 10 02 0F 11 01")) {
+        if (uint64_t s1 = site_of(sig::kPlayerA)) {
             uint64_t site = s1 + 0x13;
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
+            cb.emit_rip({0xFF, 0x05}, hits + 0);   // inc dword [hits[0]]
             cb.emit({0x83, 0xF8, 0x02});
             cb.jcc8(0x75, "code");
             cb.emit_rip({0x48, 0x89, 0x15}, ptr_player);
@@ -225,17 +481,19 @@ bool HookManager::enable_hook_1_player() {
             cb.jmp_abs(site + 6);
             if (install_jmp(1, site, alloc_cave(cb.finalize()), 6)) ++installed;
         }
-        if (uint64_t s2 = scan(0x8E1400, 0x8E3500, "48 8B 40 2C 48 89 02")) {
+        if (uint64_t s2 = site_of(sig::kPlayerB)) {
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
+            cb.emit_rip({0xFF, 0x05}, hits + 4);   // inc dword [hits[1]]
             cb.emit_rip({0x48, 0x89, 0x05}, ptr_player);
             cb.emit({0x48, 0x8B, 0x40, 0x2C, 0x48, 0x89, 0x02});
             cb.jmp_abs(s2 + 7);
             if (install_jmp(1, s2, alloc_cave(cb.finalize()), 7)) ++installed;
         }
-        if (uint64_t s3 = scan(0xDDB900, 0xDDDB00, "0F B6 80 50 01 00 00 89 87 98 00 00 00")) {
+        if (uint64_t s3 = site_of(sig::kPlayerC)) {
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
+            cb.emit_rip({0xFF, 0x05}, hits + 8);   // inc dword [hits[2]]
             cb.emit({0x48, 0x85, 0xC0});
             cb.jcc8(0x74, "code");
             cb.emit_rip({0x48, 0x89, 0x05}, ptr_player);
@@ -244,9 +502,10 @@ bool HookManager::enable_hook_1_player() {
             cb.jmp_abs(s3 + 7);
             if (install_jmp(1, s3, alloc_cave(cb.finalize()), 7)) ++installed;
         }
-        if (uint64_t s4 = scan(0xF26400, 0xF28500, "0F B6 80 50 01 00 00 89 45 67")) {
+        if (uint64_t s4 = site_of(sig::kPlayerD)) {
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
+            cb.emit_rip({0xFF, 0x05}, hits + 12);  // inc dword [hits[3]]
             cb.emit({0x48, 0x85, 0xC0});
             cb.jcc8(0x74, "code");
             cb.emit_rip({0x48, 0x89, 0x05}, ptr_player);
@@ -267,7 +526,7 @@ bool HookManager::enable_hook_3_training() {
     if (active_hooks[3]) return true;
     if (!init_state()) return false;
     restore_stale_hook_bytes(3);
-    uint64_t s = scan(0x12E0400, 0x12E2500, "45 8B C8 83 FA 6C 0F 8D 1E 01 00 00");
+    uint64_t s = site_of(sig::kTraining);
     if (!s) return false;
     try {
         uint64_t cfg = sym_addr(HookSym::cfgTrainingMultMode);
@@ -326,14 +585,15 @@ bool HookManager::enable_hook_4_bal_cap() {
     if (active_hooks[4]) return true;
     if (!init_state()) return false;
     restore_stale_hook_bytes(4);
-    uint64_t s = scan(0xBBEE00, 0xBC0F00, "0F BE 41 0A 2B C2 83 F8 15 77 09 48 63 C3");
+    uint64_t s = site_of(sig::kBalCap);
     if (!s) return false;
     uint64_t site = s + 8;
     uint8_t orig = 0;
     if (!mem.read_into(site, &orig, 1)) return false;
     uint8_t patched = 0x7F;
     if (!mem.write_code_bytes(site, &patched, 1)) return false;
-    patches[4].push_back({site, {orig}});
+    patches[4].push_back({site, {orig}, {patched}});
+    write_journal();
     active_hooks[4] = true;
     return true;
 }
@@ -345,7 +605,7 @@ bool HookManager::enable_hook_5_match() {
     bool ok_clk = false;
 
     try {
-        if (uint64_t s_hud = scan(0x20F8F00, 0x20FB000, "49 8B F8 44 0F B6 E2 88 55 B7")) {
+        if (uint64_t s_hud = site_of(sig::kMatchHud)) {
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
             cb.emit_rip({0x48, 0x89, 0x0D}, sym_addr(HookSym::ptrMatchHud));
@@ -356,7 +616,7 @@ bool HookManager::enable_hook_5_match() {
             install_jmp(5, s_hud, alloc_cave(cb.finalize()), 7);
         }
 
-        if (uint64_t s_clk = scan(0xA3B700, 0xA3D800, "8B 44 24 40 89 44 24 40 F3 0F 10 44 24 40 48 83 C4 30 5B C3")) {
+        if (uint64_t s_clk = site_of(sig::kMatchClock)) {
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
             cb.emit({0x8B, 0x44, 0x24, 0x40, 0x51});
@@ -391,6 +651,7 @@ bool HookManager::enable_hook_5_match() {
     }
 
     active_hooks[5] = ok_clk;
+    write_journal();
     return ok_clk;
 }
 
@@ -398,7 +659,7 @@ bool HookManager::enable_hook_6_stamina() {
     if (active_hooks[6]) return true;
     if (!init_state()) return false;
     restore_stale_hook_bytes(6);
-    uint64_t s = scan(0xA57E00, 0xA59F00, "6B 45 10 64 48 8B 5C 24 50");
+    uint64_t s = site_of(sig::kStamina);
     if (!s) return false;
 
     try {
@@ -469,23 +730,8 @@ void HookManager::disable_all() {
     if (mem.attached()) {
         bool all_restored = true;
         for (const auto& [hid, list] : patches) {
-            for (const auto& rec : list) {
-                bool mine = true;
-                if (rec.orig.size() >= 5 && state_base) {
-                    uint8_t cur[5]{};
-                    if (mem.read_into(rec.site, cur, 5) && cur[0] == 0xE9) {
-                        int32_t rel = 0;
-                        std::memcpy(&rel, cur + 1, 4);
-                        uint64_t target = static_cast<uint64_t>(static_cast<int64_t>(rec.site + 5) + rel);
-                        if (target < state_base || target >= state_base + 0x2000ULL) {
-                            mine = false; // another instance currently owns this JMP
-                        }
-                    }
-                }
-                if (mine && !mem.write_code_bytes(rec.site, rec.orig.data(), rec.orig.size())) {
-                    all_restored = false;
-                }
-            }
+            (void)list;
+            if (!restore_hook_sites(hid)) all_restored = false;
         }
         if (state_base && all_restored) {
             // Allow any in-flight game thread inside a cave to return before freeing
@@ -493,10 +739,7 @@ void HookManager::disable_all() {
             mem.free_mem(state_base);
         }
     }
-    patches.clear();
-    active_hooks.fill(false);
-    state_base = 0;
-    cave_cursor = 0;
+    forget_process();
 }
 
 } // namespace pes

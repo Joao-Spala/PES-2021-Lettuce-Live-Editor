@@ -54,9 +54,14 @@ $ImGuiSources = @(
 
 $AppSources = @(
     "$NativeDir\src\engine\win32_mem.cpp",
+    "$NativeDir\src\engine\backup_retention.cpp",
+    "$NativeDir\src\engine\action_log.cpp",
+    "$NativeDir\src\engine\update_check.cpp",
+    "$NativeDir\src\engine\image_scan.cpp",
     "$NativeDir\src\engine\hooks.cpp",
     "$NativeDir\src\engine\ovr_engine.cpp",
     "$NativeDir\src\engine\pes_engine.cpp",
+    "$NativeDir\src\ui\i18n_es.cpp",
     "$NativeDir\src\ui\theme.cpp",
     "$NativeDir\src\ui\icons.cpp",
     "$NativeDir\src\ui\widgets.cpp",
@@ -107,7 +112,7 @@ Write-Host "  [LD] $OutExe"
 & $Clang -std=c++20 -O3 -flto -s -mwindows -municode -static `
     @Objects `
     -o $OutExe `
-    -ld3d11 -ldxgi -ld3dcompiler -ldwmapi -limm32 -lole32 -lshell32 -lcomdlg32 -lgdi32 -luser32
+    -ld3d11 -ldxgi -ld3dcompiler -ldwmapi -limm32 -lole32 -lshell32 -lcomdlg32 -lgdi32 -luser32 -lwinhttp
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $szMB = [math]::Round((Get-Item $OutExe).Length / 1MB, 2)

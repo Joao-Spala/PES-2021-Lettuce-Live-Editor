@@ -5,6 +5,7 @@
 #include "win32_mem.hpp"
 #include "hooks.hpp"
 #include "ovr_engine.hpp"
+#include "value_lock.hpp"
 #include "econ_model.hpp"
 #include "../data/game_data.hpp"
 
@@ -54,6 +55,9 @@ struct StatusSnapshot {
     bool attached = false;
     bool access_denied = false;
     bool conflict_other_wb = false;
+    uint32_t compat_missing = 0;       // bits de FeatureBit: recursos cujas assinaturas nao foram achadas neste executavel
+    std::string target_exe;            // alvo escolhido a mao (vazio = detecta sozinho)
+    bool target_unsupported = false;   // o processo escolhido existe, mas nao e um jogo compativel (nada foi gravado nele)
     std::string exe;
     uint32_t pid = 0;
     std::string mode_code = "offline"; // offline, menu, ml, bal
@@ -74,6 +78,11 @@ struct StatusSnapshot {
     int match_sec = 0;
     int bal_focus = 0;
     bool bal_lock = false;
+    bool val_lock_active = false;
+    ValueLockConfig val_lock;
+    uint64_t val_lock_addr = 0;
+    std::string val_lock_name;
+    uint32_t val_lock_lost = 0;    // contador: sobe cada vez que uma trava e desligada pelo motor
     uint64_t seq = 0;
 };
 
@@ -382,8 +391,11 @@ bool parse_roster_pack_json(std::string_view json_str, RosterPack& out_pack);
 // Serialize a RosterPack to human-readable JSON
 std::string serialize_roster_pack_json(const RosterPack& pack);
 
-// Local Packs directory helpers (%USERPROFILE%\Documents\PES 2021 Workbench\Packs)
+// Local Packs directory helpers (%USERPROFILE%\Documents\Lettuce Live Editor\Packs)
 std::string get_packs_directory();
+// Pasta dos backups JSON do elenco (Packs\Backups) e da pasta de logs (ao lado de Packs)
+std::string get_backups_directory();
+std::string get_logs_directory();
 std::string make_default_pack_filename(std::string_view label, std::string_view club);
 bool save_text_file_utf8(const std::string& path, std::string_view content);
 bool load_text_file_utf8(const std::string& path, std::string& out_content);
@@ -399,6 +411,16 @@ public:
 
     bool ensure_attached();
     void shutdown();
+
+    // Alvo do attach, como o "Open Process" do Cheat Engine. `exe` vazio = detectar sozinho (PES 2021 e Football Life).
+    // `pid` fixa uma instancia quando ha mais de um processo com o mesmo nome (0 = qualquer). Solta o processo atual.
+    void set_target_process(const std::string& exe_utf8, uint32_t pid);
+
+    // Texto de diagnostico para colar ao pedir ajuda: versao, processo, ganchos, ponteiros achados e contadores.
+    std::string diagnostics_report();
+
+    // Quantos backups manter (0 = todos). A poda so roda depois de gravar um backup novo.
+    void set_backup_keep(int keep) { backup_keep_.store(keep < 0 ? 0 : keep, std::memory_order_relaxed); }
 
     StatusSnapshot get_status();
     bool select_player(uint64_t addr);
@@ -431,7 +453,7 @@ public:
 
     SquadRoster get_squad_roster();
     // Comandos em lote. `only` restringe aos atletas indicados (nullptr = elenco inteiro).
-    // Modos destrutivos geram backup JSON automatico do elenco em Documentos\PES 2021 Workbench\Packs\Backups (caminho em result.text).
+    // Modos destrutivos geram backup JSON automatico do elenco em Documentos\Lettuce Live Editor\Packs\Backups (caminho em result.text).
     ActionResult run_squad_commander(std::string_view mode, const std::vector<uint64_t>* only = nullptr);
 
     // Presets de habilidades por funcao. targets == nullptr aplica ao atleta atual. replace limpa as 41 habilidades antes.
@@ -465,6 +487,11 @@ public:
     ActionResult set_stamina_mode(int mode);
     ActionResult set_bal_focus(int points, bool lock_enabled);
     ActionResult set_freeze_clock(bool freeze);
+    // Liga/atualiza a trava do atleta atual (nenhum campo marcado = desliga). Nao entra no historico de desfazer.
+    // `addr` = registro do atleta aberto no editor (0 = o atleta atual capturado). Prender ao endereco da tela evita
+    // travar outro atleta se a captura mudar entre o clique e a chamada.
+    ActionResult set_value_lock(const ValueLockConfig& cfg, uint64_t addr = 0);
+    void clear_value_lock();
     ActionResult set_match_clock(int target_min, int target_sec);
     ActionResult shift_match_clock(int delta_min);
     ActionResult reset_match_half();
@@ -531,7 +558,11 @@ private:
     std::pair<int, std::string> decode_club_handle(uint32_t raw_u32, uint64_t career);
     uint32_t get_user_club_handle(uint64_t career);
     const std::vector<uint64_t>& get_user_squad_addresses(uint64_t career, bool force_rescan, std::vector<uint8_t>* out_raw_table = nullptr);
-    void get_available_salary_budget(uint64_t career, bool force_refresh, int32_t& out_avail, int32_t& out_gross, int32_t& out_wages);
+    uint32_t player_table_count(uint64_t career);
+    // Le a tabela de atletas inteira (tudo ou nada). Devolve a quantidade de registros, 0 se qualquer bloco falhou.
+    uint32_t read_player_table(uint64_t career, std::vector<uint8_t>& raw, uint32_t count, uint64_t* bytes_read = nullptr);
+    void get_available_salary_budget(uint64_t career, bool force_refresh, int32_t& out_avail, int32_t& out_gross, int32_t& out_wages,
+                                     bool* squad_found = nullptr);
 
     PlayerDetails build_player_details_from_buf(uint64_t p, uint64_t career, const uint8_t* buf);
     EconSyncDelta apply_economy_sync_locked(
@@ -542,10 +573,40 @@ private:
     Win32Memory mem_;
     HookManager hooks_;
     std::atomic<bool> shutting_down_{false};
+    std::atomic<int> backup_keep_{0};
+
+    struct ValueLockState {
+        bool active = false;
+        ValueLockConfig cfg;
+        uint64_t addr = 0;
+        uint32_t player_id = 0;
+        uint32_t proc_pid = 0;
+        int bad_reads = 0;   // leituras seguidas que falharam
+        std::string name;
+    };
+    ValueLockState vlock_;
+    uint32_t vlock_lost_ = 0;
+    void tick_value_lock_locked();
+    void drop_value_lock_locked();
 
     uint64_t addr_career_owner_ = 0;
     uint64_t addr_match_mgr_ = 0;
     uint32_t last_pid_ = 0;
+    std::string unsupported_exe_;   // alvo manual recusado por nao parecer um jogo (modulo pequeno)
+    // Espera entre tentativas quando o gancho ou a area do app no processo nao sobem (evita varrer a memoria a cada ciclo)
+    uint64_t rehook_next_tick_ = 0;
+    uint32_t rehook_fail_ = 0;
+    uint64_t init_retry_tick_ = 0;
+    bool init_fail_logged_ = false;
+    uint32_t career_changes_ = 0;   // quantas vezes o ponteiro da carreira mudou desde o attach (diagnostico)
+    uint32_t compat_missing_ = 0;
+    uint32_t compat_rechecks_ = 0;       // novas tentativas de achar assinaturas depois do attach (intervalo crescente)
+    bool wage_cache_found_ = false;      // o ultimo calculo da folha achou o elenco?
+    uint64_t compat_recheck_tick_ = 0;
+    struct SquadDiag {
+        uint32_t club_handle = 0, count_field = 0, count_used = 0, same_club = 0, rejected = 0;
+        uint64_t bytes_read = 0, bytes_wanted = 0;
+    } squad_diag_;
     uint64_t last_career_ = 0;
     uint64_t last_written_career_ = UINT64_MAX;
     uint64_t last_written_mmgr_ = UINT64_MAX;

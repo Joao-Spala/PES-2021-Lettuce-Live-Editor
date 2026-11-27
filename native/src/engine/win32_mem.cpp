@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <unordered_map>
 
 namespace pes {
 
@@ -12,13 +13,22 @@ namespace {
 constexpr DWORD kProcessAccess =
     PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION;
 
-constexpr std::array<const wchar_t*, 5> kSupportedExes = {
+constexpr std::array<const wchar_t*, 6> kSupportedExes = {
     L"PES2021.exe",
+    L"FL_2027.exe",
     L"FL_2026.exe",
     L"FL_2025.exe",
     L"FL_2024.exe",
     L"FL_2023.exe",
 };
+
+bool is_supported_exe_name(const wchar_t* name) {
+    if (!name) return false;
+    for (const wchar_t* target : kSupportedExes) {
+        if (_wcsicmp(name, target) == 0) return true;
+    }
+    return false;
+}
 
 std::string wide_to_utf8(const wchar_t* ws) {
     if (!ws || !ws[0]) return {};
@@ -29,23 +39,29 @@ std::string wide_to_utf8(const wchar_t* ws) {
     return out;
 }
 
-bool find_game_process(uint32_t& out_pid, std::wstring& out_wexe) {
+bool find_game_process(uint32_t& out_pid, std::wstring& out_wexe, const std::wstring& want_exe, uint32_t want_pid) {
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snap == INVALID_HANDLE_VALUE || !snap) return false;
     PROCESSENTRY32W pe{};
     pe.dwSize = sizeof(PROCESSENTRY32W);
     bool found = false;
+    const bool manual = !want_exe.empty() || want_pid != 0;
     if (Process32FirstW(snap, &pe)) {
         do {
-            for (const wchar_t* target : kSupportedExes) {
-                if (_wcsicmp(pe.szExeFile, target) == 0) {
-                    out_pid = pe.th32ProcessID;
-                    out_wexe = pe.szExeFile;
-                    found = true;
-                    break;
-                }
+            bool match;
+            if (manual) {
+                // Escolha manual: o PID exato (se ainda for do mesmo executavel) ou o primeiro com esse nome
+                const bool exe_ok = want_exe.empty() || _wcsicmp(pe.szExeFile, want_exe.c_str()) == 0;
+                match = exe_ok && (want_pid == 0 || pe.th32ProcessID == want_pid);
+            } else {
+                match = is_supported_exe_name(pe.szExeFile);
             }
-            if (found) break;
+            if (match) {
+                out_pid = pe.th32ProcessID;
+                out_wexe = pe.szExeFile;
+                found = true;
+                break;
+            }
         } while (Process32NextW(snap, &pe));
     }
     CloseHandle(snap);
@@ -81,6 +97,82 @@ int hex_nibble(char c) {
 
 } // namespace
 
+bool is_supported_game_exe(const wchar_t* name) { return is_supported_exe_name(name); }
+
+void Win32Memory::set_target(const std::wstring& exe, uint32_t pid_hint) {
+    const bool changed = (_wcsicmp(exe.c_str(), target_exe.c_str()) != 0) || pid_hint != target_pid;
+    target_exe = exe;
+    target_pid = pid_hint;
+    if (changed && handle) detach();   // outro alvo: larga o processo atual para o proximo attach() pegar o novo
+}
+
+namespace {
+struct WindowTitles {
+    std::unordered_map<DWORD, std::wstring> by_pid;
+};
+
+BOOL CALLBACK enum_window_titles(HWND h, LPARAM lp) {
+    if (!IsWindowVisible(h) || GetWindow(h, GW_OWNER) != nullptr) return TRUE;
+    const int len = GetWindowTextLengthW(h);
+    if (len <= 0) return TRUE;
+    DWORD pid = 0;
+    GetWindowThreadProcessId(h, &pid);
+    auto* ctx = reinterpret_cast<WindowTitles*>(lp);
+    if (ctx->by_pid.count(pid)) return TRUE;
+    std::wstring buf(static_cast<size_t>(len) + 1, L'\0');
+    const int got = GetWindowTextW(h, buf.data(), len + 1);
+    if (got > 0) {
+        buf.resize(static_cast<size_t>(got));
+        ctx->by_pid[pid] = std::move(buf);
+    }
+    return TRUE;
+}
+} // namespace
+
+std::vector<ProcessInfo> list_processes() {
+    std::vector<ProcessInfo> out;
+    WindowTitles titles;
+    EnumWindows(enum_window_titles, reinterpret_cast<LPARAM>(&titles));
+
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snap == INVALID_HANDLE_VALUE || !snap) return out;
+    const DWORD self = GetCurrentProcessId();
+    PROCESSENTRY32W pe{};
+    pe.dwSize = sizeof(PROCESSENTRY32W);
+    if (Process32FirstW(snap, &pe)) {
+        do {
+            if (pe.th32ProcessID == 0 || pe.th32ProcessID == 4 || pe.th32ProcessID == self) continue;
+            ProcessInfo pi;
+            pi.pid = pe.th32ProcessID;
+            pi.exe = wide_to_utf8(pe.szExeFile);
+            if (pi.exe.empty()) continue;
+            auto it = titles.by_pid.find(pe.th32ProcessID);
+            if (it != titles.by_pid.end()) {
+                pi.title = wide_to_utf8(it->second.c_str());
+                pi.has_window = !pi.title.empty();
+            }
+            pi.recognized = is_supported_exe_name(pe.szExeFile);
+            // 64 bits? Num Windows de 64 bits, WOW64 = 32 bits. Se nao der para consultar, assume 64 (o attach acusa o erro)
+            if (HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pe.th32ProcessID)) {
+                BOOL wow = FALSE;
+                if (IsWow64Process(h, &wow)) pi.is_64bit = !wow;
+                CloseHandle(h);
+            }
+            out.push_back(std::move(pi));
+        } while (Process32NextW(snap, &pe));
+    }
+    CloseHandle(snap);
+    // Reconhecidos primeiro, depois os com janela, depois por nome
+    std::sort(out.begin(), out.end(), [](const ProcessInfo& a, const ProcessInfo& b) {
+        if (a.recognized != b.recognized) return a.recognized;
+        if (a.has_window != b.has_window) return a.has_window;
+        const int c = _stricmp(a.exe.c_str(), b.exe.c_str());
+        if (c != 0) return c < 0;
+        return a.pid < b.pid;
+    });
+    return out;
+}
+
 bool Win32Memory::is_alive() const {
     if (!handle || !pid) return false;
     DWORD code = 0;
@@ -102,7 +194,15 @@ bool Win32Memory::attach() {
     access_denied = false;
     uint32_t found_pid = 0;
     std::wstring wexe;
-    if (!find_game_process(found_pid, wexe)) return false;
+    if (!find_game_process(found_pid, wexe, target_exe, target_pid)) {
+        // O PID guardado morreu (jogo reaberto): cai para o nome, que e o que o usuario escolheu
+        if (target_pid != 0 && !target_exe.empty()) {
+            target_pid = 0;
+            if (!find_game_process(found_pid, wexe, target_exe, 0)) return false;
+        } else {
+            return false;
+        }
+    }
 
     HANDLE h = OpenProcess(kProcessAccess, FALSE, found_pid);
     if (!h) {

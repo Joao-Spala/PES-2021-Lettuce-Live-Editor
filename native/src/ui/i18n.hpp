@@ -1,8 +1,9 @@
 #pragma once
-// 100% PT-BR / EN localization & currency formatting for PES 2021 Workbench Native.
+// PT-BR / EN / ES localization & currency formatting for Lettuce Live Editor.
 
 #include "../data/game_data.hpp"
 #include "../engine/pes_engine.hpp"
+#include "i18n_es.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -11,7 +12,7 @@
 
 namespace pes::ui {
 
-enum class Lang : int { PT = 0, EN = 1 };
+enum class Lang : int { PT = 0, EN = 1, ES = 2 };
 
 struct CurrencyInfo {
     const char* code;
@@ -26,18 +27,22 @@ inline constexpr CurrencyInfo kCurrencies[4] = {
     {"GBP", "£", ','},     // £
 };
 
+// Escolhe o texto no idioma ativo. O espanhol e buscado no dicionario por esta frase em ingles e,
+// se faltar entrada, mostra o ingles. Textos de dados do jogo (habilidades, estilos, funcoes) tambem passam por aqui.
 inline const char* T(Lang lang, const char* pt, const char* en) {
-    return (lang == Lang::EN) ? en : pt;
+    if (lang == Lang::EN) return en;
+    if (lang == Lang::ES) return es_lookup(en);
+    return pt;
 }
 
 inline const char* pos_short(Lang lang, int pos_id) {
     if (pos_id < 0 || pos_id >= 13) return "---";
-    return (lang == Lang::EN) ? data::POSITIONS[pos_id].en : data::POSITIONS[pos_id].pt;
+    return T(lang, data::POSITIONS[pos_id].pt, data::POSITIONS[pos_id].en);
 }
 
 inline const char* pos_full(Lang lang, int pos_id) {
     if (pos_id < 0 || pos_id >= 13) return "---";
-    return (lang == Lang::EN) ? data::POSITIONS[pos_id].name_en : data::POSITIONS[pos_id].name_pt;
+    return T(lang, data::POSITIONS[pos_id].name_pt, data::POSITIONS[pos_id].name_en);
 }
 
 inline std::string fmt_money(int32_t raw, int cur_idx, Lang lang) {
@@ -126,6 +131,8 @@ inline std::string fmt_code_msg(Lang lang, const std::string& code, int orig = 0
     if (code == "scout_added") return T(lang, "Adicionado na lista nativa!", "Added to native list!");
     if (code == "scout_dup") return T(lang, "Jogador já está nesta lista.", "Player is already in this list.");
     if (code == "backup_failed") return T(lang, "Não foi possível salvar o backup do elenco. Nada foi alterado.", "Could not save the squad backup. Nothing was changed.");
+    if (code == "squad_not_found") return T(lang, "Não foi possível localizar o elenco do seu time neste jogo. Nada foi alterado. Copie o relatório em Serviços > Diagnóstico e envie ao desenvolvedor.", "Could not locate your club's squad in this game. Nothing was changed. Copy the report from Services > Diagnostics and send it to the developer.");
+    if (code == "feature_unavailable") return T(lang, "Este recurso não está disponível neste executável do jogo. Veja Serviços > Diagnóstico.", "This feature is not available on this game executable. See Services > Diagnostics.");
     if (code == "preset_noop") return T(lang, "Nenhum atleta precisava de alteração: já têm essas habilidades ou estão no limite de 10.", "No player needed changes: they already have those skills or are at the 10 skill cap.");
     if (code == "scout_full") return T(lang, "Esta lista está cheia.", "This list is full.");
     if (code == "invalid_json") return T(lang, "Backup JSON inválido.", "Invalid JSON backup.");

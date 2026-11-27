@@ -6,12 +6,14 @@
 
 **Real-time career editor for eFootball PES 2021**
 
-![Native C++20](https://img.shields.io/badge/Native-C%2B%2B20_%2B_DX11_%2B_ImGui-84CC16?style=for-the-badge)
-![PES 2021](https://img.shields.io/badge/eFootball_PES_2021-v1.7.2.0_(DP_7.0)-0095D9?style=for-the-badge)
-![Sider](https://img.shields.io/badge/Sider_7.3_%2F_Football_Life-Compatible-F59E0B?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-8B5CF6?style=for-the-badge)
+![Version](docs/assets/badges/version.svg)
+![Native C++20](docs/assets/badges/stack.svg)
+![PES 2021](docs/assets/badges/game.svg)
+![Sider](docs/assets/badges/compat.svg)
+![Languages](docs/assets/badges/languages.svg)
+![License](docs/assets/badges/license.svg)
 
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Buy_me_a_coffee-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/AlfaceJao)
+[![Ko-fi](docs/assets/badges/kofi-en.svg)](https://ko-fi.com/AlfaceJao)
 
 <br>
 
@@ -52,7 +54,7 @@ The focus is editing consistently and reversibly. The principles below guide the
 </tr>
 <tr>
 <td valign="top"><b>5. Lightness</b></td>
-<td>About 2.6 MB, one <code>.exe</code>, no Cheat Engine and no runtimes. The loop is event driven: with the window idle, CPU and GPU use is practically zero.</td>
+<td>About 2.8 MB, one <code>.exe</code>, no Cheat Engine and no runtimes. The loop is event driven: with the window idle, CPU and GPU use is practically zero.</td>
 </tr>
 </table>
 
@@ -62,6 +64,8 @@ The focus is editing consistently and reversibly. The principles below guide the
 2. Start **PES 2021** or **Football Life** and enter **Master League** or **Become a Legend**.
 3. Open Lettuce Live Editor, as Administrator if the game is elevated.
 4. Highlight a player in the Game Plan. The app captures them in the background and opens everything around them.
+
+The first launch shows a short guide, and the Overview keeps a getting started card until the game is connected.
 
 ### How it works
 
@@ -131,11 +135,17 @@ The whole game database, not just your squad. Find any player, open their editor
 | --- | --- |
 | **How does OVR change without unbalancing the player?** | The app uses Konami's exact formula as the cost function and a solver that preserves the ratio between attributes. 30,000 calculations take a few milliseconds. |
 | **What about money?** | Market value, salary and release clause come from a calibrated economy model (2025/26 curve) driven by OVR, age, position, country and versatility. It is deterministic and reversible: going back to the old OVR brings back the old value. |
-| **What is the blinking arrow?** | A flag independent of the 5 form arrows (bit 7 of byte `0x146` in the player record). The app describes its effect based on Konami's official manual and animates it in the tables. |
+| **What do the form arrows do?** | During a match the game multiplies the player's attributes by a factor that depends on the arrow. Blue: +12% on awareness, goalkeeper stats and kicking power, +9% on technique, shooting, passing, speed and jump, +6% on physical contact, balance and stamina. Green: +6%, +5% and +3%. Yellow: no change. Orange: -8%, -6% and -6%. Red: -16%, -12% and -12%. Tight Possession and Aggression never change. The values come from the game's own internal table (v1.7.2.0), the effect is not saved on the player, and every arrow in the app has a tooltip with the full list. |
+| **What is the blinking arrow?** | A flag separate from the arrow colour (bit 7 of byte `0x146` in the player record). Master League uses the blinking icon to mark a player influenced by a Team Role, and Konami's manual says giving him more minutes can lead to a real breakthrough. In the app you only turn that marker on or off: the arrow colour and the attributes do not change. |
 | **Can edits be undone?** | Yes. Each player keeps 10 undo states, the global timeline keeps up to 300 actions, batches have "Undo Batch", and there is a JSON backup before heavy operations. |
-| **Does it work with patches?** | Yes. It is compatible with Sider 7.3+ and with derivatives such as Football Life, SmokePatch, VirtuaRED and Dream Patch. If an older Workbench is open at the same time, the app warns about the conflict. |
+| **Does it work with patches?** | It is built and tested on PES 2021 v1.7.2.0 and works alongside Sider 7.3+. Every hook and pointer is found by a unique byte signature instead of a fixed address, so other builds of the same engine work when the code matches, and anything that does not match is switched off. `FL_2027.exe` was checked offline: all 11 signatures match and the career layout is identical, but I have not run it live there. `Settings > Services > Diagnostics` shows what was found. Details in [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md). If an older Workbench is open at the same time, the app warns about the conflict. |
+| **Can I pick the process to attach to?** | Yes, like Cheat Engine's Open Process. Click the connection pill in the title bar, choose `Choose process...`, filter by name, window or PID and attach. The choice is saved until you go back to automatic detection. For safety the app only allocates and writes in processes that look like a PES 2021 based game: in any other it does nothing. |
 | **Can I share edits between saves?** | **Pack Studio** (JSON v13) exports players and squads and imports them on another save, matching by ID, name or manual pick, with a diff preview and batch rollback. |
 | **And training?** | The **Training & BAL** view has the user club's Sub-XP multiplier and the BAL Focus Points unlock. |
+| **Can I freeze a value?** | Yes. **Lock values** (Condition & Bio tab) keeps a player's stamina, form arrow and injury at the values you choose, rewriting them about twice a second. It turns itself off if the game closes or the locked player changes, and it is not part of the undo history. |
+| **Does the app use the internet?** | Only if you opt in. In `Settings > Services` the update notice is off by default. When on, it checks the public GitHub releases page once when the app opens, sends nothing about you and downloads nothing, it only shows a link. Everything else runs on your machine. |
+| **Where do backups and logs go?** | Squad backups go to `Documents/Lettuce Live Editor/Packs/Backups`, with an optional keep-the-latest limit (10, 20, 50 or 100) and a disk usage indicator. A local action log in `Documents/Lettuce Live Editor/Logs` helps reproduce problems, rotates at 1 MB and can be turned off. Nothing is sent anywhere. |
+| **Which languages?** | Portuguese, English and Spanish. In Spanish, skill, play style and team role names stay in English for now. |
 
 ### Shortcuts worth learning
 
@@ -156,7 +166,7 @@ The whole game database, not just your squad. Find any player, open their editor
 
 ### Visual identity
 
-The name and the lettuce logo are the same in every theme. Only the palette changes: **`Blue`** (navy with the Lettuce green accent, the default) and **`Lettuce`** (forest green). Switching is live, in `Settings`, and persisted. Also in `Settings`: always on top, UI scale from 90% to 150%, 6 accent colours, and remembered window size and position. Own vector icons, multi-monitor support with mixed DPI, 7 fonts, `PT-BR / EN` and `EUR / BRL / USD / GBP` round it out.
+The name and the lettuce logo are the same in every theme. Only the palette changes: **`Blue`** (navy with the Lettuce green accent, the default) and **`Lettuce`** (forest green). Switching is live, in `Settings`, and persisted. Also in `Settings`: always on top, UI scale from 90% to 150%, 6 accent colours, and remembered window size and position. Own vector icons, multi-monitor support with mixed DPI, 7 fonts, `PT-BR / EN / ES` and `EUR / BRL / USD / GBP` round it out.
 
 ---
 
@@ -170,12 +180,10 @@ powershell -ExecutionPolicy Bypass -File native\build.ps1
 
 Output: `dist/PES 2021 Workbench Native.exe`.
 
-Engine unit tests (OVR solver, Position Lab, money parser, accent folding, team roles, skill presets and economy model):
+Unit tests (OVR solver, Position Lab, money parser, accent folding, team roles, skill presets, economy model, Spanish dictionary, backups, settings, process picker and more). The script builds and runs both test programs:
 
 ```powershell
-cd native
-clang++ -std=c++20 -O2 -DUNICODE -D_UNICODE -Isrc -Ithird_party/json tests/test_engine.cpp src/engine/ovr_engine.cpp src/engine/pes_engine.cpp src/engine/hooks.cpp src/engine/win32_mem.cpp -lole32 -lshell32 -luser32 -o tests/test_engine.exe
-.\tests\test_engine.exe
+powershell -ExecutionPolicy Bypass -File native\tests\build_tests.ps1
 ```
 
 The logo and icon are generated by `native/assets/make_logo.ps1` (GDI+). The images in this README live in `docs/assets`.
@@ -184,7 +192,7 @@ The logo and icon are generated by `native/assets/make_logo.ps1` (GDI+). The ima
 
 This editor is free and open source, and it always will be. If it saves you time and you feel like buying me a coffee, I would really appreciate it. A bug report or a thank you means just as much.
 
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Buy_me_a_coffee-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/AlfaceJao)
+[![Ko-fi](docs/assets/badges/kofi-en.svg)](https://ko-fi.com/AlfaceJao)
 
 Brazilian? There is a Pix QR code in the [Portuguese README](README.pt-BR.md#apoie-o-projeto).
 

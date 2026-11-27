@@ -1,5 +1,7 @@
 #include "widgets.hpp"
 #include "icons.hpp"
+#include "arrow_text.hpp"
+#include "../engine/action_log.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -675,12 +677,16 @@ void draw_pos_chip(Lang lang, int pos_id, float min_w, float h, ImFont* bold_fon
     if (bold_font) ImGui::PopFont();
 }
 
-void draw_arrow_badge(int arrow, float h, bool blink) {
+void draw_arrow_badge(int arrow, float h, bool blink, Lang lang) {
     int a = std::clamp(arrow, 0, 4);
     ImVec4 fg = arrow_color(a);
     float w = h * 1.18f;
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::Dummy(ImVec2(w, h));
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay)) {
+        const std::string tip = arrow_effect_text(lang, a);
+        show_rich_tooltip(arrow_title(lang, a), tip.c_str());
+    }
     if (blink && !ImGui::IsItemVisible()) blink = false; // fora da tela nao precisa manter 60 fps
     ImDrawList* dl = ImGui::GetWindowDrawList();
     float pulse = 1.0f;
@@ -922,7 +928,10 @@ int draw_arrow_picker(const char* id, int cur_arrow, Lang lang, float avail_w, I
             if (bold_font && act) ImGui::PopFont();
         } else {
             draw_arrow_vector(dl, ImVec2(p.x + tile_w * 0.5f, p.y + tile_h * 0.5f), std::round(7.5f * sc), it.a, to_u32(fg));
-            show_tip_if_hovered(lbl, nullptr);
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay)) {
+            const std::string tip = arrow_effect_text(lang, it.a);
+            show_rich_tooltip(arrow_title(lang, it.a), tip.c_str());
         }
     }
     ImGui::PopID();
@@ -1347,8 +1356,8 @@ bool draw_stat_row(
     out_preview_val = disp_val;
 
     ImGui::PushID(s.fid);
-    const char* lbl = (lang == Lang::EN) ? s.en : s.pt;
-    const char* desc = (lang == Lang::EN) ? s.desc_en : s.desc_pt;
+    const char* lbl = T(lang, s.pt, s.en);
+    const char* desc = T(lang, s.desc_pt, s.desc_en);
 
     float sc = std::clamp(ImGui::GetFontSize() / 15.0f, 0.85f, 2.5f);
     float avail = ImGui::GetContentRegionAvail().x;
@@ -1493,6 +1502,7 @@ bool draw_stat_row(
 
 void ToastManager::push(const std::string& msg, bool is_err, double custom_dur) {
     // Generous read time: 5.5s for normal notices, 8.0s for multi-line economy/stat diffs
+    pes::actionlog::write(is_err ? "ERROR" : "INFO", msg);
     bool multi = (msg.find('\n') != std::string::npos);
     double dur = (custom_dur > 0.5) ? custom_dur : (multi ? 8.0 : 5.5);
     items_.push_back({msg, is_err, dur, dur, 0.0});

@@ -21,6 +21,25 @@
 
 namespace pes {
 
+// true se `name` (ex.: L"FL_2027.exe") e um executavel de jogo que o app reconhece sozinho. Sem diferenciar maiusculas.
+bool is_supported_game_exe(const wchar_t* name);
+
+// Um processo em execucao, para o seletor (como o "Open Process" do Cheat Engine)
+struct ProcessInfo {
+    uint32_t pid = 0;
+    std::string exe;        // nome do executavel (UTF-8)
+    std::string title;      // titulo da janela principal, se houver
+    bool has_window = false;
+    bool is_64bit = true;   // o app so sabe ler e gravar processos de 64 bits
+    bool recognized = false;// nome esta na lista de jogos conhecidos (PES 2021 e Football Life)
+};
+
+// Processos em execucao agora (sem o PID 0, o System e o proprio app), com janela e reconhecidos primeiro
+std::vector<ProcessInfo> list_processes();
+
+// Modulos menores que isso nao sao o jogo: o app nao grava nada neles (o PES 2021 tem ~450 MB)
+inline constexpr uint32_t kMinGameModuleBytes = 0x4000000;   // 64 MB
+
 class Win32Memory {
 public:
     HANDLE handle = nullptr;
@@ -29,6 +48,12 @@ public:
     uint64_t module_base = 0;
     uint32_t module_size = 0;
     bool access_denied = false;
+
+    // Alvo escolhido pelo usuario. Com `target_exe` (e/ou `target_pid`) definido, so esse processo e usado;
+    // vazio = procura sozinho pelos nomes conhecidos. Mudar o alvo solta o processo atual.
+    std::wstring target_exe;
+    uint32_t target_pid = 0;
+    void set_target(const std::wstring& exe, uint32_t pid_hint);
 
     Win32Memory() = default;
     ~Win32Memory() { detach(); }

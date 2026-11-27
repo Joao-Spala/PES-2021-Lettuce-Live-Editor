@@ -3,8 +3,8 @@
 101 ICON "app_icon_lettuce.ico"
 
 1 VERSIONINFO
-FILEVERSION     14,0,0,0
-PRODUCTVERSION  14,0,0,0
+FILEVERSION     14,1,1,0
+PRODUCTVERSION  14,1,1,0
 FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
 FILEFLAGS       0
 FILEOS          VOS_NT_WINDOWS32
@@ -17,11 +17,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "Lettuce Live Editor"
             VALUE "FileDescription",  "Lettuce Live Editor (PES 2021 Workbench Native)"
-            VALUE "FileVersion",      "14.0.0.0"
+            VALUE "FileVersion",      "14.1.1.0"
             VALUE "InternalName",     "PES2021WorkbenchNative"
             VALUE "OriginalFilename", "PES 2021 Workbench Native.exe"
             VALUE "ProductName",      "Lettuce Live Editor"
-            VALUE "ProductVersion",   "14.0.0.0"
+            VALUE "ProductVersion",   "14.1.1.0"
         END
     END
     BLOCK "VarFileInfo"

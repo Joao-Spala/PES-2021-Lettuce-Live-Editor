@@ -6,12 +6,14 @@
 
 **Editor de carreira em tempo real para o eFootball PES 2021**
 
-![Native C++20](https://img.shields.io/badge/Native-C%2B%2B20_%2B_DX11_%2B_ImGui-84CC16?style=for-the-badge)
-![PES 2021](https://img.shields.io/badge/eFootball_PES_2021-v1.7.2.0_(DP_7.0)-0095D9?style=for-the-badge)
-![Sider](https://img.shields.io/badge/Sider_7.3_%2F_Football_Life-Compatible-F59E0B?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-8B5CF6?style=for-the-badge)
+![Version](docs/assets/badges/version.svg)
+![Native C++20](docs/assets/badges/stack.svg)
+![PES 2021](docs/assets/badges/game.svg)
+![Sider](docs/assets/badges/compat.svg)
+![Languages](docs/assets/badges/languages.svg)
+![License](docs/assets/badges/license.svg)
 
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Pague_um_caf%C3%A9-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/AlfaceJao) [![Pix](https://img.shields.io/badge/Pix-QR_Code-32BCAD?style=for-the-badge&logo=pix&logoColor=white)](#apoie-o-projeto)
+[![Ko-fi](docs/assets/badges/kofi-pt.svg)](https://ko-fi.com/AlfaceJao) [![Pix](docs/assets/badges/pix.svg)](#apoie-o-projeto)
 
 <br>
 
@@ -52,7 +54,7 @@ O foco é editar com consistência e com volta. Os princípios abaixo orientam o
 </tr>
 <tr>
 <td valign="top"><b>5. Leveza</b></td>
-<td>Cerca de 2,6 MB, um único <code>.exe</code>, sem Cheat Engine e sem runtimes. O laço é guiado por eventos: com a janela parada, o consumo de CPU e GPU é praticamente zero.</td>
+<td>Cerca de 2,8 MB, um único <code>.exe</code>, sem Cheat Engine e sem runtimes. O laço é guiado por eventos: com a janela parada, o consumo de CPU e GPU é praticamente zero.</td>
 </tr>
 </table>
 
@@ -62,6 +64,8 @@ O foco é editar com consistência e com volta. Os princípios abaixo orientam o
 2. Abra o **PES 2021** ou o **Football Life** e entre na **Master Liga** ou no **Rumo ao Estrelato**.
 3. Abra o Lettuce Live Editor, como Administrador se o jogo estiver elevado.
 4. Destaque um atleta no Plano de Jogo. O app o captura em segundo plano e abre tudo sobre ele.
+
+Na primeira abertura o app mostra um guia curto, e a Visão Geral mantém um cartão de primeiros passos até o jogo estar conectado.
 
 ### Como funciona
 
@@ -131,11 +135,17 @@ A base inteira do jogo, não só o seu elenco. Encontre qualquer jogador, abra o
 | --- | --- |
 | **Como o OVR muda sem desequilibrar o atleta?** | O app usa a fórmula exata da Konami como função de custo e um solver que preserva a proporção entre os atributos. 30.000 cálculos levam poucos milissegundos. |
 | **E o dinheiro?** | Mercado, salário e multa vêm de um modelo econômico calibrado (curva 2025/26) que depende de OVR, idade, posição, país e versatilidade. É determinístico e reversível: voltar ao OVR antigo volta ao valor antigo. |
-| **O que é a seta piscando?** | Uma flag independente das 5 setas de forma (bit 7 do byte `0x146` do registro do atleta). O app descreve o efeito com base no manual oficial da Konami e a anima nas tabelas. |
+| **O que fazem as setas de forma?** | Durante a partida o jogo multiplica os atributos do jogador por um fator que depende da seta. Azul: +12% em talento, atributos de goleiro e força de chute, +9% em técnica, finalização, passe, velocidade e salto, +6% em contato físico, equilíbrio e resistência. Verde: +6%, +5% e +3%. Amarela: sem alteração. Laranja: -8%, -6% e -6%. Vermelha: -16%, -12% e -12%. Posse apertada e Agressividade nunca mudam. Os valores vêm da tabela interna do próprio jogo (v1.7.2.0), o efeito não fica gravado no atleta, e cada seta no app tem um tooltip com a lista completa. |
+| **O que é a seta piscando?** | Uma flag separada da cor da seta (bit 7 do byte `0x146` do registro do atleta). A Master Liga usa o ícone piscando para marcar um atleta influenciado por uma função no time, e o manual da Konami diz que dar mais minutos a ele pode gerar uma evolução real. No app você só liga ou desliga esse aviso: a cor da seta e os atributos não mudam. |
 | **Dá para desfazer?** | Sim. Cada atleta guarda 10 estados de desfazer, a linha do tempo global guarda até 300 ações, lotes têm "Desfazer Lote" e há backup JSON antes das operações pesadas. |
-| **Funciona com patches?** | Sim. É compatível com o Sider 7.3+ e com derivados como Football Life, SmokePatch, VirtuaRED e Dream Patch. Se uma versão antiga do Workbench estiver aberta ao mesmo tempo, o app avisa do conflito. |
+| **Funciona com patches?** | Foi feito e testado no PES 2021 v1.7.2.0 e funciona junto com o Sider 7.3+. Todo gancho e ponteiro é achado por uma assinatura de bytes única, e não por endereço fixo, então outras versões da mesma engine funcionam quando o código bate, e o que não bate fica desligado. O `FL_2027.exe` foi conferido offline: as 11 assinaturas casam e a estrutura da carreira é idêntica, mas não rodei ao vivo nele. `Ajustes > Serviços > Diagnóstico` mostra o que foi achado. Detalhes em [docs/COMPATIBILITY.pt-BR.md](docs/COMPATIBILITY.pt-BR.md). Se uma versão antiga do Workbench estiver aberta ao mesmo tempo, o app avisa do conflito. |
+| **Dá para escolher o processo ao qual anexar?** | Dá, como o Open Process do Cheat Engine. Clique no indicador de conexão na barra de título, escolha `Escolher processo...`, filtre por nome, janela ou PID e anexe. A escolha fica salva até você voltar à detecção automática. Por segurança o app só aloca e grava em processos que parecem um jogo baseado no PES 2021: em qualquer outro ele não faz nada. |
 | **Compartilho edições entre saves?** | O **Pack Studio** (JSON v13) exporta atletas e elencos e importa em outro save, cruzando por ID, nome ou escolha manual, com prévia das diferenças e rollback do lote. |
 | **E o treino?** | A tela **Treino & BAL** tem o multiplicador de Sub-XP do seu clube e o desbloqueio dos Pontos de Foco do Rumo ao Estrelato. |
+| **Dá para travar um valor?** | Sim. **Travar valores** (aba Condição & Bio) mantém o fôlego, a seta de forma e a lesão do atleta nos valores escolhidos, regravando cerca de duas vezes por segundo. A trava se desliga sozinha se o jogo fechar ou o atleta travado mudar, e não entra no histórico de desfazer. |
+| **O app usa a internet?** | Só se você ativar. Em `Ajustes > Serviços` o aviso de nova versão vem desligado. Quando ligado, consulta a página pública de releases do GitHub uma vez ao abrir o app, não envia nada sobre você e não baixa nada, só mostra um link. Todo o resto roda no seu computador. |
+| **Onde ficam backups e logs?** | Os backups do elenco vão para `Documentos/Lettuce Live Editor/Packs/Backups`, com limite opcional dos mais recentes (10, 20, 50 ou 100) e indicador de espaço usado. Um registro local das ações em `Documentos/Lettuce Live Editor/Logs` ajuda a reproduzir problemas, gira em 1 MB e pode ser desligado. Nada é enviado. |
+| **Quais idiomas?** | Português, inglês e espanhol. Em espanhol, os nomes de habilidades, estilos de jogo e funções no time ficam em inglês por enquanto. |
 
 ### Atalhos que valem a pena
 
@@ -156,7 +166,7 @@ A base inteira do jogo, não só o seu elenco. Encontre qualquer jogador, abra o
 
 ### Identidade visual
 
-O nome e o logo de alface são os mesmos em qualquer tema. O que muda é a paleta: **`Azul`** (azul-marinho com destaque verde Alface, o padrão) e **`Alface`** (verde-floresta). A troca é ao vivo, em `Ajustes`, e fica salva. Ainda em `Ajustes`: sempre no topo, escala da interface de 90% a 150%, 6 cores de destaque, e tamanho e posição da janela lembrados. Completam o conjunto ícones vetoriais próprios, suporte a múltiplos monitores com DPI diferente, 7 fontes, idioma `PT-BR / EN` e moeda `EUR / BRL / USD / GBP`.
+O nome e o logo de alface são os mesmos em qualquer tema. O que muda é a paleta: **`Azul`** (azul-marinho com destaque verde Alface, o padrão) e **`Alface`** (verde-floresta). A troca é ao vivo, em `Ajustes`, e fica salva. Ainda em `Ajustes`: sempre no topo, escala da interface de 90% a 150%, 6 cores de destaque, e tamanho e posição da janela lembrados. Completam o conjunto ícones vetoriais próprios, suporte a múltiplos monitores com DPI diferente, 7 fontes, idioma `PT-BR / EN / ES` e moeda `EUR / BRL / USD / GBP`.
 
 ---
 
@@ -170,12 +180,10 @@ powershell -ExecutionPolicy Bypass -File native\build.ps1
 
 Saída: `dist/PES 2021 Workbench Native.exe`.
 
-Testes unitários da engine (OVR solver, Lab de Posições, parser monetário, acentos, funções de time, presets de habilidades e modelo econômico):
+Testes unitários (OVR solver, Lab de Posições, parser monetário, acentos, funções de time, presets de habilidades, modelo econômico, dicionário de espanhol, backups, ajustes, seletor de processo e mais). O script compila e roda os dois programas de teste:
 
 ```powershell
-cd native
-clang++ -std=c++20 -O2 -DUNICODE -D_UNICODE -Isrc -Ithird_party/json tests/test_engine.cpp src/engine/ovr_engine.cpp src/engine/pes_engine.cpp src/engine/hooks.cpp src/engine/win32_mem.cpp -lole32 -lshell32 -luser32 -o tests/test_engine.exe
-.\tests\test_engine.exe
+powershell -ExecutionPolicy Bypass -File native\tests\build_tests.ps1
 ```
 
 O logo e o ícone são gerados por `native/assets/make_logo.ps1` (GDI+). As imagens deste README ficam em `docs/assets`.
@@ -190,7 +198,7 @@ O logo e o ícone são gerados por `native/assets/make_logo.ps1` (GDI+). As imag
 Este editor é gratuito e de código aberto, e vai continuar assim. Se ele economizou seu tempo e você quiser me pagar um café, vou ficar muito agradecido. Um relato de bug ou um obrigado vale tanto quanto.
 
 **Pix:** escaneie o QR ou use a chave aleatória `925fd607-2011-4ca2-83a4-b3cf145b408b`<br>
-**De fora do Brasil:** [![Ko-fi](https://img.shields.io/badge/Ko--fi-Pague_um_caf%C3%A9-FF5E5B?style=flat&logo=ko-fi&logoColor=white)](https://ko-fi.com/AlfaceJao)
+**De fora do Brasil:** [![Ko-fi](docs/assets/badges/kofi-pt.svg)](https://ko-fi.com/AlfaceJao)
 
 </td>
 </tr>
