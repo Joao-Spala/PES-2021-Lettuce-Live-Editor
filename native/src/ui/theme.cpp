@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include "../engine/app_dirs.hpp"
 #include "../engine/backup_retention.hpp"
 
 namespace pes::ui {
@@ -20,7 +21,8 @@ namespace {
 std::filesystem::path get_settings_path() {
     wchar_t appdata[MAX_PATH]{};
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appdata))) {
-        std::filesystem::path dir = std::filesystem::path(appdata) / L"PES2021Workbench";
+        // %APPDATA%\Lettuce Live Editor (a pasta antiga "PES2021Workbench" e movida uma vez, com o settings.ini)
+        std::filesystem::path dir = pes::dirs::migrate_dir(std::filesystem::path(appdata), pes::dirs::kAppFolder, pes::dirs::kLegacyDataFolder);
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         return dir / L"settings.ini";

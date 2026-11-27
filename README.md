@@ -143,7 +143,7 @@ The whole game database, not just your squad. Find any player, open their editor
 | **And training?** | The **Training & BAL** view has the user club's Sub-XP multiplier and the BAL Focus Points unlock. |
 | **Can I freeze a value?** | Yes. **Lock values** (Condition & Bio tab) keeps a player's stamina, form arrow and injury at the values you choose, rewriting them about twice a second. It turns itself off if the game closes or the locked player changes, and it is not part of the undo history. |
 | **Does the app use the internet?** | Only if you opt in. In `Settings > Services` the update notice is off by default. When on, it checks the public GitHub releases page once when the app opens, sends nothing about you and downloads nothing, it only shows a link. Everything else runs on your machine. |
-| **Where do backups and logs go?** | Squad backups go to `Documents/PES 2021 Workbench/Packs/Backups`, with an optional keep-the-latest limit (10, 20, 50 or 100) and a disk usage indicator. A local action log in `Documents/PES 2021 Workbench/Logs` helps reproduce problems, rotates at 1 MB and can be turned off. Nothing is sent anywhere. |
+| **Where do backups and logs go?** | Squad backups go to `Documents/Lettuce Live Editor/Packs/Backups`, with an optional keep-the-latest limit (10, 20, 50 or 100) and a disk usage indicator. A local action log in `Documents/Lettuce Live Editor/Logs` helps reproduce problems, rotates at 1 MB and can be turned off. Nothing is sent anywhere. |
 | **Which languages?** | Portuguese, English and Spanish. In Spanish, skill, play style and team role names stay in English for now. |
 
 ### Shortcuts worth learning

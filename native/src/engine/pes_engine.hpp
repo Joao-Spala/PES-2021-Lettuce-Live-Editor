@@ -388,7 +388,7 @@ bool parse_roster_pack_json(std::string_view json_str, RosterPack& out_pack);
 // Serialize a RosterPack to human-readable JSON
 std::string serialize_roster_pack_json(const RosterPack& pack);
 
-// Local Packs directory helpers (%USERPROFILE%\Documents\PES 2021 Workbench\Packs)
+// Local Packs directory helpers (%USERPROFILE%\Documents\Lettuce Live Editor\Packs)
 std::string get_packs_directory();
 // Pasta dos backups JSON do elenco (Packs\Backups) e da pasta de logs (ao lado de Packs)
 std::string get_backups_directory();
@@ -443,7 +443,7 @@ public:
 
     SquadRoster get_squad_roster();
     // Comandos em lote. `only` restringe aos atletas indicados (nullptr = elenco inteiro).
-    // Modos destrutivos geram backup JSON automatico do elenco em Documentos\PES 2021 Workbench\Packs\Backups (caminho em result.text).
+    // Modos destrutivos geram backup JSON automatico do elenco em Documentos\Lettuce Live Editor\Packs\Backups (caminho em result.text).
     ActionResult run_squad_commander(std::string_view mode, const std::vector<uint64_t>* only = nullptr);
 
     // Presets de habilidades por funcao. targets == nullptr aplica ao atleta atual. replace limpa as 41 habilidades antes.

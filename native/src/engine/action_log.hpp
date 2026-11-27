@@ -1,6 +1,6 @@
 #pragma once
 // Registro local das acoes do app (uma linha por aviso mostrado ao usuario), para reproduzir problemas.
-// Fica em Documentos\PES 2021 Workbench\Logs, nunca sai do computador, gira em 1 MB e pode ser desligado.
+// Fica em Documentos\Lettuce Live Editor\Logs, nunca sai do computador, gira em 1 MB e pode ser desligado.
 
 #include <cstdint>
 #include <filesystem>

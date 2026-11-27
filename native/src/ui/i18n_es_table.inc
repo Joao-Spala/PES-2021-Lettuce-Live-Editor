@@ -778,7 +778,7 @@
 {"Weak Foot / Form / Inj.", "Pie débil / forma / lesión"},
 {"Welcome to Lettuce Live Editor", "Te damos la bienvenida a Lettuce Live Editor"},
 {"Winger or second striker who wins 1v1 duels and crosses or shoots with curl.", "Extremo o segundo delantero que gana los duelos 1 contra 1 y centra o dispara con efecto."},
-{"Written on your computer, in Documents\\PES 2021 Workbench\\Logs, it keeps the notices shown to help reproduce problems. Nothing is sent.", "Se guarda en tu equipo, en Documentos\\PES 2021 Workbench\\Logs, con los avisos mostrados para ayudar a reproducir problemas. No se envía nada."},
+{"Written on your computer, in Documents\\Lettuce Live Editor\\Logs, it keeps the notices shown to help reproduce problems. Nothing is sent.", "Se guarda en tu equipo, en Documentos\\Lettuce Live Editor\\Logs, con los avisos mostrados para ayudar a reproducir problemas. No se envía nada."},
 {"Yellow", "Amarilla"},
 {"Yellow arrow: normal form", "Flecha amarilla: forma normal"},
 {"You are on", "Estás en la versión"},

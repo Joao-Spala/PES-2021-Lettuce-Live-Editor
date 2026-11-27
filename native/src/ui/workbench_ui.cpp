@@ -5684,8 +5684,8 @@ void WorkbenchApp::render_prefs_services() {
     }
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
     wrapped_colored(col::Muted, "%s", T(L,
-        "Grava no seu computador, em Documentos\\PES 2021 Workbench\\Logs, os avisos exibidos para ajudar a reproduzir problemas. Nada é enviado.",
-        "Written on your computer, in Documents\\PES 2021 Workbench\\Logs, it keeps the notices shown to help reproduce problems. Nothing is sent."));
+        "Grava no seu computador, em Documentos\\Lettuce Live Editor\\Logs, os avisos exibidos para ajudar a reproduzir problemas. Nada é enviado.",
+        "Written on your computer, in Documents\\Lettuce Live Editor\\Logs, it keeps the notices shown to help reproduce problems. Nothing is sent."));
     ImGui::PopTextWrapPos();
     if (ImGui::Button(T(L, "Abrir pasta##log_open", "Open folder##log_open"))) {
         const std::wstring w = utf8_to_wide(get_logs_directory());

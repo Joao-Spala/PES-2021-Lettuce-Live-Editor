@@ -9,9 +9,10 @@ All notable changes to this project are documented in this file.
 - **Lock values**: keeps a player's stamina, form arrow and injury at chosen values (Condition & Bio tab). Bound to the player record and game process, turns itself off if either changes, outside the undo history.
 - **Update notice** (opt-in, off by default): one HTTPS request to the public GitHub releases API when the app opens, no data sent, nothing downloaded. Only shows the release link.
 - **Getting started guide** on first launch and a getting started card on the Overview that follows the real game state.
-- **Squad backup retention** (keep 10, 20, 50, 100 or all, never deleting the newest) with disk usage, and a **local action log** (`Documents\PES 2021 Workbench\Logs`, 1 MB rotation, can be turned off). Settings now has two tabs: Appearance and Services.
+- **Squad backup retention** (keep 10, 20, 50, 100 or all, never deleting the newest) with disk usage, and a **local action log** (`Documents\Lettuce Live Editor\Logs`, 1 MB rotation, can be turned off). Settings now has two tabs: Appearance and Services.
 
 ### Changed / Alterado
+- **Data folders renamed** to the new name: `Documents\Lettuce Live Editor` (packs, backups, logs) and `%APPDATA%\Lettuce Live Editor` (settings). The old folders (`PES 2021 Workbench` and `PES2021Workbench`) are moved once on first launch, with everything inside. If Windows refuses the move, the app keeps using the old folder, so nothing is lost. Running an older build afterwards recreates the old folder.
 - Settings are parsed and written through stream functions covered by unit tests, and the new keys are validated on load.
 - Tests: `native/tests/build_tests.ps1` builds and runs the engine tests and the service tests (154 checks).
 

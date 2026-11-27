@@ -25,7 +25,7 @@ struct AppSettings {
     bool check_updates = false;      // opt-in: consulta o GitHub uma vez por abertura
     std::string update_dismissed;    // tag da versao cujo aviso foi dispensado (ex.: "v14.2.0")
     int backup_keep_idx = 0;         // indice em backups::kKeepOptions (0 = guardar todos)
-    bool action_log = true;          // log local das acoes (Documentos\PES 2021 Workbench\Logs)
+    bool action_log = true;          // log local das acoes (Documentos\Lettuce Live Editor\Logs)
     bool first_run_done = false;     // guia de boas-vindas ja exibido
 };
 

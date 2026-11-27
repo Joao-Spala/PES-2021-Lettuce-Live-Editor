@@ -1,4 +1,5 @@
 #include "pes_engine.hpp"
+#include "app_dirs.hpp"
 #include "backup_retention.hpp"
 #include "skill_presets.hpp"
 #include <unordered_set>
@@ -3020,7 +3021,7 @@ std::string get_backups_directory() {
 }
 
 std::string get_logs_directory() {
-    // Ao lado de Packs: Documentos\PES 2021 Workbench\Logs
+    // Ao lado de Packs: Documentos\Lettuce Live Editor\Logs
     std::filesystem::path dir = fs_path_from_utf8(get_packs_directory()).parent_path() / L"Logs";
     auto u8 = dir.u8string();
     return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
@@ -3030,7 +3031,8 @@ std::string get_packs_directory() {
     wchar_t doc_path[MAX_PATH]{};
     std::filesystem::path dir;
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_PERSONAL, nullptr, SHGFP_TYPE_CURRENT, doc_path)) && doc_path[0]) {
-        dir = std::filesystem::path(doc_path) / L"PES 2021 Workbench" / L"Packs";
+        // Documentos\Lettuce Live Editor\Packs (a pasta antiga "PES 2021 Workbench" e movida uma vez)
+        dir = pes::dirs::migrate_dir(std::filesystem::path(doc_path), pes::dirs::kAppFolder, pes::dirs::kLegacyDocsFolder) / L"Packs";
     } else {
         dir = std::filesystem::current_path() / L"Packs";
     }

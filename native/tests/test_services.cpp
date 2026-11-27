@@ -3,6 +3,7 @@
 
 #include "../src/app_version.hpp"
 #include "../src/engine/action_log.hpp"
+#include "../src/engine/app_dirs.hpp"
 #include "../src/engine/backup_retention.hpp"
 #include "../src/engine/update_check.hpp"
 #include "../src/engine/value_lock.hpp"
@@ -529,6 +530,57 @@ static void test_form_arrows() {
     std::printf("Seta de forma: tabela do jogo, grupos e tooltips PASS%c", 10);
 }
 
+
+// ------------------------------------------------------------------------------------------------
+// Pastas de dados: migracao da pasta antiga para a nova
+
+static void test_app_dirs() {
+    namespace d = pes::dirs;
+    const fs::path root = make_temp_dir("dirs");
+    std::error_code ec;
+
+    // 1) so a antiga existe: e movida com o conteudo, e o caminho novo e devolvido
+    fs::create_directories(root / "old1" / "Packs" / "Backups", ec);
+    touch(root / "old1" / "Packs" / "Backups" / "Backup_x.json", "{}", 0);
+    touch(root / "old1" / "settings.ini", "lang=es", 0);
+    fs::path r1 = d::migrate_dir(root, L"new1", L"old1");
+    CHECK(r1 == root / "new1");
+    CHECK(!fs::exists(root / "old1", ec));
+    CHECK(fs::exists(root / "new1" / "Packs" / "Backups" / "Backup_x.json", ec));
+    CHECK(slurp(root / "new1" / "settings.ini") == "lang=es");
+
+    // 2) chamar de novo e idempotente
+    CHECK(d::migrate_dir(root, L"new1", L"old1") == root / "new1");
+    CHECK(fs::exists(root / "new1" / "settings.ini", ec));
+
+    // 3) as duas existem: usa a nova e nunca mexe na antiga
+    fs::create_directories(root / "old2", ec);
+    fs::create_directories(root / "new2", ec);
+    touch(root / "old2" / "a.txt", "antigo", 0);
+    touch(root / "new2" / "b.txt", "novo", 0);
+    CHECK(d::migrate_dir(root, L"new2", L"old2") == root / "new2");
+    CHECK(slurp(root / "old2" / "a.txt") == "antigo");
+    CHECK(slurp(root / "new2" / "b.txt") == "novo");
+    CHECK(!fs::exists(root / "new2" / "a.txt", ec));
+
+    // 4) nenhuma existe: devolve o caminho novo sem criar nada
+    CHECK(d::migrate_dir(root, L"new3", L"old3") == root / "new3");
+    CHECK(!fs::exists(root / "new3", ec) && !fs::exists(root / "old3", ec));
+
+    // 5) um ARQUIVO com o nome antigo nao e pasta: nao mexe
+    touch(root / "old4", "arquivo", 0);
+    CHECK(d::migrate_dir(root, L"new4", L"old4") == root / "new4");
+    CHECK(fs::exists(root / "old4", ec));
+
+    // nomes reais usados pelo app
+    CHECK(std::wstring(d::kAppFolder) == L"Lettuce Live Editor");
+    CHECK(std::wstring(d::kLegacyDocsFolder) == L"PES 2021 Workbench");
+    CHECK(std::wstring(d::kLegacyDataFolder) == L"PES2021Workbench");
+
+    fs::remove_all(root, ec);
+    std::printf("Pastas de dados: migracao unica e sem perda PASS%c", 10);
+}
+
 int main() {
     std::printf("== Servicos v14.1 ==\n");
     test_versions();
@@ -539,6 +591,7 @@ int main() {
     test_value_lock();
     test_spanish();
     test_form_arrows();
+    test_app_dirs();
     std::printf("%d verificacoes, %d falha(s)\n", g_checks, g_fail);
     return g_fail == 0 ? 0 : 1;
 }
