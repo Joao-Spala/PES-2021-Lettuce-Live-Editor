@@ -15,10 +15,16 @@ $ImGui = @("imgui", "imgui_draw", "imgui_tables", "imgui_widgets") | ForEach-Obj
 foreach ($o in $ImGui) { if (-not (Test-Path $o)) { throw "Objeto do ImGui ausente ($o). Rode native\build.ps1 primeiro." } }
 
 Write-Host "[engine] test_engine"
-& $Clang @Common "$NativeDir\tests\test_engine.cpp" "$Src\engine\ovr_engine.cpp" "$Src\engine\pes_engine.cpp" "$Src\engine\hooks.cpp" "$Src\engine\win32_mem.cpp" "$Src\engine\backup_retention.cpp" "$Src\engine\action_log.cpp" -lole32 -lshell32 -luser32 -o "$Out\test_engine.exe"
+& $Clang @Common "$NativeDir\tests\test_engine.cpp" "$Src\engine\ovr_engine.cpp" "$Src\engine\pes_engine.cpp" "$Src\engine\hooks.cpp" "$Src\engine\image_scan.cpp" "$Src\engine\win32_mem.cpp" "$Src\engine\backup_retention.cpp" "$Src\engine\action_log.cpp" -lole32 -lshell32 -luser32 -o "$Out\test_engine.exe"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & "$Out\test_engine.exe"
 if ($LASTEXITCODE -ne 0) { Write-Host "test_engine FALHOU"; exit $LASTEXITCODE }
+
+Write-Host "[scanner] test_image_scan"
+& $Clang @Common "$NativeDir\tests\test_image_scan.cpp" "$Src\engine\image_scan.cpp" "$Src\engine\win32_mem.cpp" -luser32 -o "$Out\test_image_scan.exe"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& "$Out\test_image_scan.exe"
+if ($LASTEXITCODE -ne 0) { Write-Host "test_image_scan FALHOU"; exit $LASTEXITCODE }
 
 Write-Host "[services] test_services"
 & $Clang @Common "$NativeDir\tests\test_services.cpp" "$Src\engine\backup_retention.cpp" "$Src\engine\action_log.cpp" "$Src\engine\update_check.cpp" "$Src\ui\theme.cpp" "$Src\ui\i18n_es.cpp" "$Src\engine\win32_mem.cpp" @ImGui -lwinhttp -lole32 -lshell32 -luser32 -lgdi32 -o "$Out\test_services.exe"

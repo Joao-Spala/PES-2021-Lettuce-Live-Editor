@@ -69,7 +69,8 @@ bool status_materially_changed(const StatusSnapshot& a, const StatusSnapshot& b)
         a.hooks != b.hooks || a.has_player != b.has_player || a.has_finances != b.has_finances ||
         a.val_lock_active != b.val_lock_active || !(a.val_lock == b.val_lock) ||
         a.val_lock_addr != b.val_lock_addr || a.val_lock_lost != b.val_lock_lost ||
-        a.val_lock_name != b.val_lock_name || a.target_exe != b.target_exe || a.target_unsupported != b.target_unsupported) {
+        a.val_lock_name != b.val_lock_name || a.target_exe != b.target_exe || a.target_unsupported != b.target_unsupported ||
+        a.compat_missing != b.compat_missing) {
         return true;
     }
     if (a.has_finances && (a.finances.transfer_raw != b.finances.transfer_raw ||
@@ -1787,6 +1788,12 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
 
     ImGui::Spacing();
 
+    // Conectado a uma carreira e sem nenhum atleta: diz o que houve em vez de mostrar uma tabela em branco
+    if (squad_.players.empty() && st_.attached && st_.career > 0) {
+        wrapped_colored(col::GoldSoft, "%s", fmt_code_msg(L, "squad_not_found").c_str());
+        ImGui::Spacing();
+    }
+
     int n = static_cast<int>(squad_.players.size());
     int exp_c = 0, inj_c = 0, u23_c = 0;
     double sum_ovr = 0.0, sum_age = 0.0;
@@ -2165,13 +2172,13 @@ void WorkbenchApp::render_view_finances(const FontBank& fonts) {
         else toast_code(r.code, true);
     }
     flow_next(calc_btn_w(T(L, "+10M Transf.", "+10M Transfer")));
-    if (btn_green(T(L, "+10M Transf.", "+10M Transfer"))) { auto r = engine_.add_finance_delta(true, 100000); if (r.ok) { fin_ = r; reload_finances(); } }
+    if (btn_green(T(L, "+10M Transf.", "+10M Transfer"))) { auto r = engine_.add_finance_delta(true, 100000); if (r.ok) { fin_ = r; reload_finances(); } else toast_code(r.code, true); }
     flow_next(calc_btn_w(T(L, "+100M Transf.", "+100M Transfer")));
-    if (btn_green(T(L, "+100M Transf.", "+100M Transfer"))) { auto r = engine_.add_finance_delta(true, 1000000); if (r.ok) { fin_ = r; reload_finances(); } }
+    if (btn_green(T(L, "+100M Transf.", "+100M Transfer"))) { auto r = engine_.add_finance_delta(true, 1000000); if (r.ok) { fin_ = r; reload_finances(); } else toast_code(r.code, true); }
     flow_next(calc_btn_w(T(L, "+10M Salários", "+10M Salary")));
-    if (btn_gold(T(L, "+10M Salários", "+10M Salary"))) { auto r = engine_.add_finance_delta(false, 100000); if (r.ok) { fin_ = r; reload_finances(); } }
+    if (btn_gold(T(L, "+10M Salários", "+10M Salary"))) { auto r = engine_.add_finance_delta(false, 100000); if (r.ok) { fin_ = r; reload_finances(); } else toast_code(r.code, true); }
     flow_next(calc_btn_w(T(L, "+50M Salários", "+50M Salary")));
-    if (btn_gold(T(L, "+50M Salários", "+50M Salary"))) { auto r = engine_.add_finance_delta(false, 500000); if (r.ok) { fin_ = r; reload_finances(); } }
+    if (btn_gold(T(L, "+50M Salários", "+50M Salary"))) { auto r = engine_.add_finance_delta(false, 500000); if (r.ok) { fin_ = r; reload_finances(); } else toast_code(r.code, true); }
     end_studio_card();
 }
 
@@ -5762,8 +5769,10 @@ void WorkbenchApp::render_connection_hint(const FontBank& fonts) {
     (void)fonts;
     Lang L = settings_.lang;
     const bool career_ok = st_.attached && st_.career > 0;
+    // Executavel com assinaturas que nao casaram: parte dos recursos fica desligada por seguranca e o usuario precisa saber
+    const bool compat_warn = st_.attached && !st_.access_denied && st_.compat_missing != 0;
     // Conectado e com carreira: volta a descricao normal da tela. A dica ocupa a mesma linha, entao nada se desloca.
-    if (career_ok && !st_.access_denied) {
+    if (career_ok && !st_.access_denied && !compat_warn) {
         wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.",
                                                  "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
         return;
@@ -5783,6 +5792,10 @@ void WorkbenchApp::render_connection_hint(const FontBank& fonts) {
             ? std::string(T(L, "Aguardando o PES 2021 ou o Football Life. A conexão é automática.", "Waiting for PES 2021 or Football Life. The connection is automatic."))
             : std::string(T(L, "Procurando o processo escolhido: ", "Looking for the chosen process: ")) + st_.target_exe;
         tone = col::Subtext;
+    } else if (compat_warn) {
+        msg = T(L, "Executável diferente: recursos incompatíveis desligados. Veja Serviços > Diagnóstico.",
+                   "Different executable: unsupported features are off. See Services > Diagnostics.");
+        tone = col::GoldSoft;
     } else {
         msg = T(L, "Jogo conectado. Entre na Master Liga ou no Rumo ao Estrelato para liberar o resto.", "Game connected. Enter Master League or Become a Legend to unlock the rest.");
         tone = col::GreenSoft;

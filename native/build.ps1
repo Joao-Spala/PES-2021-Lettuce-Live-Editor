@@ -57,6 +57,7 @@ $AppSources = @(
     "$NativeDir\src\engine\backup_retention.cpp",
     "$NativeDir\src\engine\action_log.cpp",
     "$NativeDir\src\engine\update_check.cpp",
+    "$NativeDir\src\engine\image_scan.cpp",
     "$NativeDir\src\engine\hooks.cpp",
     "$NativeDir\src\engine\ovr_engine.cpp",
     "$NativeDir\src\engine\pes_engine.cpp",

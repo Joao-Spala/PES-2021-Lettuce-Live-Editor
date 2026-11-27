@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented in this file.
 
+## [14.1.1] - 2026-11-27 - Compatibility overhaul
+
+### Changed / Alterado
+- **No fixed addresses.** Every hook site and global pointer is found by a unique byte signature in the executable sections of the running process (11 signatures in `native/src/engine/signatures.hpp`). The old shortcut that trusted the reference build's address for the career and match pointers was removed: on another build it pointed at a different variable. A signature that is missing or ambiguous turns the dependent feature off and shows a warning in the connection line at the top of each view, instead of writing to a wrong address.
+- The bytes at a site are read again, live, right before any write.
+- The player table is read up to its structural limit (62115 records, the point where it would overlap the career fields), all or nothing, instead of being capped at 30000. Squad records are validated before any batch tool writes to them.
+- The stamina hook signature now covers the function epilogue that the hook rebuilds by hand.
+- BAL focus above 21 refuses with a clear message when the cap patch is unavailable.
+
+### Added / Adicionado
+- Build fingerprint (PE timestamp and size) with a verified list: PES 2021 Steam 1.7.2.0 (tested live) and `FL_2027.exe` (checked offline).
+- Diagnostics report now has the build, every signature with its address, scan coverage, the squad scan and where the captured player sits in the table.
+- `native/check_exe_signatures.py`: checks any executable offline against the same signatures and compares the career field references with the reference build.
+- `docs/COMPATIBILITY.md` and `docs/COMPATIBILITY.pt-BR.md`.
+- Hook journal with owner process (PID and creation time): orphan hooks left by a crashed instance are reverted on any build, and the helper area is freed only after nothing jumps into it. A live instance is never touched, even if its file has a different name.
+- Messages `squad_not_found` and `feature_unavailable` in PT-BR, EN and ES, and a notice on the squad view when a career is loaded but no player was found.
+- Tests: `native/tests/test_image_scan.cpp` (98 checks on the PE reader, pattern search and signature resolver). Total 360 checks.
+
+### Fixed / Corrigido
+- Salary budget: with the squad not found the wage bill was zero, so the cap was written as the typed value alone and the game showed a negative available salary. Nothing is written now.
+- Batch tools and backups report "squad not found" instead of the misleading "could not save the backup".
+- Switching from one game process to another with the app open no longer reuses the helper area and signatures of the old process.
+- Re-hooking after an external overwrite no longer leaves jumps without a record, and no longer overwrites live caves of other hooks.
+- The finance buttons in the Finances view show errors instead of failing silently.
+- Signature search only considers executable sections, retries missing signatures with growing intervals and reads huge sections once, so an unsupported build no longer stalls the app.
+
+---
+
 ## [14.1.0] - 2026-11-26 - Quality of life
 
 ### Added / Adicionado

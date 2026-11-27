@@ -55,6 +55,7 @@ struct StatusSnapshot {
     bool attached = false;
     bool access_denied = false;
     bool conflict_other_wb = false;
+    uint32_t compat_missing = 0;       // bits de FeatureBit: recursos cujas assinaturas nao foram achadas neste executavel
     std::string target_exe;            // alvo escolhido a mao (vazio = detecta sozinho)
     bool target_unsupported = false;   // o processo escolhido existe, mas nao e um jogo compativel (nada foi gravado nele)
     std::string exe;
@@ -557,7 +558,11 @@ private:
     std::pair<int, std::string> decode_club_handle(uint32_t raw_u32, uint64_t career);
     uint32_t get_user_club_handle(uint64_t career);
     const std::vector<uint64_t>& get_user_squad_addresses(uint64_t career, bool force_rescan, std::vector<uint8_t>* out_raw_table = nullptr);
-    void get_available_salary_budget(uint64_t career, bool force_refresh, int32_t& out_avail, int32_t& out_gross, int32_t& out_wages);
+    uint32_t player_table_count(uint64_t career);
+    // Le a tabela de atletas inteira (tudo ou nada). Devolve a quantidade de registros, 0 se qualquer bloco falhou.
+    uint32_t read_player_table(uint64_t career, std::vector<uint8_t>& raw, uint32_t count, uint64_t* bytes_read = nullptr);
+    void get_available_salary_budget(uint64_t career, bool force_refresh, int32_t& out_avail, int32_t& out_gross, int32_t& out_wages,
+                                     bool* squad_found = nullptr);
 
     PlayerDetails build_player_details_from_buf(uint64_t p, uint64_t career, const uint8_t* buf);
     EconSyncDelta apply_economy_sync_locked(
@@ -594,6 +599,14 @@ private:
     uint64_t init_retry_tick_ = 0;
     bool init_fail_logged_ = false;
     uint32_t career_changes_ = 0;   // quantas vezes o ponteiro da carreira mudou desde o attach (diagnostico)
+    uint32_t compat_missing_ = 0;
+    uint32_t compat_rechecks_ = 0;       // novas tentativas de achar assinaturas depois do attach (intervalo crescente)
+    bool wage_cache_found_ = false;      // o ultimo calculo da folha achou o elenco?
+    uint64_t compat_recheck_tick_ = 0;
+    struct SquadDiag {
+        uint32_t club_handle = 0, count_field = 0, count_used = 0, same_club = 0, rejected = 0;
+        uint64_t bytes_read = 0, bytes_wanted = 0;
+    } squad_diag_;
     uint64_t last_career_ = 0;
     uint64_t last_written_career_ = UINT64_MAX;
     uint64_t last_written_mmgr_ = UINT64_MAX;
