@@ -5,6 +5,7 @@
 #include "win32_mem.hpp"
 #include "hooks.hpp"
 #include "ovr_engine.hpp"
+#include "value_lock.hpp"
 #include "econ_model.hpp"
 #include "../data/game_data.hpp"
 
@@ -74,6 +75,11 @@ struct StatusSnapshot {
     int match_sec = 0;
     int bal_focus = 0;
     bool bal_lock = false;
+    bool val_lock_active = false;
+    ValueLockConfig val_lock;
+    uint64_t val_lock_addr = 0;
+    std::string val_lock_name;
+    uint32_t val_lock_lost = 0;    // contador: sobe cada vez que uma trava e desligada pelo motor
     uint64_t seq = 0;
 };
 
@@ -384,6 +390,9 @@ std::string serialize_roster_pack_json(const RosterPack& pack);
 
 // Local Packs directory helpers (%USERPROFILE%\Documents\PES 2021 Workbench\Packs)
 std::string get_packs_directory();
+// Pasta dos backups JSON do elenco (Packs\Backups) e da pasta de logs (ao lado de Packs)
+std::string get_backups_directory();
+std::string get_logs_directory();
 std::string make_default_pack_filename(std::string_view label, std::string_view club);
 bool save_text_file_utf8(const std::string& path, std::string_view content);
 bool load_text_file_utf8(const std::string& path, std::string& out_content);
@@ -399,6 +408,9 @@ public:
 
     bool ensure_attached();
     void shutdown();
+
+    // Quantos backups manter (0 = todos). A poda so roda depois de gravar um backup novo.
+    void set_backup_keep(int keep) { backup_keep_.store(keep < 0 ? 0 : keep, std::memory_order_relaxed); }
 
     StatusSnapshot get_status();
     bool select_player(uint64_t addr);
@@ -465,6 +477,11 @@ public:
     ActionResult set_stamina_mode(int mode);
     ActionResult set_bal_focus(int points, bool lock_enabled);
     ActionResult set_freeze_clock(bool freeze);
+    // Liga/atualiza a trava do atleta atual (nenhum campo marcado = desliga). Nao entra no historico de desfazer.
+    // `addr` = registro do atleta aberto no editor (0 = o atleta atual capturado). Prender ao endereco da tela evita
+    // travar outro atleta se a captura mudar entre o clique e a chamada.
+    ActionResult set_value_lock(const ValueLockConfig& cfg, uint64_t addr = 0);
+    void clear_value_lock();
     ActionResult set_match_clock(int target_min, int target_sec);
     ActionResult shift_match_clock(int delta_min);
     ActionResult reset_match_half();
@@ -542,6 +559,21 @@ private:
     Win32Memory mem_;
     HookManager hooks_;
     std::atomic<bool> shutting_down_{false};
+    std::atomic<int> backup_keep_{0};
+
+    struct ValueLockState {
+        bool active = false;
+        ValueLockConfig cfg;
+        uint64_t addr = 0;
+        uint32_t player_id = 0;
+        uint32_t proc_pid = 0;
+        int bad_reads = 0;   // leituras seguidas que falharam
+        std::string name;
+    };
+    ValueLockState vlock_;
+    uint32_t vlock_lost_ = 0;
+    void tick_value_lock_locked();
+    void drop_value_lock_locked();
 
     uint64_t addr_career_owner_ = 0;
     uint64_t addr_match_mgr_ = 0;

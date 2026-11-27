@@ -7,6 +7,7 @@
 #include "widgets.hpp"
 #include "icons.hpp"
 #include "../engine/pes_engine.hpp"
+#include "../engine/update_check.hpp"
 
 #include <atomic>
 #include <condition_variable>
@@ -97,7 +98,8 @@ private:
     void toast_code(const std::string& code, bool is_err, int orig = 0, int fin = 0, int pri = 0, int pos = -1, int reg_pos = -1, bool needs_grade = false);
     std::string fmt_econ_delta_line(const EconSyncDelta& ed) const;
     void record_solver_action(const PlayerDetails& r, const char* tag_pt, const char* tag_en);
-    void record_meta_action(int pos_id, int orig_ovr, int final_ovr, const std::string& note_pt, const std::string& note_en);
+    static const char* log_tag(Lang L, const std::string& pt, const std::string& en, const std::string& es);
+    void record_meta_action(int pos_id, int orig_ovr, int final_ovr, const std::string& note_pt, const std::string& note_en, const std::string& note_es = std::string());
     void render_poslab_log_card(const FontBank& fonts, float max_h);
 
     struct PosLabLogEntry {
@@ -110,6 +112,7 @@ private:
         std::string tag_pt;
         std::string tag_en;
         std::vector<StatDiff> diffs;
+        std::string tag_es;   // opcional (no fim para nao quebrar a inicializacao posicional): textos montados em tempo de execucao
     };
 
     struct LastEditSummary {
@@ -157,6 +160,30 @@ private:
     float dpi_scale_ = 1.0f;
     bool theme_rebuild_ = false;
     void render_prefs_popup(const FontBank& fonts);
+    int prefs_tab_ = 0;   // 0 = Aparencia, 1 = Servicos
+
+    // Servicos opcionais (v14.1): aviso de versao, retencao de backups, log local e guia de primeiros passos
+    update::Checker update_checker_;
+    bool services_started_ = false;
+    bool update_manual_ = false;   // o usuario pediu "Verificar agora": o aviso aparece mesmo com a opcao desligada
+    bool open_welcome_guide_ = false;
+#ifdef PES_QA_DUMP
+    bool qa_open_prefs_ = false;
+#endif
+    struct BackupInfo { int count = 0; uint64_t bytes = 0; };
+    BackupInfo backup_info_;
+    void start_services_once();
+    void start_update_check();
+    void apply_backup_retention();
+    void refresh_backup_info();
+    void render_prefs_services();
+    void render_update_banner(const FontBank& fonts);
+    void render_setup_checklist(const FontBank& fonts);
+    void render_welcome_guide(const FontBank& fonts);
+    void render_value_lock_card(const FontBank& fonts);
+    ValueLockConfig lock_ui_;
+    uint64_t lock_ui_addr_ = 0;   // atleta ao qual os interruptores de lock_ui_ se referem
+    uint32_t last_lock_lost_ = 0;
     float titlebar_h_ = 38.0f;
     std::vector<HitRect> titlebar_interactive_;
 

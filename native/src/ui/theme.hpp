@@ -4,6 +4,7 @@
 #include "i18n.hpp"
 #include "../../third_party/imgui/imgui.h"
 
+#include <iosfwd>
 #include <string>
 
 namespace pes::ui {
@@ -20,6 +21,12 @@ struct AppSettings {
     bool topmost = false;   // Always-on-Top
     int win_x = 0, win_y = 0, win_w = 0, win_h = 0; // geometria restaurada (0 = padrao)
     bool win_max = false;
+    // Servicos opcionais (v14.1)
+    bool check_updates = false;      // opt-in: consulta o GitHub uma vez por abertura
+    std::string update_dismissed;    // tag da versao cujo aviso foi dispensado (ex.: "v14.2.0")
+    int backup_keep_idx = 0;         // indice em backups::kKeepOptions (0 = guardar todos)
+    bool action_log = true;          // log local das acoes (Documentos\PES 2021 Workbench\Logs)
+    bool first_run_done = false;     // guia de boas-vindas ja exibido
 };
 
 inline constexpr float kUiScales[5] = {0.90f, 1.00f, 1.15f, 1.30f, 1.50f};
@@ -90,16 +97,19 @@ void apply_visual_theme(int idx);
 int current_visual_theme();
 const char* brand_title();            // "Lettuce Live Editor" ou "PES 2021 Workbench"
 const char* brand_tag();              // etiqueta ao lado do titulo
-const char* theme_name(int idx, bool en);
+const char* theme_name(int idx, Lang lang);
 int theme_default_accent(int idx);
 void theme_preview(int idx, ImVec4 out[4]); // canvas, cartao, destaque, destaque suave
 // Define a cor de destaque (chame apply_studio_theme em seguida para atualizar o ImGuiStyle)
 void set_accent_theme(int idx);
-const char* accent_name(int idx, bool en);
+const char* accent_name(int idx, Lang lang);
 ImVec4 accent_swatch(int idx);
 void build_font_bank(FontBank& bank, float dpi_scale = 1.0f);
 
 AppSettings load_settings();
 void save_settings(const AppSettings& s);
+// Versoes sobre streams: usadas pelas duas acima e pelos testes (sem tocar no settings.ini real)
+AppSettings parse_settings(std::istream& in);
+void write_settings(std::ostream& out, const AppSettings& s);
 
 } // namespace pes::ui

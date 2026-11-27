@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [14.1.0] - 2026-11-26 - Quality of life
+
+### Added / Adicionado
+- **Spanish** interface (`PT-BR / EN / ES`, cycled by the language button). Dictionary in `native/i18n_es.json`, English fallback when a phrase has no entry. Skill, play style and team role names stay in English for now.
+- **Lock values**: keeps a player's stamina, form arrow and injury at chosen values (Condition & Bio tab). Bound to the player record and game process, turns itself off if either changes, outside the undo history.
+- **Update notice** (opt-in, off by default): one HTTPS request to the public GitHub releases API when the app opens, no data sent, nothing downloaded. Only shows the release link.
+- **Getting started guide** on first launch and a getting started card on the Overview that follows the real game state.
+- **Squad backup retention** (keep 10, 20, 50, 100 or all, never deleting the newest) with disk usage, and a **local action log** (`Documents\PES 2021 Workbench\Logs`, 1 MB rotation, can be turned off). Settings now has two tabs: Appearance and Services.
+
+### Changed / Alterado
+- Settings are parsed and written through stream functions covered by unit tests, and the new keys are validated on load.
+- Tests: `native/tests/build_tests.ps1` builds and runs the engine tests and the service tests (154 checks).
+
+---
+
 ## [14.0.0] - 2026-11-26 - Lettuce Live Editor
 
 ### Added / Adicionado

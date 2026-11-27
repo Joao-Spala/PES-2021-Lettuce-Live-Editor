@@ -1,5 +1,6 @@
 #include "widgets.hpp"
 #include "icons.hpp"
+#include "../engine/action_log.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -1347,8 +1348,8 @@ bool draw_stat_row(
     out_preview_val = disp_val;
 
     ImGui::PushID(s.fid);
-    const char* lbl = (lang == Lang::EN) ? s.en : s.pt;
-    const char* desc = (lang == Lang::EN) ? s.desc_en : s.desc_pt;
+    const char* lbl = T(lang, s.pt, s.en);
+    const char* desc = T(lang, s.desc_pt, s.desc_en);
 
     float sc = std::clamp(ImGui::GetFontSize() / 15.0f, 0.85f, 2.5f);
     float avail = ImGui::GetContentRegionAvail().x;
@@ -1493,6 +1494,7 @@ bool draw_stat_row(
 
 void ToastManager::push(const std::string& msg, bool is_err, double custom_dur) {
     // Generous read time: 5.5s for normal notices, 8.0s for multi-line economy/stat diffs
+    pes::actionlog::write(is_err ? "ERROR" : "INFO", msg);
     bool multi = (msg.find('\n') != std::string::npos);
     double dur = (custom_dur > 0.5) ? custom_dur : (multi ? 8.0 : 5.5);
     items_.push_back({msg, is_err, dur, dur, 0.0});

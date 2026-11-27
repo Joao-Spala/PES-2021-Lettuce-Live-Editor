@@ -1,8 +1,9 @@
 #pragma once
-// 100% PT-BR / EN localization & currency formatting for PES 2021 Workbench Native.
+// PT-BR / EN / ES localization & currency formatting for Lettuce Live Editor.
 
 #include "../data/game_data.hpp"
 #include "../engine/pes_engine.hpp"
+#include "i18n_es.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -11,7 +12,7 @@
 
 namespace pes::ui {
 
-enum class Lang : int { PT = 0, EN = 1 };
+enum class Lang : int { PT = 0, EN = 1, ES = 2 };
 
 struct CurrencyInfo {
     const char* code;
@@ -26,18 +27,22 @@ inline constexpr CurrencyInfo kCurrencies[4] = {
     {"GBP", "£", ','},     // £
 };
 
+// Escolhe o texto no idioma ativo. O espanhol e buscado no dicionario por esta frase em ingles e,
+// se faltar entrada, mostra o ingles. Textos de dados do jogo (habilidades, estilos, funcoes) tambem passam por aqui.
 inline const char* T(Lang lang, const char* pt, const char* en) {
-    return (lang == Lang::EN) ? en : pt;
+    if (lang == Lang::EN) return en;
+    if (lang == Lang::ES) return es_lookup(en);
+    return pt;
 }
 
 inline const char* pos_short(Lang lang, int pos_id) {
     if (pos_id < 0 || pos_id >= 13) return "---";
-    return (lang == Lang::EN) ? data::POSITIONS[pos_id].en : data::POSITIONS[pos_id].pt;
+    return T(lang, data::POSITIONS[pos_id].pt, data::POSITIONS[pos_id].en);
 }
 
 inline const char* pos_full(Lang lang, int pos_id) {
     if (pos_id < 0 || pos_id >= 13) return "---";
-    return (lang == Lang::EN) ? data::POSITIONS[pos_id].name_en : data::POSITIONS[pos_id].name_pt;
+    return T(lang, data::POSITIONS[pos_id].name_pt, data::POSITIONS[pos_id].name_en);
 }
 
 inline std::string fmt_money(int32_t raw, int cur_idx, Lang lang) {

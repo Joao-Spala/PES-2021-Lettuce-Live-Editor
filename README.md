@@ -63,6 +63,8 @@ The focus is editing consistently and reversibly. The principles below guide the
 3. Open Lettuce Live Editor, as Administrator if the game is elevated.
 4. Highlight a player in the Game Plan. The app captures them in the background and opens everything around them.
 
+The first launch shows a short guide, and the Overview keeps a getting started card until the game is connected.
+
 ### How it works
 
 ```mermaid
@@ -136,6 +138,10 @@ The whole game database, not just your squad. Find any player, open their editor
 | **Does it work with patches?** | Yes. It is compatible with Sider 7.3+ and with derivatives such as Football Life, SmokePatch, VirtuaRED and Dream Patch. If an older Workbench is open at the same time, the app warns about the conflict. |
 | **Can I share edits between saves?** | **Pack Studio** (JSON v13) exports players and squads and imports them on another save, matching by ID, name or manual pick, with a diff preview and batch rollback. |
 | **And training?** | The **Training & BAL** view has the user club's Sub-XP multiplier and the BAL Focus Points unlock. |
+| **Can I freeze a value?** | Yes. **Lock values** (Condition & Bio tab) keeps a player's stamina, form arrow and injury at the values you choose, rewriting them about twice a second. It turns itself off if the game closes or the locked player changes, and it is not part of the undo history. |
+| **Does the app use the internet?** | Only if you opt in. In `Settings > Services` the update notice is off by default. When on, it checks the public GitHub releases page once when the app opens, sends nothing about you and downloads nothing, it only shows a link. Everything else runs on your machine. |
+| **Where do backups and logs go?** | Squad backups go to `Documents/PES 2021 Workbench/Packs/Backups`, with an optional keep-the-latest limit (10, 20, 50 or 100) and a disk usage indicator. A local action log in `Documents/PES 2021 Workbench/Logs` helps reproduce problems, rotates at 1 MB and can be turned off. Nothing is sent anywhere. |
+| **Which languages?** | Portuguese, English and Spanish. In Spanish, skill, play style and team role names stay in English for now. |
 
 ### Shortcuts worth learning
 
@@ -156,7 +162,7 @@ The whole game database, not just your squad. Find any player, open their editor
 
 ### Visual identity
 
-The name and the lettuce logo are the same in every theme. Only the palette changes: **`Blue`** (navy with the Lettuce green accent, the default) and **`Lettuce`** (forest green). Switching is live, in `Settings`, and persisted. Also in `Settings`: always on top, UI scale from 90% to 150%, 6 accent colours, and remembered window size and position. Own vector icons, multi-monitor support with mixed DPI, 7 fonts, `PT-BR / EN` and `EUR / BRL / USD / GBP` round it out.
+The name and the lettuce logo are the same in every theme. Only the palette changes: **`Blue`** (navy with the Lettuce green accent, the default) and **`Lettuce`** (forest green). Switching is live, in `Settings`, and persisted. Also in `Settings`: always on top, UI scale from 90% to 150%, 6 accent colours, and remembered window size and position. Own vector icons, multi-monitor support with mixed DPI, 7 fonts, `PT-BR / EN / ES` and `EUR / BRL / USD / GBP` round it out.
 
 ---
 

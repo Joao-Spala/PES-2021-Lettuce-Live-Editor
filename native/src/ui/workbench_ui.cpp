@@ -1,5 +1,8 @@
 #include "workbench_ui.hpp"
 #include "../engine/skill_presets.hpp"
+#include "../engine/action_log.hpp"
+#include "../engine/backup_retention.hpp"
+#include "../app_version.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -63,7 +66,10 @@ bool status_materially_changed(const StatusSnapshot& a, const StatusSnapshot& b)
         a.career != b.career || a.in_match != b.in_match || a.mode_code != b.mode_code ||
         a.club != b.club || a.training_mode != b.training_mode || a.stamina_mode != b.stamina_mode ||
         a.freeze_clock != b.freeze_clock || a.bal_focus != b.bal_focus || a.bal_lock != b.bal_lock ||
-        a.hooks != b.hooks || a.has_player != b.has_player || a.has_finances != b.has_finances) {
+        a.hooks != b.hooks || a.has_player != b.has_player || a.has_finances != b.has_finances ||
+        a.val_lock_active != b.val_lock_active || !(a.val_lock == b.val_lock) ||
+        a.val_lock_addr != b.val_lock_addr || a.val_lock_lost != b.val_lock_lost ||
+        a.val_lock_name != b.val_lock_name) {
         return true;
     }
     if (a.has_finances && (a.finances.transfer_raw != b.finances.transfer_raw ||
@@ -214,6 +220,10 @@ std::string pick_save_json_dialog(HWND owner, const std::string& init_dir, const
 WorkbenchApp::WorkbenchApp(PESEngine& engine) : engine_(engine) {
     settings_ = load_settings();
     engine_.set_econ_sync_mode(static_cast<EconSyncMode>(std::clamp(settings_.econ_sync_mode, 0, 3)));
+    actionlog::set_directory(std::filesystem::path(utf8_to_wide(get_logs_directory())));
+    actionlog::set_enabled(settings_.action_log);
+    apply_backup_retention();
+    open_welcome_guide_ = !settings_.first_run_done;
 }
 
 WorkbenchApp::~WorkbenchApp() {
@@ -237,6 +247,9 @@ void WorkbenchApp::start_background_poller(void* hwnd_raw) {
             bool changed = first || status_materially_changed(prev, snap);
             first = false;
             if (changed) {
+                if (prev.seq == 0 || snap.attached != prev.attached) {
+                    actionlog::write("INFO", snap.attached ? std::string("Game attached: ") + snap.exe : std::string("Game not connected"));
+                }
                 prev = snap;
                 {
                     std::lock_guard<std::mutex> g(status_mtx_);
@@ -248,6 +261,8 @@ void WorkbenchApp::start_background_poller(void* hwnd_raw) {
             }
             // Fast 250ms polling when active (C++ get_status takes <0.05ms), 2000ms when minimized/offline
             int sleep_ms = (minimized_.load(std::memory_order_relaxed) || !prev.attached) ? 2000 : 250;
+            // Com trava ativa o ciclo nao passa de 500 ms, mesmo com o app minimizado (a trava so escreve ao dar o ciclo)
+            if (prev.val_lock_active) sleep_ms = std::min(sleep_ms, 500);
             std::unique_lock<std::mutex> lk(poll_cv_mtx_);
             poll_cv_.wait_for(lk, std::chrono::milliseconds(sleep_ms), [this]() {
                 return !poller_running_.load(std::memory_order_relaxed) || poll_wake_flag_;
@@ -408,7 +423,7 @@ void WorkbenchApp::record_solver_action(const PlayerDetails& r, const char* tag_
         for (size_t i = 0; i < lim; ++i) {
             const auto& df = r.action_diffs[i];
             const auto* sd = find_stat_def(df.fid);
-            const char* sn = sd ? (L == Lang::EN ? sd->en : sd->pt) : "?";
+            const char* sn = sd ? T(L, sd->pt, sd->en) : "?";
             int delta = df.new_val - df.old_val;
             char seg[64];
             std::snprintf(seg, sizeof(seg), "%s%s %+d", (i > 0 ? ", " : ""), sn, delta);
@@ -433,7 +448,12 @@ void WorkbenchApp::record_solver_action(const PlayerDetails& r, const char* tag_
     }
 }
 
-void WorkbenchApp::record_meta_action(int pos_id, int orig_ovr, int final_ovr, const std::string& note_pt, const std::string& note_en) {
+const char* WorkbenchApp::log_tag(Lang L, const std::string& pt, const std::string& en, const std::string& es) {
+    if (L == Lang::ES && !es.empty()) return es.c_str();
+    return T(L, pt.c_str(), en.c_str());
+}
+
+void WorkbenchApp::record_meta_action(int pos_id, int orig_ovr, int final_ovr, const std::string& note_pt, const std::string& note_en, const std::string& note_es) {
     PosLabLogEntry e;
     e.time_str = cur_hms();
     e.pos_id = pos_id;
@@ -443,6 +463,7 @@ void WorkbenchApp::record_meta_action(int pos_id, int orig_ovr, int final_ovr, c
     e.pri_ovr = player_.ovr;
     e.tag_pt = note_pt;
     e.tag_en = note_en;
+    e.tag_es = note_es;
     poslab_log_.insert(poslab_log_.begin(), std::move(e));
     if (poslab_log_.size() > 30) poslab_log_.resize(30);
 }
@@ -531,7 +552,7 @@ uint8_t WorkbenchApp::scout_mask_of(uint64_t addr) const {
 void WorkbenchApp::scout_report(const ActionResult& r, const char* verb_pt, const char* verb_en, int target_slot) {
     Lang L = settings_.lang;
     const char* lname = "";
-    for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == target_slot) { lname = (L == Lang::EN) ? sl.en : sl.pt; break; }
+    for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == target_slot) { lname = T(L, sl.pt, sl.en); break; }
     if (!r.ok) {
         if (r.code == "scout_full") toasts_.push(T(L, "Lista de destino cheia. Nada foi alterado.", "Target list is full. Nothing changed."), true);
         else if (r.code == "scout_dup") toasts_.push(T(L, "Esses atletas já estão na lista.", "Those players are already on the list."), true);
@@ -556,7 +577,7 @@ void WorkbenchApp::render_scout_list_menu(const char* popup_id, uint64_t addr) {
     for (const auto& sl : data::SCOUT_LISTS) {
         bool in_l = (mask & (1u << (sl.slot - 1))) != 0;
         char lbl[96];
-        std::snprintf(lbl, sizeof(lbl), "%s##mn%d", (L == Lang::EN) ? sl.en : sl.pt, sl.slot);
+        std::snprintf(lbl, sizeof(lbl), "%s##mn%d", T(L, sl.pt, sl.en), sl.slot);
         if (ImGui::Checkbox(lbl, &in_l)) { toggle_slot = sl.slot; was_in = !in_l; }
     }
     ImGui::EndPopup();
@@ -601,6 +622,7 @@ void WorkbenchApp::run_squad_cmd_impl(const char* mode, const std::vector<uint64
 }
 
 bool WorkbenchApp::render_frame(const FontBank& fonts) {
+    start_services_once();
     // Pull latest status snapshot from background thread (lock held <1us)
     {
         std::lock_guard<std::mutex> g(status_mtx_);
@@ -637,6 +659,18 @@ bool WorkbenchApp::render_frame(const FontBank& fonts) {
                 std::snprintf(match_sec_buf_, sizeof(match_sec_buf_), "%02d", st_.match_sec);
             }
             prev_in_match_ = st_.in_match;
+        }
+    }
+
+    if (st_.val_lock_lost != last_lock_lost_) {
+        const bool more = st_.val_lock_lost > last_lock_lost_;
+        last_lock_lost_ = st_.val_lock_lost;
+        if (more) {
+            lock_ui_ = ValueLockConfig{};   // a trava caiu: a tela volta ao estado desligado
+            lock_ui_addr_ = 0;
+            toasts_.push(T(settings_.lang,
+                "Travas desligadas: o jogo fechou ou o atleta travado mudou.",
+                "Locks turned off: the game closed or the locked player changed."), true);
         }
     }
 
@@ -755,6 +789,8 @@ bool WorkbenchApp::render_frame(const FontBank& fonts) {
         ImGui::Dummy(ImVec2(0, std::round(10.0f * dpi_scale_)));
     }
 
+    render_update_banner(fonts);
+
     switch (current_view_) {
         case View::Dashboard: render_view_dashboard(fonts); break;
         case View::Squad:     render_view_squad(fonts); break;
@@ -773,6 +809,7 @@ bool WorkbenchApp::render_frame(const FontBank& fonts) {
     ImGui::EndGroup();
 
     render_modals(fonts);
+    render_welcome_guide(fonts);
 
     ImGui::End();
     ImGui::PopFont();
@@ -1030,7 +1067,7 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
     std::snprintf(cur_btn, sizeof(cur_btn), "%s %s", kCurrencies[settings_.currency_idx].sym, kCurrencies[settings_.currency_idx].code);
     float cur_w = calc_btn_w(cur_btn);
 
-    const char* lang_btn = (L == Lang::EN) ? "EN" : "PT-BR";
+    const char* lang_btn = (L == Lang::EN) ? "EN" : ((L == Lang::ES) ? "ES" : "PT-BR");
     float lang_w = calc_btn_w(lang_btn);
 
     const float gap = std::round(8.0f * dpi_scale_);
@@ -1139,15 +1176,22 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
 
     ImGui::SameLine(0, gap);
     if (styled_button(lang_btn, col::BgCard, col::Border, col::AccentSoft, ImVec2(lang_w, ctrl_h))) {
-        settings_.lang = (L == Lang::EN) ? Lang::PT : Lang::EN;
+        // Ciclo PT -> EN -> ES -> PT
+        if (L == Lang::PT) settings_.lang = Lang::EN;
+        else if (L == Lang::EN) settings_.lang = Lang::ES;
+        else settings_.lang = Lang::PT;
         save_settings(settings_);
         if (has_player_details_) sync_player_form_buffers();
     }
-    show_tip_if_hovered(T(L, "Idioma", "Language"), T(L, "Alternar entre Português e Inglês", "Toggle Portuguese / English"));
+    show_tip_if_hovered(T(L, "Idioma", "Language"), T(L, "Alternar idioma (Português / Inglês / Espanhol)", "Cycle language (Portuguese / English / Spanish)"));
 
     ImGui::SameLine(0, gap);
     ImVec2 prefs_pos = ImGui::GetCursorScreenPos();
-    if (icon_button(Icon::Gear, prefs_btn_lbl, col::BgCard, col::Border, col::Text, ImVec2(prefs_w, ctrl_h))) {
+    bool prefs_clicked = icon_button(Icon::Gear, prefs_btn_lbl, col::BgCard, col::Border, col::Text, ImVec2(prefs_w, ctrl_h));
+#ifdef PES_QA_DUMP
+    if (qa_open_prefs_) { prefs_clicked = true; qa_open_prefs_ = false; }
+#endif
+    if (prefs_clicked) {
         ImGui::SetNextWindowPos(ImVec2(prefs_pos.x + prefs_w, prefs_pos.y + ctrl_h + 6.0f * dpi_scale_), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
         ImGui::OpenPopup("##prefs_popup");
     }
@@ -1158,8 +1202,9 @@ void WorkbenchApp::render_topbar(const FontBank& fonts) {
 void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
     Lang L = settings_.lang;
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
-    ImGui::SetNextWindowSizeConstraints(ImVec2(300.0f * dpi_scale_, 0.0f), ImVec2(420.0f * dpi_scale_, 600.0f * dpi_scale_));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(300.0f * dpi_scale_, 0.0f), ImVec2(420.0f * dpi_scale_, 640.0f * dpi_scale_));
     if (!ImGui::BeginPopup("##prefs_popup")) return;
+    if (ImGui::IsWindowAppearing()) refresh_backup_info();   // a aba Servicos mostra o espaco usado por backups
 
     {
         const float es = std::round(30.0f * dpi_scale_);
@@ -1175,6 +1220,28 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
         ImGui::EndGroup();
     }
     ImGui::Spacing();
+
+    // Duas abas: Aparencia (tema, escala, destaque) e Servicos (versao, backups, registro). Evita um popup gigante.
+    {
+        const float tab_gap = std::round(6.0f * dpi_scale_);
+        const float tab_w = std::max(80.0f * dpi_scale_, (ImGui::GetContentRegionAvail().x - tab_gap) * 0.5f);
+        const float tab_h = std::round(30.0f * dpi_scale_);
+        const char* tab_lbl[2] = {T(L, "Aparência##ptab0", "Appearance##ptab0"), T(L, "Serviços##ptab1", "Services##ptab1")};
+        for (int i = 0; i < 2; ++i) {
+            if (i > 0) ImGui::SameLine(0, tab_gap);
+            const bool act = (prefs_tab_ == i);
+            if (styled_button(tab_lbl[i], act ? col::Accent : col::BgCard, act ? col::AccentSoft : col::Border, act ? ImVec4(1, 1, 1, 1) : col::Subtext, ImVec2(tab_w, tab_h))) {
+                if (i == 1 && prefs_tab_ != 1) refresh_backup_info();
+                prefs_tab_ = i;
+            }
+        }
+        ImGui::Spacing();
+    }
+    if (prefs_tab_ == 1) {
+        render_prefs_services();
+        ImGui::EndPopup();
+        return;
+    }
 
     // Tema visual: cartoes de pre-visualizacao clicaveis
     ImGui::TextColored(col::Subtext, "%s", T(L, "Tema visual", "Visual theme"));
@@ -1200,7 +1267,7 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
             tdl->AddRectFilled(ImVec2(tp.x + 14.0f * dpi_scale_, tp.y + 26.0f * dpi_scale_), ImVec2(tp.x + tw * 0.52f, tp.y + 30.0f * dpi_scale_), ImGui::GetColorU32(pv[3]), 2.0f);
             tdl->AddCircleFilled(ImVec2(tp.x + tw * 0.80f, tp.y + th * 0.42f), 9.0f * dpi_scale_, ImGui::GetColorU32(pv[2]), 20);
             tdl->AddCircleFilled(ImVec2(tp.x + tw * 0.80f + 5.0f * dpi_scale_, tp.y + th * 0.42f - 4.0f * dpi_scale_), 4.0f * dpi_scale_, ImGui::GetColorU32(pv[3]), 16);
-            const char* tn = theme_name(i, L == Lang::EN);
+            const char* tn = theme_name(i, L);
             ImVec2 tsz = ImGui::CalcTextSize(tn);
             tdl->AddText(ImVec2(tp.x + 14.0f * dpi_scale_, tp.y + th - 8.0f * dpi_scale_ - tsz.y - 2.0f), ImGui::GetColorU32(ImVec4(0.93f, 0.96f, 0.92f, 1.0f)), tn);
             tdl->AddRect(tp, ImVec2(tp.x + tw, tp.y + th), tact ? ImGui::GetColorU32(pv[3]) : ImGui::GetColorU32(thov ? col::BorderLit : col::Border), trnd, 0, tact ? 2.0f : 1.0f);
@@ -1262,7 +1329,7 @@ void WorkbenchApp::render_prefs_popup(const FontBank& fonts) {
         bool act = (settings_.accent_idx == i);
         ImVec4 sw = accent_swatch(i);
         const bool sw_click = styled_button(lbl, ImVec4(sw.x, sw.y, sw.z, act ? 1.0f : 0.55f), act ? col::Text : sw, col::Text, ImVec2(sw_w, bh));
-        show_tip_if_hovered(accent_name(i, L == Lang::EN), T(L, "Cor de destaque", "Accent colour"));
+        show_tip_if_hovered(accent_name(i, L), T(L, "Cor de destaque", "Accent colour"));
         if (act) {
             ImVec2 a0 = ImGui::GetItemRectMin(), a1 = ImGui::GetItemRectMax();
             draw_icon(ImGui::GetWindowDrawList(), Icon::Check, ImVec2((a0.x + a1.x) * 0.5f, (a0.y + a1.y) * 0.5f), bh * 0.5f, ImGui::GetColorU32(ImVec4(1, 1, 1, 1)));
@@ -1292,6 +1359,7 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
 
     wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.", "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
     ImGui::Spacing();
+    render_setup_checklist(fonts);
 
     // 3 Responsive KPI Cards (equal height when 3-column, illuminated top accent + icon medallions)
     float avail_w = ImGui::GetContentRegionAvail().x;
@@ -1576,18 +1644,17 @@ void WorkbenchApp::apply_preset_cmd(bool to_selection) {
 void WorkbenchApp::render_preset_controls(const FontBank& fonts, bool compact) {
     (void)fonts;
     Lang L = settings_.lang;
-    const bool en = (L == Lang::EN);
     const auto& list = presets::kSkillPresets;
     preset_idx_ = std::clamp(preset_idx_, 0, static_cast<int>(list.size()) - 1);
     const auto& cur = list[static_cast<size_t>(preset_idx_)];
     ImGui::SetNextItemWidth(std::round((compact ? 190.0f : 260.0f) * dpi_scale_));
-    if (ImGui::BeginCombo("##skill_preset", en ? cur.en : cur.pt)) {
+    if (ImGui::BeginCombo("##skill_preset", T(L, cur.pt, cur.en))) {
         for (size_t i = 0; i < list.size(); ++i) {
-            if (ImGui::Selectable(en ? list[i].en : list[i].pt, static_cast<int>(i) == preset_idx_)) preset_idx_ = static_cast<int>(i);
+            if (ImGui::Selectable(T(L, list[i].pt, list[i].en), static_cast<int>(i) == preset_idx_)) preset_idx_ = static_cast<int>(i);
         }
         ImGui::EndCombo();
     }
-    show_tip_if_hovered(en ? cur.en : cur.pt, en ? cur.desc_en : cur.desc_pt);
+    show_tip_if_hovered(T(L, cur.pt, cur.en), T(L, cur.desc_pt, cur.desc_en));
     flow_next(48.0f * dpi_scale_ + ImGui::CalcTextSize(T(L, "Substituir habilidades", "Replace skills")).x, 12.0f * dpi_scale_);
     toggle_switch("##sw_preset_repl", T(L, "Substituir habilidades", "Replace skills"), &preset_replace_);
     show_tip_if_hovered(T(L, "Substituir habilidades", "Replace skills"),
@@ -1596,7 +1663,7 @@ void WorkbenchApp::render_preset_controls(const FontBank& fonts, bool compact) {
 }
 
 namespace {
-const char* journal_action_label(const std::string& code, bool en) {
+const char* journal_action_label(const std::string& code, Lang L) {
     struct M { const char* c; const char* pt; const char* en; };
     static const M k[] = {
         {"ovr_dna", "OVR com DNA", "OVR with DNA"}, {"econ_recal", "Recalibrar economia", "Recalibrate economy"},
@@ -1615,14 +1682,13 @@ const char* journal_action_label(const std::string& code, bool en) {
         {"reg_pos", "Posição principal", "Primary position"}, {"stat", "Atributo", "Attribute"},
         {"stats_batch", "Atributos em lote", "Attributes batch"}, {"team_role", "Função no time", "Team role"},
     };
-    for (const auto& m : k) if (code == m.c) return en ? m.en : m.pt;
+    for (const auto& m : k) if (code == m.c) return T(L, m.pt, m.en);
     return code.c_str();
 }
 } // namespace
 
 void WorkbenchApp::render_history_popup(const FontBank& fonts) {
     Lang L = settings_.lang;
-    const bool en = (L == Lang::EN);
     ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
     ImGui::SetNextWindowSizeConstraints(ImVec2(440.0f * dpi_scale_, 0.0f), ImVec2(640.0f * dpi_scale_, 560.0f * dpi_scale_));
     if (!ImGui::BeginPopup("##hist_popup")) return;
@@ -1659,7 +1725,7 @@ void WorkbenchApp::render_history_popup(const FontBank& fonts) {
         char who[96];
         if (j.players > 1) std::snprintf(who, sizeof(who), "%d %s", j.players, T(L, "atletas", "players"));
         else std::snprintf(who, sizeof(who), "%s", j.label.c_str());
-        ImGui::TextColored(col::AccentSoft, "%s", journal_action_label(j.action, en));
+        ImGui::TextColored(col::AccentSoft, "%s", journal_action_label(j.action, L));
         ImGui::SameLine(0, 8.0f * dpi_scale_);
         ImGui::TextColored(col::Subtext, "%s", who);
         const char* ub = T(L, "Desfazer até aqui", "Undo to here");
@@ -2337,7 +2403,7 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
         for (size_t i = 0; i < lim; ++i) {
             const auto& df = last_edit_.diffs[i];
             const auto* sd = find_stat_def(df.fid);
-            const char* sn = sd ? (L == Lang::EN ? sd->en : sd->pt) : "?";
+            const char* sn = sd ? T(L, sd->pt, sd->en) : "?";
             int d = df.new_val - df.old_val;
             char sb[64];
             std::snprintf(sb, sizeof(sb), "%s %+d (%d)", sn, d, df.new_val);
@@ -2465,6 +2531,8 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
         end_studio_card();
     }
 
+    ImGui::Spacing();
+    render_value_lock_card(fonts);
     ImGui::Spacing();
 
     // Dedicated Quick Contract & Finances Card (1-click updates without digging through Bio)
@@ -3027,8 +3095,8 @@ void WorkbenchApp::render_poslab_log_card(const FontBank& fonts, float max_h) {
         for (size_t i = 0; i < diffs.size(); ++i) {
             const auto& df = diffs[i];
             const auto* sd = find_stat_def(df.fid);
-            const char* sn = sd ? (L == Lang::EN ? sd->en : sd->pt) : "?";
-            const char* desc = sd ? (L == Lang::EN ? sd->desc_en : sd->desc_pt) : "";
+            const char* sn = sd ? T(L, sd->pt, sd->en) : "?";
+            const char* desc = sd ? T(L, sd->desc_pt, sd->desc_en) : "";
             int d = df.new_val - df.old_val;
             char chip[96];
             std::snprintf(chip, sizeof(chip), "%s %d->%d (%+d)", sn, df.old_val, df.new_val, d);
@@ -3073,7 +3141,7 @@ void WorkbenchApp::render_poslab_log_card(const FontBank& fonts, float max_h) {
                     std::snprintf(ob, sizeof(ob), "%d -> %d (%+d)", e.orig_ovr, e.final_ovr, e.final_ovr - e.orig_ovr);
                     ImGui::TextColored(up ? col::GreenSoft : col::RedSoft, "%s", ob);
                 } else {
-                    ImGui::TextColored(col::AccentSoft, "%s", T(L, e.tag_pt.c_str(), e.tag_en.c_str()));
+                    ImGui::TextColored(col::AccentSoft, "%s", log_tag(L, e.tag_pt, e.tag_en, e.tag_es));
                 }
                 if (e.reg_pos >= 0 && e.pos_id != e.reg_pos && e.pri_ovr > 0) {
                     ImGui::SameLine(0, 6);
@@ -3084,7 +3152,7 @@ void WorkbenchApp::render_poslab_log_card(const FontBank& fonts, float max_h) {
                     ImGui::Spacing();
                     render_diff_chips(e.diffs);
                 } else if (e.orig_ovr != e.final_ovr) {
-                    ImGui::TextColored(col::Subtext, "%s", T(L, e.tag_pt.c_str(), e.tag_en.c_str()));
+                    ImGui::TextColored(col::Subtext, "%s", log_tag(L, e.tag_pt, e.tag_en, e.tag_es));
                 }
 
                 ImGui::EndChild();
@@ -3207,7 +3275,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
             for (size_t i = 0; i < last.diffs.size(); ++i) {
                 const auto& df = last.diffs[i];
                 const auto* sd = find_stat_def(df.fid);
-                const char* sn = sd ? (L == Lang::EN ? sd->en : sd->pt) : "?";
+                const char* sn = sd ? T(L, sd->pt, sd->en) : "?";
                 int d = df.new_val - df.old_val;
                 char cp[80];
                 std::snprintf(cp, sizeof(cp), "%s %+d", sn, d);
@@ -3219,7 +3287,7 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                 }
                 ImVec4 fg = (d > 0) ? col::GreenSoft : col::Orange;
                 draw_pill(cp, fg, ImVec4(fg.x, fg.y, fg.z, 0.16f), ImVec4(fg.x, fg.y, fg.z, 0.48f));
-                if (sd) show_tip_if_hovered(sn, L == Lang::EN ? sd->desc_en : sd->desc_pt);
+                if (sd) show_tip_if_hovered(sn, T(L, sd->desc_pt, sd->desc_en));
             }
             }
             ImGui::EndChild();
@@ -3342,7 +3410,8 @@ void WorkbenchApp::render_ptab_poslab(const FontBank& fonts) {
                             wake_poller();
                             record_meta_action(pid, old_o, player_.positions[pid].ovr,
                                 std::string("Principal: ") + pos_short(Lang::PT, old_reg) + " -> " + pos_short(Lang::PT, pid),
-                                std::string("Primary: ") + pos_short(Lang::EN, old_reg) + " -> " + pos_short(Lang::EN, pid));
+                                std::string("Primary: ") + pos_short(Lang::EN, old_reg) + " -> " + pos_short(Lang::EN, pid),
+                                std::string("Principal: ") + pos_short(Lang::ES, old_reg) + " -> " + pos_short(Lang::ES, pid));
                             std::string msg = T(L, "Posição principal alterada!", "Primary position updated!");
                             if (r.econ_delta.applied) {
                                 std::string el = fmt_econ_delta_line(r.econ_delta);
@@ -3398,7 +3467,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
         const auto& cp = presets::kSkillPresets[static_cast<size_t>(std::clamp(preset_idx_, 0, static_cast<int>(presets::kSkillPresets.size()) - 1))];
         ImGui::Spacing();
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextColored(col::Muted, "%s", (L == Lang::EN) ? cp.desc_en : cp.desc_pt);
+        ImGui::TextColored(col::Muted, "%s", T(L, cp.desc_pt, cp.desc_en));
         ImGui::PopTextWrapPos();
     }
     end_studio_card();
@@ -3412,13 +3481,13 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
         T(L, "Define a inteligência de movimentação sem bola nas posições compatíveis.", "Controls off-the-ball movement intelligence in compatible positions."));
     ImGui::SameLine(0, 10);
     char pos_tag[96];
-    std::snprintf(pos_tag, sizeof(pos_tag), "%s: %s", T(L, "Ativa em", "Active at"), (L == Lang::EN) ? ps.pos_en : ps.pos_pt);
+    std::snprintf(pos_tag, sizeof(pos_tag), "%s: %s", T(L, "Ativa em", "Active at"), T(L, ps.pos_pt, ps.pos_en));
     draw_pill(pos_tag, col::AccentSoft, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.16f), ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.42f));
     ImGui::Spacing();
     ImGui::SetNextItemWidth(std::min(380.0f, ImGui::GetContentRegionAvail().x));
-    if (ImGui::BeginCombo("##pstyle_sel", (L == Lang::EN) ? ps.en : ps.pt)) {
+    if (ImGui::BeginCombo("##pstyle_sel", T(L, ps.pt, ps.en))) {
         for (const auto& s : data::PLAYING_STYLES) {
-            if (ImGui::Selectable((L == Lang::EN) ? s.en : s.pt, s.id == cur_st)) {
+            if (ImGui::Selectable(T(L, s.pt, s.en), s.id == cur_st)) {
                 auto r = engine_.set_playing_style(s.id);
                 if (r.ok) { player_ = r; toasts_.push(T(L, "Estilo de jogo atualizado!", "Playing style updated!")); }
             }
@@ -3428,7 +3497,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
     ImGui::Spacing();
     ImGui::TextColored(col::Subtext, "%s", "");
     ImGui::SameLine(0, 0);
-    ImGui::TextWrapped("%s", (L == Lang::EN) ? ps.desc_en : ps.desc_pt);
+    ImGui::TextWrapped("%s", T(L, ps.desc_pt, ps.desc_en));
     end_studio_card();
 
     ImGui::Spacing();
@@ -3464,7 +3533,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
         bool any_in_cat = false;
         for (size_t i = 0; i < data::PLAYER_SKILLS.size(); ++i) {
             if (data::PLAYER_SKILLS[i].cat != c.cat) continue;
-            const char* nm = (L == Lang::EN) ? data::PLAYER_SKILLS[i].en : data::PLAYER_SKILLS[i].pt;
+            const char* nm = T(L, data::PLAYER_SKILLS[i].pt, data::PLAYER_SKILLS[i].en);
             if (sk_qn.empty() || norm_text_utf8(nm).find(sk_qn) != std::string::npos) { any_in_cat = true; break; }
         }
         if (!any_in_cat) continue;
@@ -3475,7 +3544,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
         for (size_t i = 0; i < data::PLAYER_SKILLS.size(); ++i) {
             const auto& sk = data::PLAYER_SKILLS[i];
             if (sk.cat != c.cat) continue;
-            const char* nm = (L == Lang::EN) ? sk.en : sk.pt;
+            const char* nm = T(L, sk.pt, sk.en);
             if (!sk_qn.empty() && norm_text_utf8(nm).find(sk_qn) == std::string::npos) continue;
             bool on = player_.skills[i];
             char chip_lbl[96];
@@ -3498,7 +3567,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
                              ImVec2(bmin.x + 11.0f * dpi_scale_, (bmin.y + bmax.y) * 0.5f),
                              3.2f * dpi_scale_, col::GreenSoft, true);
             }
-            show_tip_if_hovered(nm, (L == Lang::EN) ? sk.desc_en : sk.desc_pt);
+            show_tip_if_hovered(nm, T(L, sk.desc_pt, sk.desc_en));
             ImGui::PopID();
         }
     }
@@ -3519,7 +3588,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
     const float max_x2 = ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x;
     for (size_t i = 0; i < data::COM_AI_STYLES.size(); ++i) {
         const auto& ai = data::COM_AI_STYLES[i];
-        const char* nm = (L == Lang::EN) ? ai.en : ai.pt;
+        const char* nm = T(L, ai.pt, ai.en);
         bool on = player_.com_ai[i];
         char chip_lbl[96];
         if (on) std::snprintf(chip_lbl, sizeof(chip_lbl), "   %s", nm);
@@ -3540,7 +3609,7 @@ void WorkbenchApp::render_ptab_skills(const FontBank& fonts) {
                          ImVec2(bmin.x + 11.0f * dpi_scale_, (bmin.y + bmax.y) * 0.5f),
                          3.2f * dpi_scale_, col::Cyan, true);
         }
-        show_tip_if_hovered(nm, (L == Lang::EN) ? ai.desc_en : ai.desc_pt);
+        show_tip_if_hovered(nm, T(L, ai.desc_pt, ai.desc_en));
         ImGui::PopID();
     }
     end_studio_card();
@@ -3561,7 +3630,7 @@ void WorkbenchApp::render_ptab_role(const FontBank& fonts) {
     const auto& cur_role = data::TEAM_ROLES[rid];
 
     auto fmt_role_opt = [&](const data::TeamRoleInfo& r) -> std::string {
-        std::string base = (L == Lang::EN) ? r.en : r.pt;
+        std::string base = T(L, r.pt, r.en);
         if (r.captain) base += T(L, "  ★ Capitão", "  ★ Captain");
         return base;
     };
@@ -3648,9 +3717,9 @@ void WorkbenchApp::render_ptab_role(const FontBank& fonts) {
         ImGui::Spacing();
     }
 
-    ImGui::TextWrapped("%s", (L == Lang::EN) ? cur_role.desc_en : cur_role.desc_pt);
+    ImGui::TextWrapped("%s", T(L, cur_role.desc_pt, cur_role.desc_en));
 
-    const char* cap_desc = (L == Lang::EN) ? cur_role.captain_en : cur_role.captain_pt;
+    const char* cap_desc = T(L, cur_role.captain_pt, cur_role.captain_en);
     if (cur_role.captain && cap_desc && cap_desc[0]) {
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.961f, 0.620f, 0.043f, 0.10f));
@@ -3753,10 +3822,10 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
     toggle_switch("##sw_free", free_lbl, &srch_free_);
 
     const char* sc_opts[4] = {
-        (L == Lang::EN) ? data::SCOUT_LISTS[0].en : data::SCOUT_LISTS[0].pt,
-        (L == Lang::EN) ? data::SCOUT_LISTS[1].en : data::SCOUT_LISTS[1].pt,
-        (L == Lang::EN) ? data::SCOUT_LISTS[2].en : data::SCOUT_LISTS[2].pt,
-        (L == Lang::EN) ? data::SCOUT_LISTS[3].en : data::SCOUT_LISTS[3].pt,
+        T(L, data::SCOUT_LISTS[0].pt, data::SCOUT_LISTS[0].en),
+        T(L, data::SCOUT_LISTS[1].pt, data::SCOUT_LISTS[1].en),
+        T(L, data::SCOUT_LISTS[2].pt, data::SCOUT_LISTS[2].en),
+        T(L, data::SCOUT_LISTS[3].pt, data::SCOUT_LISTS[3].en),
     };
     float sc_w = calc_combo_width(sc_opts, 4, 175.0f * dpi_scale_, 260.0f * dpi_scale_);
     const char* send_lbl = T(L, "Enviar para:", "Send to:");
@@ -3766,10 +3835,10 @@ void WorkbenchApp::render_view_search(const FontBank& fonts) {
     ImGui::SameLine(0, 6);
     ImGui::SetNextItemWidth(sc_w);
     const char* sc_lbl = sc_opts[0];
-    for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == srch_target_scout_) { sc_lbl = (L == Lang::EN) ? sl.en : sl.pt; break; }
+    for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == srch_target_scout_) { sc_lbl = T(L, sl.pt, sl.en); break; }
     if (ImGui::BeginCombo("##stgt", sc_lbl)) {
         for (const auto& sl : data::SCOUT_LISTS) {
-            if (ImGui::Selectable((L == Lang::EN) ? sl.en : sl.pt, srch_target_scout_ == sl.slot)) srch_target_scout_ = sl.slot;
+            if (ImGui::Selectable(T(L, sl.pt, sl.en), srch_target_scout_ == sl.slot)) srch_target_scout_ = sl.slot;
         }
         ImGui::EndCombo();
     }
@@ -3933,7 +4002,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
                 ImGui::TableNextColumn();
                 char cid[24]; std::snprintf(cid, sizeof(cid), "##scc%d", sl.slot);
                 begin_studio_card(cid, std::round(186.0f * dpi_scale_), false, act ? &col::AccentSoft : accents[ci]);
-                section_label((L == Lang::EN) ? sl.en : sl.pt, fonts);
+                section_label(T(L, sl.pt, sl.en), fonts);
                 char cnt[24]; std::snprintf(cnt, sizeof(cnt), "%d / %d", n, sl.cap);
                 if (fonts.title_bold) ImGui::PushFont(fonts.title_bold);
                 ImGui::TextColored(n >= sl.cap ? col::RedSoft : col::Text, "%s", cnt);
@@ -4024,14 +4093,14 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
             // Destino: qualquer lista diferente da ativa
             if (scout_move_target_ == active_scout_slot_) scout_move_target_ = (active_scout_slot_ % 4) + 1;
             const char* tgt_lbl = "";
-            for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == scout_move_target_) tgt_lbl = (L == Lang::EN) ? sl.en : sl.pt;
+            for (const auto& sl : data::SCOUT_LISTS) if (sl.slot == scout_move_target_) tgt_lbl = T(L, sl.pt, sl.en);
             float cw = std::round(190.0f * dpi_scale_);
             flow_next(cw, 10.0f * dpi_scale_);
             ImGui::SetNextItemWidth(cw);
             if (ImGui::BeginCombo("##sc_tgt", tgt_lbl)) {
                 for (const auto& sl : data::SCOUT_LISTS) {
                     if (sl.slot == active_scout_slot_) continue;
-                    if (ImGui::Selectable((L == Lang::EN) ? sl.en : sl.pt, scout_move_target_ == sl.slot)) scout_move_target_ = sl.slot;
+                    if (ImGui::Selectable(T(L, sl.pt, sl.en), scout_move_target_ == sl.slot)) scout_move_target_ = sl.slot;
                 }
                 ImGui::EndCombo();
             }
@@ -5231,6 +5300,9 @@ void WorkbenchApp::render_pack_studio_modal(const FontBank& fonts) {
 
 #ifdef PES_QA_DUMP
 void WorkbenchApp::qa_populate_fixture() {
+    if (const char* ql = std::getenv("PES_QA_LANG")) {   // QA: idioma so em memoria, nunca grava no settings.ini
+        settings_.lang = (ql[0] == 'e' && ql[1] == 's') ? Lang::ES : ((ql[0] == 'e') ? Lang::EN : Lang::PT);
+    }
     st_.attached = true;
     st_.exe = "PES2021.exe";
     st_.pid = 26960;
@@ -5408,6 +5480,22 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     open_cmd_modal_ = (modal_kind == 1);
     open_json_modal_ = (modal_kind == 2);
     open_pack_modal_ = (modal_kind == 3);
+    open_welcome_guide_ = (modal_kind == 4);
+    qa_open_prefs_ = (modal_kind == 5 || modal_kind == 9);
+    prefs_tab_ = (modal_kind == 9) ? 1 : 0;
+    if (modal_kind == 6) update_manual_ = true;
+    if (modal_kind == 6) update_checker_.qa_force(update::State::Available, update::Release{"v14.2.0", std::string(kReleasesPagePrefix) + "tag/v14.2.0"});
+    if (modal_kind == 8) {   // trava ativa no atleta aberto
+        st_.val_lock_active = true;
+        st_.val_lock.stamina = true; st_.val_lock.stamina_value = 100;
+        st_.val_lock.arrow = true; st_.val_lock.arrow_value = 4;
+        st_.val_lock.injury = true;
+        st_.val_lock_addr = player_.addr;
+        st_.val_lock_name = player_.name;
+    }
+    if (modal_kind == 7) {   // jogo desconectado: mostra o cartao de primeiros passos
+        st_.attached = false; st_.career = 0; st_.has_player = false; st_.access_denied = false;
+    }
     if (modal_kind == 2) {
         json_is_export_ = true;
         json_title_ = "Exportar JSON - G. DE ARRASCAETA";
@@ -5438,5 +5526,375 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     }
 }
 #endif
+
+// ---------------------------------------------------------------------------------------------
+// Servicos opcionais (v14.1): aviso de versao, retencao de backups, log local e guia de primeiros passos
+// ---------------------------------------------------------------------------------------------
+
+void WorkbenchApp::start_services_once() {
+    if (services_started_) return;
+    services_started_ = true;
+    actionlog::write("INFO", std::string("Lettuce Live Editor v") + kAppVersion + " started");
+    if (open_welcome_guide_) {
+        // Visto uma vez: nao volta a abrir sozinho nem se for fechado com Esc
+        settings_.first_run_done = true;
+        save_settings(settings_);
+    }
+    if (settings_.check_updates) start_update_check();
+}
+
+void WorkbenchApp::start_update_check() {
+    void* h = hwnd_;
+    update_checker_.start(kAppVersion, [h]() {
+        if (h) PostMessageW(static_cast<HWND>(h), kWmStatusUpdated, 0, 0);
+    });
+}
+
+void WorkbenchApp::apply_backup_retention() {
+    const int idx = std::clamp(settings_.backup_keep_idx, 0, backups::kKeepOptionCount - 1);
+    engine_.set_backup_keep(backups::kKeepOptions[idx]);
+}
+
+void WorkbenchApp::refresh_backup_info() {
+    const auto entries = backups::list(std::filesystem::path(utf8_to_wide(get_backups_directory())));
+    backup_info_.count = static_cast<int>(entries.size());
+    backup_info_.bytes = backups::total_bytes(entries);
+}
+
+void WorkbenchApp::render_update_banner(const FontBank& fonts) {
+    const update::Snapshot snap = update_checker_.snapshot();
+    if (snap.state != update::State::Available) return;
+    if (!settings_.check_updates && !update_manual_) return;   // opcao desligada depois de uma consulta: some o aviso
+    if (snap.release.tag == settings_.update_dismissed) return;
+    Lang L = settings_.lang;
+    ImFont* f_bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.13f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(col::Accent.x, col::Accent.y, col::Accent.z, 0.55f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(16.0f * dpi_scale_), std::round(10.0f * dpi_scale_)));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, std::round(10.0f * dpi_scale_));
+    ImGui::BeginChild("##update_banner", ImVec2(0, 0),
+                      ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding);
+    if (f_bold) ImGui::PushFont(f_bold);
+    ImGui::TextColored(col::AccentSoft, "%s %s", T(L, "Nova versão disponível:", "New version available:"), snap.release.tag.c_str());
+    if (f_bold) ImGui::PopFont();
+    ImGui::TextColored(col::Subtext, "%s v%s", T(L, "Você está na versão", "You are on"), kAppVersion);
+    ImGui::Spacing();
+    if (btn_primary(T(L, "Abrir página da versão##upd_open", "Open release page##upd_open")) && update::is_trusted_release_url(snap.release.url)) {
+        const std::wstring w = utf8_to_wide(snap.release.url);
+        ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    }
+    ImGui::SameLine(0, std::round(8.0f * dpi_scale_));
+    if (ImGui::Button(T(L, "Dispensar esta versão##upd_dismiss", "Dismiss this version##upd_dismiss"))) {
+        settings_.update_dismissed = snap.release.tag;
+        save_settings(settings_);
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(2);
+    ImGui::Dummy(ImVec2(0, std::round(10.0f * dpi_scale_)));
+}
+
+void WorkbenchApp::render_prefs_services() {
+    Lang L = settings_.lang;
+    const float wrap_w = 330.0f * dpi_scale_;
+    const float gap = std::round(6.0f * dpi_scale_);
+    const float bh = std::round(30.0f * dpi_scale_);
+
+    // ---- Atualizacoes
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Atualizações", "Updates"));
+    bool upd_v = settings_.check_updates;
+    if (toggle_switch("##sw_updates", T(L, "Avisar quando houver nova versão", "Notify me about new versions"), &upd_v)) {
+        settings_.check_updates = upd_v;
+        save_settings(settings_);
+        if (upd_v) start_update_check();
+    }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Consulta o GitHub uma vez ao abrir o app. Não envia nenhum dado seu e não baixa nada: só mostra o link da versão. Desligado por padrão.",
+        "Checks GitHub once when the app opens. It sends no data about you and downloads nothing: it only shows the release link. Off by default."));
+    ImGui::PopTextWrapPos();
+    {
+        const update::Snapshot snap = update_checker_.snapshot();
+        const bool busy = (snap.state == update::State::Checking);
+        ImGui::BeginDisabled(busy);
+        if (ImGui::Button(T(L, "Verificar agora##upd_now", "Check now##upd_now"))) { update_manual_ = true; start_update_check(); }
+        ImGui::EndDisabled();
+        ImGui::SameLine(0, gap);
+        switch (snap.state) {
+            case update::State::Checking:
+                ImGui::TextColored(col::Subtext, "%s", T(L, "Verificando...", "Checking...")); break;
+            case update::State::UpToDate:
+                ImGui::TextColored(col::GreenSoft, "%s (v%s)", T(L, "Você está na versão mais recente", "You are on the latest version"), kAppVersion); break;
+            case update::State::Available:
+                ImGui::TextColored(col::AccentSoft, "%s %s", T(L, "Disponível:", "Available:"), snap.release.tag.c_str()); break;
+            case update::State::Failed:
+                ImGui::TextColored(col::GoldSoft, "%s", T(L, "Não foi possível verificar agora.", "Could not check right now.")); break;
+            default:
+                ImGui::TextColored(col::Muted, "%s v%s", T(L, "Versão atual:", "Current version:"), kAppVersion); break;
+        }
+    }
+
+    // ---- Backups do elenco
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Backups do elenco", "Squad backups"));
+    {
+        const float bw = std::max(40.0f * dpi_scale_, (ImGui::GetContentRegionAvail().x - gap * static_cast<float>(backups::kKeepOptionCount - 1)) / static_cast<float>(backups::kKeepOptionCount));
+        for (int i = 0; i < backups::kKeepOptionCount; ++i) {
+            if (i > 0) ImGui::SameLine(0, gap);
+            char lbl[48];
+            if (backups::kKeepOptions[i] == 0) std::snprintf(lbl, sizeof(lbl), "%s##bk%d", T(L, "Todos", "All"), i);
+            else std::snprintf(lbl, sizeof(lbl), "%d##bk%d", backups::kKeepOptions[i], i);
+            const bool act = (settings_.backup_keep_idx == i);
+            if (styled_button(lbl, act ? col::Accent : col::BgCard, act ? col::AccentSoft : col::Border, col::Text, ImVec2(bw, bh)) && !act) {
+                settings_.backup_keep_idx = i;
+                save_settings(settings_);
+                apply_backup_retention();
+            }
+        }
+    }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Quantos backups JSON manter. Os mais antigos só são apagados depois que um novo backup é salvo, e nunca o novo. Padrão: todos.",
+        "How many JSON backups to keep. The oldest are only deleted after a new backup is saved, and never the new one. Default: all."));
+    ImGui::PopTextWrapPos();
+    {
+        char info[96];
+        const double mb = static_cast<double>(backup_info_.bytes) / (1024.0 * 1024.0);
+        std::snprintf(info, sizeof(info), "%d %s, %.1f MB", backup_info_.count, T(L, "backups em disco", "backups on disk"), mb);
+        ImGui::TextColored(col::Subtext, "%s", info);
+        ImGui::SameLine(0, gap);
+        if (ImGui::Button(T(L, "Abrir pasta##bk_open", "Open folder##bk_open"))) {
+            const std::wstring w = utf8_to_wide(get_backups_directory());
+            std::error_code ec;
+            std::filesystem::create_directories(std::filesystem::path(w), ec);
+            ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
+    }
+
+    // ---- Registro local
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    ImGui::TextColored(col::Subtext, "%s", T(L, "Registro de ações", "Action log"));
+    bool log_v = settings_.action_log;
+    if (toggle_switch("##sw_actionlog", T(L, "Salvar registro local das ações", "Save a local action log"), &log_v)) {
+        settings_.action_log = log_v;
+        actionlog::set_enabled(log_v);
+        save_settings(settings_);
+    }
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "Grava no seu computador, em Documentos\\PES 2021 Workbench\\Logs, os avisos exibidos para ajudar a reproduzir problemas. Nada é enviado.",
+        "Written on your computer, in Documents\\PES 2021 Workbench\\Logs, it keeps the notices shown to help reproduce problems. Nothing is sent."));
+    ImGui::PopTextWrapPos();
+    if (ImGui::Button(T(L, "Abrir pasta##log_open", "Open folder##log_open"))) {
+        const std::wstring w = utf8_to_wide(get_logs_directory());
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(w), ec);
+        ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    }
+    ImGui::SameLine(0, gap);
+    if (ImGui::Button(T(L, "Rever guia de início##guide_open", "Show getting started guide##guide_open"))) {
+        open_welcome_guide_ = true;
+        ImGui::CloseCurrentPopup();
+    }
+}
+
+namespace {
+
+enum class StepState { Done, Pending, Warn };
+
+void draw_step_row(const char* text, StepState s, float dpi, float wrap_w) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const float r = std::round(8.0f * dpi);
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    const ImVec2 c(p.x + r, p.y + ImGui::GetTextLineHeight() * 0.5f);
+    const ImVec4 colr = (s == StepState::Done) ? col::GreenSoft : (s == StepState::Warn ? col::GoldSoft : col::Muted);
+    if (s == StepState::Done) {
+        dl->AddCircleFilled(c, r, ImGui::GetColorU32(ImVec4(col::Green.x, col::Green.y, col::Green.z, 0.22f)), 20);
+        draw_icon(dl, Icon::Check, c, r * 1.3f, ImGui::GetColorU32(colr));
+    } else {
+        dl->AddCircle(c, r, ImGui::GetColorU32(colr), 20, std::max(1.2f, 1.5f * dpi));
+    }
+    ImGui::Dummy(ImVec2(r * 2.0f, 1.0f));
+    ImGui::SameLine(0, std::round(10.0f * dpi));
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
+    ImGui::TextColored(s == StepState::Done ? col::Subtext : col::Text, "%s", text);
+    ImGui::PopTextWrapPos();
+    ImGui::Dummy(ImVec2(0, std::round(4.0f * dpi)));
+}
+
+} // namespace
+
+void WorkbenchApp::render_setup_checklist(const FontBank& fonts) {
+    const bool career_ok = st_.attached && st_.career > 0;
+    const bool all_ok = career_ok && st_.has_player && !st_.access_denied;
+    if (all_ok) return;
+    Lang L = settings_.lang;
+    ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
+
+    begin_studio_card("##setup_card", 0.0f, false, &col::Accent);
+    card_header(T(L, "Primeiros passos", "Getting started"), bold);
+    const char* guide_lbl = T(L, "Ver guia", "Show guide");
+    align_right_or_wrap(calc_btn_w(guide_lbl));
+    if (ImGui::Button(guide_lbl)) open_welcome_guide_ = true;
+    ImGui::Separator();
+    ImGui::Spacing();
+    const float wrap_w = std::max(200.0f * dpi_scale_, ImGui::GetContentRegionAvail().x - 40.0f * dpi_scale_);
+    draw_step_row(T(L, "Abra o PES 2021 ou o Football Life.", "Start PES 2021 or Football Life."),
+                  st_.attached ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
+    draw_step_row(T(L, "Entre na Master Liga ou no Rumo ao Estrelato.", "Enter Master League or Become a Legend."),
+                  career_ok ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
+    draw_step_row(st_.access_denied
+                      ? T(L, "O jogo está como administrador: abra este app também como administrador.", "The game is elevated: open this app as Administrator too.")
+                      : T(L, "Se o jogo estiver como administrador, abra este app também como administrador.", "If the game runs elevated, open this app as Administrator too."),
+                  st_.access_denied ? StepState::Warn : (st_.attached ? StepState::Done : StepState::Pending), dpi_scale_, wrap_w);
+    draw_step_row(T(L, "Destaque um jogador no Plano de Jogo. O app o captura em segundo plano.", "Highlight a player in the Game Plan. The app captures them in the background."),
+                  st_.has_player ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
+    end_studio_card();
+    ImGui::Dummy(ImVec2(0, std::round(8.0f * dpi_scale_)));
+}
+
+void WorkbenchApp::render_welcome_guide(const FontBank& fonts) {
+    if (open_welcome_guide_) {
+        ImGui::OpenPopup("##WelcomeGuide");
+        open_welcome_guide_ = false;
+    }
+    Lang L = settings_.lang;
+    ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    const float w = std::min(520.0f * dpi_scale_, vp->Size.x - 48.0f);
+    ImGui::SetNextWindowSize(ImVec2(w, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.5f, vp->Pos.y + vp->Size.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(22.0f * dpi_scale_), std::round(18.0f * dpi_scale_)));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, std::round(14.0f * dpi_scale_));
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, col::BgCard);
+    ImGui::PushStyleColor(ImGuiCol_Border, col::BorderLit);
+    if (ImGui::BeginPopupModal("##WelcomeGuide", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+        const float inner_w = w - 2.0f * std::round(22.0f * dpi_scale_);
+        const float wrap_w = inner_w - 28.0f * dpi_scale_;
+        if (bold) ImGui::PushFont(bold);
+        ImGui::TextColored(col::Text, "%s", T(L, "Bem-vindo ao Lettuce Live Editor", "Welcome to Lettuce Live Editor"));
+        if (bold) ImGui::PopFont();
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + inner_w);
+        ImGui::TextColored(col::Muted, "%s", T(L,
+            "Quatro passos para começar. Os marcadores acompanham o jogo ao vivo.",
+            "Four steps to get started. The markers follow your game live."));
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
+        const bool career_ok = st_.attached && st_.career > 0;
+        draw_step_row(T(L, "Abra o PES 2021 ou o Football Life (v1.7.2.0).", "Start PES 2021 or Football Life (v1.7.2.0)."),
+                      st_.attached ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
+        draw_step_row(T(L, "Entre na Master Liga ou no Rumo ao Estrelato.", "Enter Master League or Become a Legend."),
+                      career_ok ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
+        draw_step_row(T(L, "Se o jogo estiver como administrador, abra este app também como administrador.", "If the game runs elevated, open this app as Administrator too."),
+                      st_.access_denied ? StepState::Warn : (st_.attached ? StepState::Done : StepState::Pending), dpi_scale_, wrap_w);
+        draw_step_row(T(L, "Destaque um jogador no Plano de Jogo. O app o captura em segundo plano.", "Highlight a player in the Game Plan. The app captures them in the background."),
+                      st_.has_player ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
+
+        ImGui::Spacing();
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + inner_w);
+        ImGui::TextColored(col::Subtext, "%s", T(L,
+            "Faça backup do save antes de sessões longas. Use só em modos offline.",
+            "Back up your save before long sessions. Use it in offline modes only."));
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing();
+        if (btn_primary(T(L, "Entendi##welcome_ok", "Got it##welcome_ok"))) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(2);
+}
+
+void WorkbenchApp::render_value_lock_card(const FontBank& fonts) {
+    Lang L = settings_.lang;
+    ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
+    const bool lock_on = st_.val_lock_active;
+    const bool lock_here = lock_on && player_.addr != 0 && st_.val_lock_addr == player_.addr;
+
+    begin_studio_card("##value_lock", 0.0f, false, lock_on ? &col::Gold : nullptr);
+    card_header(T(L, "Travar valores", "Lock values"), bold,
+        T(L, "Mantém o fôlego, a seta de forma e a lesão do atleta nos valores escolhidos, regravando a cada ciclo. Vale para um atleta por vez.",
+             "Keeps the player's stamina, form arrow and injury at the chosen values, rewriting them every cycle. Works for one player at a time."));
+    ImGui::SameLine(0, 10.0f * dpi_scale_);
+    if (lock_on) draw_pill(T(L, "ATIVO", "ACTIVE"), col::GoldSoft, ImVec4(col::Gold.x, col::Gold.y, col::Gold.z, 0.16f), ImVec4(col::Gold.x, col::Gold.y, col::Gold.z, 0.5f), true);
+    else draw_pill(T(L, "Desligado", "Off"), col::Subtext, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f), col::Border, true);
+    ImGui::Spacing();
+
+    // Os controles mostram o que foi enviado por ultimo para este atleta (o retorno do poller demora um ciclo e
+    // faria o interruptor piscar). Sem envio recente, seguem o motor. Em outro atleta, tudo comeca desligado.
+    ValueLockConfig cfg;
+    if (lock_ui_addr_ != 0 && lock_ui_addr_ == player_.addr) cfg = lock_ui_;
+    else if (lock_here) cfg = st_.val_lock;
+    else { cfg = lock_ui_; cfg.stamina = cfg.arrow = cfg.injury = false; }
+    bool changed = false;
+    bool toggled = false;
+
+    if (lock_on && !lock_here) {
+        ImGui::PushTextWrapPos(0.0f);
+        const std::string lock_msg = std::string(T(L, "Trava ativa em: ", "Lock active on: ")) + st_.val_lock_name + ". " +
+                                     T(L, "Ligar uma trava aqui a move para este atleta.", "Turning a lock on here moves it to this player.");
+        wrapped_colored(col::GoldSoft, "%s", lock_msg.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing();
+    }
+
+    const float ctrl_w = std::max(160.0f * dpi_scale_, ImGui::GetContentRegionAvail().x - 24.0f * dpi_scale_);
+    {
+        bool v = cfg.stamina;
+        if (toggle_switch("##lk_stam", T(L, "Manter fôlego", "Keep stamina"), &v)) { cfg.stamina = v; changed = toggled = true; }
+        ImGui::BeginDisabled(!cfg.stamina);
+        ImGui::SetNextItemWidth(ctrl_w);
+        if (ImGui::SliderInt("##lk_stam_v", &cfg.stamina_value, 0, 100, "%d%%")) changed = true;
+        ImGui::EndDisabled();
+        ImGui::Spacing();
+    }
+    {
+        bool v = cfg.arrow;
+        if (toggle_switch("##lk_arrow", T(L, "Manter seta de forma", "Keep form arrow"), &v)) { cfg.arrow = v; changed = toggled = true; }
+        ImGui::BeginDisabled(!cfg.arrow);
+        const int picked = draw_arrow_picker("##lk_apick", cfg.arrow_value, L, ctrl_w, bold);
+        ImGui::EndDisabled();
+        if (cfg.arrow && picked >= 0 && picked != cfg.arrow_value) { cfg.arrow_value = picked; changed = true; }
+        ImGui::Spacing();
+    }
+    {
+        bool v = cfg.injury;
+        if (toggle_switch("##lk_inj", T(L, "Manter sem lesão", "Keep injury-free"), &v)) { cfg.injury = v; changed = toggled = true; }
+    }
+
+    if (changed) {
+        lock_ui_ = cfg;
+        lock_ui_addr_ = player_.addr;
+        auto r = engine_.set_value_lock(cfg, player_.addr);
+        if (r.ok) {
+            wake_poller();
+            if (toggled) toasts_.push(cfg.any() ? T(L, "Trava aplicada!", "Lock applied!") : T(L, "Travas desligadas.", "Locks turned off."));
+        } else {
+            lock_ui_ = ValueLockConfig{};   // nao deixa a tela marcada se o motor recusou
+            lock_ui_addr_ = 0;
+            toast_code(r.code, true);
+        }
+    }
+
+    ImGui::Spacing();
+    if (lock_on) {
+        if (ImGui::Button(T(L, "Desligar todas as travas##lk_off", "Turn off all locks##lk_off"))) {
+            engine_.clear_value_lock();
+            lock_ui_ = ValueLockConfig{};
+            lock_ui_addr_ = 0;
+            wake_poller();
+            toasts_.push(T(L, "Travas desligadas.", "Locks turned off."));
+        }
+        ImGui::Spacing();
+    }
+    ImGui::PushTextWrapPos(0.0f);
+    wrapped_colored(col::Muted, "%s", T(L,
+        "A trava se desliga sozinha se o jogo fechar ou se o atleta travado mudar. Ela não entra no histórico de desfazer.",
+        "The lock turns itself off if the game closes or the locked player changes. It is not part of the undo history."));
+    ImGui::PopTextWrapPos();
+    end_studio_card();
+}
 
 } // namespace pes::ui

@@ -1,4 +1,5 @@
 #include "pes_engine.hpp"
+#include "backup_retention.hpp"
 #include "skill_presets.hpp"
 #include <unordered_set>
 #include <filesystem>
@@ -532,6 +533,7 @@ void PESEngine::shutdown() {
     bool expected = false;
     if (!shutting_down_.compare_exchange_strong(expected, true)) return;
     std::lock_guard<std::recursive_mutex> g(lock_);
+    vlock_ = ValueLockState{};
     hooks_.disable_all();
     mem_.detach();
 }
@@ -780,7 +782,7 @@ std::string PESEngine::backup_squad_locked(std::string_view tag) {
     auto r = export_squad_pack_json(tag);
     if (!r.ok || r.text.empty()) return {};
     try {
-        std::filesystem::path dir = fs_path_from_utf8(get_packs_directory()) / L"Backups";
+        std::filesystem::path dir = fs_path_from_utf8(get_backups_directory());
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         std::time_t t = std::time(nullptr);
@@ -796,7 +798,16 @@ std::string PESEngine::backup_squad_locked(std::string_view tag) {
         std::ofstream f(file, std::ios::binary | std::ios::trunc);
         if (!f) return {};
         f.write(r.text.data(), static_cast<std::streamsize>(r.text.size()));
-        f.close();
+        f.close();   // o ultimo flush acontece aqui: so depois dele o estado do stream vale
+        const bool wrote_ok = !f.fail();
+        if (!wrote_ok) {
+            std::error_code rm_ec;
+            std::filesystem::remove(file, rm_ec); // backup incompleto nao conta como backup
+            return {};
+        }
+        // Retencao opt-in: poda os mais antigos so depois de o novo estar gravado (o novo e protegido)
+        const int keep = backup_keep_.load(std::memory_order_relaxed);
+        if (keep > 0) pes::backups::prune(dir, keep, file);
         auto u8 = file.u8string();
         return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
     } catch (...) {
@@ -1049,12 +1060,21 @@ StatusSnapshot PESEngine::get_status() {
     st.conflict_other_wb = detect_legacy_workbench_running();
     if (!ensure_attached()) {
         st.access_denied = mem_.access_denied;
+        if (vlock_.active) drop_value_lock_locked();   // jogo fechado: a trava nao tem mais onde escrever
+        st.val_lock_lost = vlock_lost_;
         return st;
     }
+    tick_value_lock_locked();
 
     uint64_t career = 0, p_addr = 0, match_state = 0;
     HookStateBlock sb{};
     sync_pointers(career, p_addr, match_state, &sb);
+
+    st.val_lock_active = vlock_.active;
+    st.val_lock = vlock_.cfg;
+    st.val_lock_addr = vlock_.addr;
+    st.val_lock_name = vlock_.name;
+    st.val_lock_lost = vlock_lost_;
 
     st.attached = true;
     st.exe = mem_.exe_name;
@@ -1208,6 +1228,90 @@ PlayerDetails PESEngine::get_player_details(uint64_t addr) {
     uint8_t buf[data::PLAYER_RECORD_SIZE]{};
     if (!mem_.read_into(p, buf, sizeof(buf)) || !is_sane_player_buf(buf)) return {false, "read_failed"};
     return build_player_details_from_buf(p, career, buf);
+}
+
+// ---- Travas de valores -------------------------------------------------------------------------
+
+void PESEngine::drop_value_lock_locked() {
+    if (!vlock_.active) return;
+    vlock_ = ValueLockState{};
+    ++vlock_lost_;
+}
+
+void PESEngine::clear_value_lock() {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    vlock_ = ValueLockState{};   // desligar por vontade do usuario nao conta como perda
+}
+
+ActionResult PESEngine::set_value_lock(const ValueLockConfig& cfg_in, uint64_t addr) {
+    std::lock_guard<std::recursive_mutex> g(lock_);
+    if (!cfg_in.any()) {
+        vlock_ = ValueLockState{};
+        return {true, "ok"};
+    }
+    if (!ensure_attached()) return {false, "not_connected"};
+    uint64_t career = 0, p = 0, ms = 0;
+    sync_pointers(career, p, ms);
+    if (addr > 0x10000ULL) p = addr;
+    if (p <= 0x10000ULL) return {false, "no_player"};
+    uint8_t buf[data::PLAYER_RECORD_SIZE]{};
+    if (!mem_.read_into(p, buf, sizeof(buf)) || !is_sane_player_buf(buf)) return {false, "read_failed"};
+
+    const ValueLockConfig cfg = clamp_lock_config(cfg_in);
+    const uint32_t pid = record_player_id(buf);
+
+    ValueLockState st;
+    st.active = true;
+    st.cfg = cfg;
+    st.addr = p;
+    st.player_id = pid;
+    st.proc_pid = mem_.pid;
+    {
+        PlayerDetails d = build_player_details_from_buf(p, career, buf);
+        st.name = d.name;
+    }
+    vlock_ = std::move(st);
+    tick_value_lock_locked();   // efeito imediato, sem esperar o proximo ciclo
+    return {true, "ok"};
+}
+
+void PESEngine::tick_value_lock_locked() {
+    if (!vlock_.active) return;
+    // Outro processo ou registro diferente do que foi travado: desliga em vez de escrever no lugar errado
+    if (!mem_.attached() || mem_.pid != vlock_.proc_pid || vlock_.addr <= 0x10000ULL) {
+        drop_value_lock_locked();
+        return;
+    }
+    uint8_t buf[data::PLAYER_RECORD_SIZE]{};
+    // O jogo recarrega os atletas (novo save, nova partida) em outro endereco e o bloco antigo continua legivel
+    // com os valores velhos. Se o atleta capturado agora tem o mesmo id, a trava passa a seguir esse registro.
+    if (manual_player_addr_ > 0x10000ULL && manual_player_addr_ != vlock_.addr) {
+        uint8_t cand[data::PLAYER_RECORD_SIZE]{};
+        if (mem_.read_into(manual_player_addr_, cand, sizeof(cand)) && is_sane_player_buf(cand) &&
+            record_player_id(cand) == vlock_.player_id) {
+            vlock_.addr = manual_player_addr_;
+        }
+    }
+    if (!mem_.read_into(vlock_.addr, buf, sizeof(buf)) || !is_sane_player_buf(buf)) {
+        // Telas de carregamento podem falhar uma leitura: so desliga depois de varias seguidas
+        if (++vlock_.bad_reads >= 6) drop_value_lock_locked();
+        return;
+    }
+    vlock_.bad_reads = 0;
+    if (record_player_id(buf) != vlock_.player_id) {
+        drop_value_lock_locked();
+        return;
+    }
+    const uint64_t p = vlock_.addr;
+    LockWrite writes[3];
+    const int n = plan_lock_writes(buf, sizeof(buf), vlock_.cfg, writes);
+    for (int i = 0; i < n; ++i) {
+        switch (writes[i].field) {
+            case LockField::Stamina: mem_.set_bits(p + kLockStaminaByte, 0, 7, writes[i].value); break;
+            case LockField::Arrow:   mem_.set_bits(p + kLockArrowByte, 0, 3, writes[i].value); break;
+            case LockField::Injury:  mem_.write_u8(p + kLockInjuryByte, 0); break;
+        }
+    }
 }
 
 PlayerDetails PESEngine::set_player_quick_condition(std::optional<int> stamina, std::optional<int> arrow, bool heal, uint64_t addr, std::optional<bool> blink) {
@@ -2907,6 +3011,19 @@ bool parse_roster_pack_json(std::string_view json_str, RosterPack& out_pack) {
     } catch (...) {
         return false;
     }
+}
+
+std::string get_backups_directory() {
+    std::filesystem::path dir = fs_path_from_utf8(get_packs_directory()) / L"Backups";
+    auto u8 = dir.u8string();
+    return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+}
+
+std::string get_logs_directory() {
+    // Ao lado de Packs: Documentos\PES 2021 Workbench\Logs
+    std::filesystem::path dir = fs_path_from_utf8(get_packs_directory()).parent_path() / L"Logs";
+    auto u8 = dir.u8string();
+    return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
 }
 
 std::string get_packs_directory() {

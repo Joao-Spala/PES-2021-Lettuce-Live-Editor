@@ -63,6 +63,8 @@ O foco é editar com consistência e com volta. Os princípios abaixo orientam o
 3. Abra o Lettuce Live Editor, como Administrador se o jogo estiver elevado.
 4. Destaque um atleta no Plano de Jogo. O app o captura em segundo plano e abre tudo sobre ele.
 
+Na primeira abertura o app mostra um guia curto, e a Visão Geral mantém um cartão de primeiros passos até o jogo estar conectado.
+
 ### Como funciona
 
 ```mermaid
@@ -136,6 +138,10 @@ A base inteira do jogo, não só o seu elenco. Encontre qualquer jogador, abra o
 | **Funciona com patches?** | Sim. É compatível com o Sider 7.3+ e com derivados como Football Life, SmokePatch, VirtuaRED e Dream Patch. Se uma versão antiga do Workbench estiver aberta ao mesmo tempo, o app avisa do conflito. |
 | **Compartilho edições entre saves?** | O **Pack Studio** (JSON v13) exporta atletas e elencos e importa em outro save, cruzando por ID, nome ou escolha manual, com prévia das diferenças e rollback do lote. |
 | **E o treino?** | A tela **Treino & BAL** tem o multiplicador de Sub-XP do seu clube e o desbloqueio dos Pontos de Foco do Rumo ao Estrelato. |
+| **Dá para travar um valor?** | Sim. **Travar valores** (aba Condição & Bio) mantém o fôlego, a seta de forma e a lesão do atleta nos valores escolhidos, regravando cerca de duas vezes por segundo. A trava se desliga sozinha se o jogo fechar ou o atleta travado mudar, e não entra no histórico de desfazer. |
+| **O app usa a internet?** | Só se você ativar. Em `Ajustes > Serviços` o aviso de nova versão vem desligado. Quando ligado, consulta a página pública de releases do GitHub uma vez ao abrir o app, não envia nada sobre você e não baixa nada, só mostra um link. Todo o resto roda no seu computador. |
+| **Onde ficam backups e logs?** | Os backups do elenco vão para `Documentos/PES 2021 Workbench/Packs/Backups`, com limite opcional dos mais recentes (10, 20, 50 ou 100) e indicador de espaço usado. Um registro local das ações em `Documentos/PES 2021 Workbench/Logs` ajuda a reproduzir problemas, gira em 1 MB e pode ser desligado. Nada é enviado. |
+| **Quais idiomas?** | Português, inglês e espanhol. Em espanhol, os nomes de habilidades, estilos de jogo e funções no time ficam em inglês por enquanto. |
 
 ### Atalhos que valem a pena
 
@@ -156,7 +162,7 @@ A base inteira do jogo, não só o seu elenco. Encontre qualquer jogador, abra o
 
 ### Identidade visual
 
-O nome e o logo de alface são os mesmos em qualquer tema. O que muda é a paleta: **`Azul`** (azul-marinho com destaque verde Alface, o padrão) e **`Alface`** (verde-floresta). A troca é ao vivo, em `Ajustes`, e fica salva. Ainda em `Ajustes`: sempre no topo, escala da interface de 90% a 150%, 6 cores de destaque, e tamanho e posição da janela lembrados. Completam o conjunto ícones vetoriais próprios, suporte a múltiplos monitores com DPI diferente, 7 fontes, idioma `PT-BR / EN` e moeda `EUR / BRL / USD / GBP`.
+O nome e o logo de alface são os mesmos em qualquer tema. O que muda é a paleta: **`Azul`** (azul-marinho com destaque verde Alface, o padrão) e **`Alface`** (verde-floresta). A troca é ao vivo, em `Ajustes`, e fica salva. Ainda em `Ajustes`: sempre no topo, escala da interface de 90% a 150%, 6 cores de destaque, e tamanho e posição da janela lembrados. Completam o conjunto ícones vetoriais próprios, suporte a múltiplos monitores com DPI diferente, 7 fontes, idioma `PT-BR / EN / ES` e moeda `EUR / BRL / USD / GBP`.
 
 ---
 

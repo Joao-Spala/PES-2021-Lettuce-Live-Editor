@@ -24,3 +24,6 @@ Thumbs.db
 
 # Cheat tables antigas (versoes legadas, fora da release atual)
 dist/*.CT
+
+# Notas de passagem entre chats (nao fazem parte do repositorio publico)
+docs/HANDOFF_*.md
