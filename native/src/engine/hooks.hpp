@@ -26,7 +26,8 @@ struct HookStateBlock {
     uint64_t ptrMatchState;         // 0x018
     uint64_t ptrMatchHud;           // 0x020
     uint64_t ptrMatchCore;          // 0x028
-    uint8_t  _pad1[0x44];           // 0x030..0x073
+    uint32_t hitsCapture[4];        // 0x030..0x03F: quantas vezes cada um dos 4 pontos de captura de atleta disparou
+    uint8_t  _pad1[0x34];           // 0x040..0x073
     uint32_t cfgTrainingMultMode;   // 0x074
     uint32_t cfgStaminaMode;        // 0x078
     uint32_t cfgFreezeClock;        // 0x07C
@@ -42,6 +43,7 @@ static_assert(offsetof(HookStateBlock, ptrMatchMgr) == 0x010);
 static_assert(offsetof(HookStateBlock, ptrMatchState) == 0x018);
 static_assert(offsetof(HookStateBlock, ptrMatchHud) == 0x020);
 static_assert(offsetof(HookStateBlock, ptrMatchCore) == 0x028);
+static_assert(offsetof(HookStateBlock, hitsCapture) == 0x030);
 static_assert(offsetof(HookStateBlock, cfgTrainingMultMode) == 0x074);
 static_assert(offsetof(HookStateBlock, cfgStaminaMode) == 0x078);
 static_assert(offsetof(HookStateBlock, cfgFreezeClock) == 0x07C);
@@ -56,6 +58,7 @@ enum class HookSym : uint32_t {
     ptrMatchState = 0x018,
     ptrMatchHud = 0x020,
     ptrMatchCore = 0x028,
+    hitsCapture = 0x030,
     cfgTrainingMultMode = 0x074,
     cfgStaminaMode = 0x078,
     cfgFreezeClock = 0x07C,

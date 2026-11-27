@@ -210,6 +210,7 @@ bool HookManager::enable_hook_1_player() {
         cave_cursor = state_base + 0x500ULL;
     }
     const uint64_t ptr_player = sym_addr(HookSym::ptrPlayer);
+    const uint64_t hits = sym_addr(HookSym::hitsCapture);   // contador por ponto (diagnostico: de qual tela veio a captura)
     int installed = 0;
 
     try {
@@ -217,6 +218,7 @@ bool HookManager::enable_hook_1_player() {
             uint64_t site = s1 + 0x13;
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
+            cb.emit_rip({0xFF, 0x05}, hits + 0);   // inc dword [hits[0]]
             cb.emit({0x83, 0xF8, 0x02});
             cb.jcc8(0x75, "code");
             cb.emit_rip({0x48, 0x89, 0x15}, ptr_player);
@@ -228,6 +230,7 @@ bool HookManager::enable_hook_1_player() {
         if (uint64_t s2 = scan(0x8E1400, 0x8E3500, "48 8B 40 2C 48 89 02")) {
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
+            cb.emit_rip({0xFF, 0x05}, hits + 4);   // inc dword [hits[1]]
             cb.emit_rip({0x48, 0x89, 0x05}, ptr_player);
             cb.emit({0x48, 0x8B, 0x40, 0x2C, 0x48, 0x89, 0x02});
             cb.jmp_abs(s2 + 7);
@@ -236,6 +239,7 @@ bool HookManager::enable_hook_1_player() {
         if (uint64_t s3 = scan(0xDDB900, 0xDDDB00, "0F B6 80 50 01 00 00 89 87 98 00 00 00")) {
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
+            cb.emit_rip({0xFF, 0x05}, hits + 8);   // inc dword [hits[2]]
             cb.emit({0x48, 0x85, 0xC0});
             cb.jcc8(0x74, "code");
             cb.emit_rip({0x48, 0x89, 0x05}, ptr_player);
@@ -247,6 +251,7 @@ bool HookManager::enable_hook_1_player() {
         if (uint64_t s4 = scan(0xF26400, 0xF28500, "0F B6 80 50 01 00 00 89 45 67")) {
             uint64_t cave_addr = (cave_cursor + 15ULL) & ~15ULL;
             CodeBuf cb(cave_addr);
+            cb.emit_rip({0xFF, 0x05}, hits + 12);  // inc dword [hits[3]]
             cb.emit({0x48, 0x85, 0xC0});
             cb.jcc8(0x74, "code");
             cb.emit_rip({0x48, 0x89, 0x05}, ptr_player);
