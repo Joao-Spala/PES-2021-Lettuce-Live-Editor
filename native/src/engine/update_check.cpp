@@ -3,7 +3,6 @@
 #include "../app_version.hpp"
 
 #include <windows.h>
-#include <winhttp.h>
 
 #include <atomic>
 #include <cstdint>
@@ -16,7 +15,7 @@ namespace pes::update {
 
 namespace {
 
-constexpr size_t kMaxBodyBytes = 256 * 1024;
+constexpr size_t kMaxBodyBytes = selfupdate::kMaxApiBytes;
 constexpr size_t kMaxTagLen = 40;
 constexpr size_t kMaxUrlLen = 300;
 
@@ -25,56 +24,6 @@ bool has_bad_chars(std::string_view s) {
         if (c <= 0x20 || c == 0x7F) return true;
     }
     return false;
-}
-
-// GET https://api.github.com/repos/<repo>/releases/latest. Retorna false em qualquer falha.
-bool fetch_latest_release_body(const std::string& user_agent, std::string& out) {
-    out.clear();
-    std::wstring ua(user_agent.begin(), user_agent.end());
-    HINTERNET ses = WinHttpOpen(ua.c_str(), WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME,
-                                WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!ses) return false;
-    // resolve, connect, send, receive (ms)
-    WinHttpSetTimeouts(ses, 4000, 4000, 6000, 8000);
-
-    bool ok = false;
-    HINTERNET con = WinHttpConnect(ses, L"api.github.com", INTERNET_DEFAULT_HTTPS_PORT, 0);
-    HINTERNET req = nullptr;
-    if (con) {
-        std::string path_a = std::string("/repos/") + kUpdateRepo + "/releases/latest";
-        std::wstring path(path_a.begin(), path_a.end());
-        req = WinHttpOpenRequest(con, L"GET", path.c_str(), nullptr, WINHTTP_NO_REFERER,
-                                 WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
-    }
-    if (req) {
-        const wchar_t* hdr = L"Accept: application/vnd.github+json\r\n";
-        if (WinHttpSendRequest(req, hdr, static_cast<DWORD>(-1L), WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
-            WinHttpReceiveResponse(req, nullptr)) {
-            DWORD status = 0, sz = sizeof(status);
-            if (WinHttpQueryHeaders(req, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                                    WINHTTP_HEADER_NAME_BY_INDEX, &status, &sz, WINHTTP_NO_HEADER_INDEX) &&
-                status == 200) {
-                ok = true;
-                for (;;) {
-                    DWORD avail = 0;
-                    if (!WinHttpQueryDataAvailable(req, &avail)) { ok = false; break; }
-                    if (avail == 0) break;
-                    if (out.size() + avail > kMaxBodyBytes) { ok = false; break; }
-                    const size_t old = out.size();
-                    out.resize(old + avail);
-                    DWORD got = 0;
-                    if (!WinHttpReadData(req, &out[old], avail, &got)) { ok = false; break; }
-                    out.resize(old + got);
-                    if (got == 0) break;
-                }
-            }
-        }
-    }
-    if (req) WinHttpCloseHandle(req);
-    if (con) WinHttpCloseHandle(con);
-    WinHttpCloseHandle(ses);
-    if (!ok) out.clear();
-    return ok;
 }
 
 } // namespace
@@ -159,49 +108,153 @@ bool parse_release_json(std::string_view body, Release& out) {
     return true;
 }
 
+
 struct Checker::Shared {
     mutable std::mutex mtx;
     Snapshot snap;
     std::atomic<bool> cancelled{false};
+    Config cfg;
 };
 
-Checker::Checker() : sh_(std::make_shared<Shared>()) {}
+namespace {
+
+struct InstallOutcome {
+    bool installed = false;
+    std::string note;
+    std::string detail;
+};
+
+// Baixa o manifesto, a assinatura e o exe da release `tag`, confere tudo e troca o executavel.
+InstallOutcome run_install(const Config& cfg, const std::string& tag, const std::string& current_version, const std::string& ua) {
+    InstallOutcome o;
+    const std::wstring exe = cfg.exe_path.empty() ? selfupdate::current_exe_path() : cfg.exe_path;
+    if (exe.empty()) {
+        o.note = kNoteWrite;
+        o.detail = "executable path unknown";
+        return o;
+    }
+    // O host e o caminho vem da configuracao fixa. Da API entra so a tag, que parse_release_json restringe a [0-9A-Za-z.+-].
+    const std::wstring base = cfg.source.dl_prefix + std::wstring(tag.begin(), tag.end()) + L"/";
+    std::string manifest, sig, bytes;
+    unsigned long st = 0;
+    if (!selfupdate::http_get(cfg.source, false, base + selfupdate::kAssetManifest, ua, selfupdate::kMaxManifestBytes, manifest, &st) ||
+        !selfupdate::http_get(cfg.source, false, base + selfupdate::kAssetSignature, ua, selfupdate::kMaxSignatureBytes, sig, &st)) {
+        o.note = (st == 404) ? kNoteUnsigned : kNoteDownload;
+        o.detail = "manifest or signature not available (HTTP " + std::to_string(st) + ")";
+        return o;
+    }
+    if (!selfupdate::http_get(cfg.source, false, base + selfupdate::kAssetExe, ua, selfupdate::kMaxExeBytes, bytes, &st)) {
+        o.note = (st == 404) ? kNoteUnsigned : kNoteDownload;
+        o.detail = "executable download failed (HTTP " + std::to_string(st) + ")";
+        return o;
+    }
+    selfupdate::Manifest m;
+    const char* why = "";
+    if (!selfupdate::validate_update(manifest, sig, tag, bytes, current_version, cfg.public_key.data(), m, &why)) {
+        o.note = kNoteRefused;
+        o.detail = why;
+        return o;
+    }
+    unsigned long err = 0;
+    if (!selfupdate::apply_update(exe, bytes, &err)) {
+        o.note = kNoteWrite;
+        o.detail = "could not replace the executable (Windows error " + std::to_string(err) + ")";
+        return o;
+    }
+    o.installed = true;
+    return o;
+}
+
+// O estado ja esta em Installing (quem chamou trocou dentro do lock)
+void finish_install(const std::shared_ptr<Checker::Shared>& sh, const Release& rel, const std::string& current_version,
+                    const std::string& ua, const std::function<void()>& notify);
+
+} // namespace
+
+Checker::Checker(Config cfg) : sh_(std::make_shared<Shared>()) {
+    sh_->cfg = std::move(cfg);
+}
 
 Checker::~Checker() {
     // Nao espera a rede: a thread guarda sua propria referencia ao estado e termina sozinha
     if (sh_) sh_->cancelled.store(true);
 }
 
-void Checker::start(const std::string& current_version, std::function<void()> on_done) {
+namespace {
+
+void finish_install(const std::shared_ptr<Checker::Shared>& sh, const Release& rel, const std::string& current_version,
+                    const std::string& ua, const std::function<void()>& notify) {
+    notify();   // o banner mostra "baixando"
+    InstallOutcome o;
+    try {
+        o = run_install(sh->cfg, rel.tag, current_version, ua);
+    } catch (...) {
+        o.note = kNoteDownload;
+        o.detail = "unexpected error";
+    }
+    {
+        std::lock_guard<std::mutex> g(sh->mtx);
+        if (o.installed) {
+            sh->snap.state = State::Installed;
+            sh->snap.note.clear();
+            sh->snap.detail.clear();
+        } else {
+            sh->snap.state = State::Available;
+            sh->snap.note = o.note;
+            sh->snap.detail = o.detail;
+        }
+    }
+    notify();
+}
+
+} // namespace
+
+void Checker::start(const std::string& current_version, bool auto_install, std::function<void()> on_done) {
     {
         std::lock_guard<std::mutex> g(sh_->mtx);
-        if (sh_->snap.state == State::Checking) return;
+        // Com a atualizacao ja no lugar nao ha o que verificar ate reiniciar. Instalar de novo tentaria apagar o .old,
+        // que e a imagem do processo em execucao, e acabaria em um "sem permissao" enganoso.
+        if (sh_->snap.state == State::Checking || sh_->snap.state == State::Installing || sh_->snap.state == State::Installed) return;
         sh_->snap = Snapshot{};
         sh_->snap.state = State::Checking;
     }
     std::shared_ptr<Shared> sh = sh_;
-    const std::string ua = std::string("LettuceLiveEditor-UpdateCheck/") + current_version;
+    const std::string ua = std::string("LettuceLiveEditor-Update/") + current_version;
     const Version cur = parse_version(current_version);
 
     try {
-        std::thread([sh, ua, cur, on_done = std::move(on_done)]() {
+        std::thread([sh, ua, cur, current_version, auto_install, on_done = std::move(on_done)]() {
+            auto notify = [&sh, &on_done]() {
+                if (!sh->cancelled.load() && on_done) {
+                    try { on_done(); } catch (...) {}
+                }
+            };
             std::string body;
             Release rel;
             State result = State::Failed;
             try {
-                if (cur.valid && fetch_latest_release_body(ua, body) && parse_release_json(body, rel)) {
+                if (cur.valid &&
+                    selfupdate::http_get(sh->cfg.source, true, sh->cfg.source.api_path, ua, selfupdate::kMaxApiBytes, body, nullptr) &&
+                    parse_release_json(body, rel)) {
                     result = (compare_versions(parse_version(rel.tag), cur) > 0) ? State::Available : State::UpToDate;
                 }
             } catch (...) {
                 result = State::Failed;   // nenhuma excecao pode derrubar o app a partir desta thread
             }
+            bool install_now = false;
             {
                 std::lock_guard<std::mutex> g(sh->mtx);
                 sh->snap.state = result;
-                sh->snap.release = (result == State::Available) ? std::move(rel) : Release{};
+                sh->snap.release = (result == State::Available) ? rel : Release{};
+                if (result == State::Available && auto_install) {
+                    sh->snap.state = State::Installing;
+                    install_now = true;
+                }
             }
-            if (!sh->cancelled.load() && on_done) {
-                try { on_done(); } catch (...) {}
+            if (install_now) {
+                finish_install(sh, rel, current_version, ua, notify);
+            } else {
+                notify();
             }
         }).detach();
     } catch (...) {
@@ -211,16 +264,45 @@ void Checker::start(const std::string& current_version, std::function<void()> on
     }
 }
 
+void Checker::install(const std::string& current_version, std::function<void()> on_done) {
+    Release rel;
+    {
+        std::lock_guard<std::mutex> g(sh_->mtx);
+        if (sh_->snap.state != State::Available) return;
+        rel = sh_->snap.release;
+        sh_->snap.state = State::Installing;
+        sh_->snap.note.clear();
+        sh_->snap.detail.clear();
+    }
+    std::shared_ptr<Shared> sh = sh_;
+    const std::string ua = std::string("LettuceLiveEditor-Update/") + current_version;
+    try {
+        std::thread([sh, rel, ua, current_version, on_done = std::move(on_done)]() {
+            auto notify = [&sh, &on_done]() {
+                if (!sh->cancelled.load() && on_done) {
+                    try { on_done(); } catch (...) {}
+                }
+            };
+            finish_install(sh, rel, current_version, ua, notify);
+        }).detach();
+    } catch (...) {
+        std::lock_guard<std::mutex> g(sh_->mtx);
+        sh_->snap.state = State::Available;
+        sh_->snap.note = kNoteDownload;
+    }
+}
+
 Snapshot Checker::snapshot() const {
     std::lock_guard<std::mutex> g(sh_->mtx);
     return sh_->snap;
 }
 
 #ifdef PES_QA_DUMP
-void Checker::qa_force(State s, const Release& r) {
+void Checker::qa_force(State s, const Release& r, const std::string& note) {
     std::lock_guard<std::mutex> g(sh_->mtx);
     sh_->snap.state = s;
     sh_->snap.release = r;
+    sh_->snap.note = note;
 }
 #endif
 

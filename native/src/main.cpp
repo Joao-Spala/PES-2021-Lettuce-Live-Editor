@@ -19,6 +19,7 @@
 #include "../third_party/imgui/imgui_impl_dx11.h"
 
 #include "engine/pes_engine.hpp"
+#include "engine/self_update.hpp"
 #include "ui/theme.hpp"
 #include "ui/workbench_ui.hpp"
 
@@ -362,7 +363,13 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 } // namespace
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR cmd_line, int nCmdShow) {
+    // 0. Reaberto por uma atualizacao: espera a versao antiga fechar (ela solta os ganchos do jogo ao sair) antes de
+    //    disputar a instancia unica
+    if (const unsigned long prev_pid = pes::selfupdate::parse_after_update_pid(cmd_line)) {
+        pes::selfupdate::wait_for_exit(prev_pid, 15000);
+    }
+
     // 1. Single-instance protection
 #ifdef PES_QA_DUMP
     HANDLE hMutex = nullptr; // build de QA nao disputa a instancia unica com o app aberto
@@ -378,6 +385,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
         CloseHandle(hMutex);
         return 0;
     }
+
+    // Restos de uma atualizacao anterior (o .old da versao que acabou de fechar). Falha em silencio se ainda em uso.
+    pes::selfupdate::finish_previous_update(pes::selfupdate::current_exe_path());
 
     // 2. Per-Monitor V2 DPI Awareness
     ImGui_ImplWin32_EnableDpiAwareness();
@@ -616,6 +626,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
             {"29_wide_offline_dash",   1920, 1200, 0, 0, 7},
             {"32_wide_update_banner",  1920, 1200, 0, 0, 6},
             {"33_narrow_update_banner", 980, 1080, 0, 0, 6},
+            {"38_wide_update_installed",   1920, 1200, 0, 0, 11},
+            {"39_narrow_update_installed",  980, 1080, 0, 0, 11},
+            {"40_wide_update_installing",  1920, 1200, 0, 0, 12},
+            {"41_wide_update_refused",     1920, 1200, 0, 0, 13},
+            {"42_narrow_update_refused",    980, 1080, 0, 0, 13},
         };
         int last_w = -1, last_h = -1;
         for (const auto& s : shots) {

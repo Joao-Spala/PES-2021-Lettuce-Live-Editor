@@ -327,7 +327,7 @@ AppSettings parse_settings(std::istream& f) {
         else if (k == "win_w") s.win_w = clamp_geom(v);
         else if (k == "win_h") s.win_h = clamp_geom(v);
         else if (k == "win_max") s.win_max = (v == "1");
-        else if (k == "check_updates") s.check_updates = (v == "1");
+        else if (k == "auto_update") s.auto_update = (v != "0");   // so "0" desliga: valor estranho nao tira a atualizacao
         else if (k == "update_dismissed") s.update_dismissed = sanitize_version_tag(v);
         else if (k == "backup_keep") s.backup_keep_idx = std::clamp(std::atoi(v.c_str()), 0, backups::kKeepOptionCount - 1);
         else if (k == "action_log") s.action_log = (v != "0");
@@ -358,7 +358,7 @@ void write_settings(std::ostream& f, const AppSettings& s) {
     f << "win_x=" << s.win_x << "\n" << "win_y=" << s.win_y << "\n";
     f << "win_w=" << s.win_w << "\n" << "win_h=" << s.win_h << "\n";
     f << "win_max=" << (s.win_max ? 1 : 0) << "\n";
-    f << "check_updates=" << (s.check_updates ? 1 : 0) << "\n";
+    f << "auto_update=" << (s.auto_update ? 1 : 0) << "\n";
     f << "update_dismissed=" << sanitize_version_tag(s.update_dismissed) << "\n";
     f << "backup_keep=" << std::clamp(s.backup_keep_idx, 0, backups::kKeepOptionCount - 1) << "\n";
     f << "action_log=" << (s.action_log ? 1 : 0) << "\n";

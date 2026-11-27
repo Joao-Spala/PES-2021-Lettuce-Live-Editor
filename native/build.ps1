@@ -56,6 +56,7 @@ $AppSources = @(
     "$NativeDir\src\engine\win32_mem.cpp",
     "$NativeDir\src\engine\backup_retention.cpp",
     "$NativeDir\src\engine\action_log.cpp",
+    "$NativeDir\src\engine\self_update.cpp",
     "$NativeDir\src\engine\update_check.cpp",
     "$NativeDir\src\engine\image_scan.cpp",
     "$NativeDir\src\engine\hooks.cpp",
@@ -112,7 +113,7 @@ Write-Host "  [LD] $OutExe"
 & $Clang -std=c++20 -O3 -flto -s -mwindows -municode -static `
     @Objects `
     -o $OutExe `
-    -ld3d11 -ldxgi -ld3dcompiler -ldwmapi -limm32 -lole32 -lshell32 -lcomdlg32 -lgdi32 -luser32 -lwinhttp
+    -ld3d11 -ldxgi -ld3dcompiler -ldwmapi -limm32 -lole32 -lshell32 -lcomdlg32 -lgdi32 -luser32 -lwinhttp -lbcrypt
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $szMB = [math]::Round((Get-Item $OutExe).Length / 1MB, 2)

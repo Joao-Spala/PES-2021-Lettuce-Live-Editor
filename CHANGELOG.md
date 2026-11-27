@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [14.2.0] - 2026-11-27 - Automatic updates
+
+### Added / Adicionado
+- **Automatic update, on by default.** When the app opens it asks GitHub for the latest release (nothing about you is sent). If it is newer, the app downloads `Lettuce_Live_Editor.exe` and the signed manifest, checks the maintainer's signature (ECDSA P-256 over SHA-256, public key inside the app), that the manifest version equals the release tag and is above the running one (never downgrades), the SHA-256 and size, and that the file is a 64-bit executable. Then it swaps its own executable. The new version takes effect when you click Restart now or open the app again. Any failure leaves the current executable untouched and the banner says why. Turn it off in Settings > Services.
+- Update banner states: downloading, installed (Restart now or Later), and not installed with the reason (no signed files in the release, download failed, refused for safety, no permission to write in the folder).
+- `native/sign_update.ps1` (maintainer only): builds the signed manifest for a release. The key never enters the repository.
+- Tests: `native/tests/test_self_update.cpp`, 111 checks covering the crypto, the manifest, swapping an executable that is in use and the whole cycle against a local HTTP server (valid, tampered, wrong key, unsigned, replayed old manifest, download error, GitHub down). Total 472 checks.
+
+### Changed / Alterado
+- The setting is now `auto_update` (on by default) and replaces `check_updates` (off by default), which is ignored.
+- Releases must carry `Lettuce_Live_Editor.exe`, `update_manifest.txt` and `update_manifest.sig`. A release without them only shows the notice with a link.
+- Versions up to 14.1.1 do not have the updater, so they need one manual update to get it.
+
+---
+
 ## [14.1.1] - 2026-11-27 - Compatibility overhaul
 
 ### Changed / Alterado

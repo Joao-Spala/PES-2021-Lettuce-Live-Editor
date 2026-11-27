@@ -176,6 +176,9 @@ private:
     void apply_process_target(const std::string& exe, uint32_t pid);
     void render_process_picker(const FontBank& fonts);
     bool update_manual_ = false;   // o usuario pediu "Verificar agora": o aviso aparece mesmo com a opcao desligada
+    bool update_restart_hidden_ = false;   // "Depois" no aviso de reiniciar: some ate a proxima abertura
+    update::State update_logged_state_ = update::State::Idle;   // ultimo estado que foi para o log de acoes
+    std::string update_logged_note_;
 #ifdef PES_QA_DUMP
     bool qa_open_prefs_ = false;
     bool qa_fake_procs_ = false;
@@ -184,6 +187,9 @@ private:
     BackupInfo backup_info_;
     void start_services_once();
     void start_update_check();
+    void start_update_install();
+    void restart_for_update();
+    void log_update_state(const update::Snapshot& snap);
     void apply_backup_retention();
     void refresh_backup_info();
     void render_prefs_services();
