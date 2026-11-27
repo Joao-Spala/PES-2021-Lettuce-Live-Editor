@@ -223,7 +223,6 @@ WorkbenchApp::WorkbenchApp(PESEngine& engine) : engine_(engine) {
     actionlog::set_directory(std::filesystem::path(utf8_to_wide(get_logs_directory())));
     actionlog::set_enabled(settings_.action_log);
     apply_backup_retention();
-    open_welcome_guide_ = !settings_.first_run_done;
     engine_.set_target_process(settings_.game_process, 0);   // processo escolhido a mao em outra sessao (vazio = automatico)
 }
 
@@ -810,7 +809,6 @@ bool WorkbenchApp::render_frame(const FontBank& fonts) {
     ImGui::EndGroup();
 
     render_modals(fonts);
-    render_welcome_guide(fonts);
     render_process_picker(fonts);
 
     ImGui::End();
@@ -1377,9 +1375,8 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
     if (st_.in_match) draw_pill(T(L, "● EM PARTIDA", "● IN MATCH"), col::GreenSoft, ImVec4(0.063f, 0.725f, 0.506f, 0.18f), ImVec4(0.063f, 0.725f, 0.506f, 0.55f));
     else draw_pill(T(L, "● Fora de Partida", "● Not in Match"), col::Subtext, ImVec4(col::Subtext.x, col::Subtext.y, col::Subtext.z, 0.12f), col::Border);
 
-    wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.", "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
+    render_connection_hint(fonts);
     ImGui::Spacing();
-    render_setup_checklist(fonts);
 
     // 3 Responsive KPI Cards (equal height when 3-column, illuminated top accent + icon medallions)
     float avail_w = ImGui::GetContentRegionAvail().x;
@@ -5500,7 +5497,6 @@ void WorkbenchApp::qa_select_screen(int view_idx, int ptab_idx, int modal_kind) 
     open_cmd_modal_ = (modal_kind == 1);
     open_json_modal_ = (modal_kind == 2);
     open_pack_modal_ = (modal_kind == 3);
-    open_welcome_guide_ = (modal_kind == 4);
     qa_open_prefs_ = (modal_kind == 5 || modal_kind == 9);
     prefs_tab_ = (modal_kind == 9) ? 1 : 0;
     if (modal_kind == 6) update_manual_ = true;
@@ -5573,11 +5569,6 @@ void WorkbenchApp::start_services_once() {
     if (services_started_) return;
     services_started_ = true;
     actionlog::write("INFO", std::string("Lettuce Live Editor v") + kAppVersion + " started");
-    if (open_welcome_guide_) {
-        // Visto uma vez: nao volta a abrir sozinho nem se for fechado com Esc
-        settings_.first_run_done = true;
-        save_settings(settings_);
-    }
     if (settings_.check_updates) start_update_check();
 }
 
@@ -5751,130 +5742,48 @@ void WorkbenchApp::render_prefs_services() {
         std::filesystem::create_directories(std::filesystem::path(w), ec);
         ShellExecuteW(static_cast<HWND>(hwnd_), L"open", w.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     }
-    ImGui::SameLine(0, gap);
-    if (ImGui::Button(T(L, "Rever guia de início##guide_open", "Show getting started guide##guide_open"))) {
-        open_welcome_guide_ = true;
-        ImGui::CloseCurrentPopup();
-    }
 }
 
-namespace {
-
-enum class StepState { Done, Pending, Warn };
-
-void draw_step_row(const char* text, StepState s, float dpi, float wrap_w) {
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    const float r = std::round(8.0f * dpi);
-    ImVec2 p = ImGui::GetCursorScreenPos();
-    const ImVec2 c(p.x + r, p.y + ImGui::GetTextLineHeight() * 0.5f);
-    const ImVec4 colr = (s == StepState::Done) ? col::GreenSoft : (s == StepState::Warn ? col::GoldSoft : col::Muted);
-    if (s == StepState::Done) {
-        dl->AddCircleFilled(c, r, ImGui::GetColorU32(ImVec4(col::Green.x, col::Green.y, col::Green.z, 0.22f)), 20);
-        draw_icon(dl, Icon::Check, c, r * 1.3f, ImGui::GetColorU32(colr));
-    } else {
-        dl->AddCircle(c, r, ImGui::GetColorU32(colr), 20, std::max(1.2f, 1.5f * dpi));
-    }
-    ImGui::Dummy(ImVec2(r * 2.0f, 1.0f));
-    ImGui::SameLine(0, std::round(10.0f * dpi));
-    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap_w);
-    ImGui::TextColored(s == StepState::Done ? col::Subtext : col::Text, "%s", text);
-    ImGui::PopTextWrapPos();
-    ImGui::Dummy(ImVec2(0, std::round(4.0f * dpi)));
-}
-
-} // namespace
-
-void WorkbenchApp::render_setup_checklist(const FontBank& fonts) {
+void WorkbenchApp::render_connection_hint(const FontBank& fonts) {
+    (void)fonts;
+    Lang L = settings_.lang;
     const bool career_ok = st_.attached && st_.career > 0;
-    const bool all_ok = career_ok && st_.has_player && !st_.access_denied;
-    if (all_ok) return;
-    Lang L = settings_.lang;
-    ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
-
-    begin_studio_card("##setup_card", 0.0f, false, &col::Accent);
-    card_header(T(L, "Primeiros passos", "Getting started"), bold);
-    const char* guide_lbl = T(L, "Ver guia", "Show guide");
-    align_right_or_wrap(calc_btn_w(guide_lbl));
-    if (ImGui::Button(guide_lbl)) open_welcome_guide_ = true;
-    ImGui::Separator();
-    ImGui::Spacing();
-    const float wrap_w = std::max(200.0f * dpi_scale_, ImGui::GetContentRegionAvail().x - 40.0f * dpi_scale_);
-    draw_step_row(T(L, "Abra o PES 2021 ou o Football Life.", "Start PES 2021 or Football Life."),
-                  st_.attached ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
-    if (!st_.attached) {
-        // O app nao achou o jogo pelo nome: deixa escolher o processo, ou avisa quando o escolhido nao e um jogo
-        if (st_.target_unsupported) {
-            wrapped_colored(col::GoldSoft, "%s", T(L, "O processo escolhido não parece ser um jogo compatível. Nada foi gravado nele.",
-                                                      "The chosen process does not look like a compatible game. Nothing was written to it."));
-        } else if (!st_.target_exe.empty()) {
-            const std::string tmsg = std::string(T(L, "Procurando o processo escolhido: ", "Looking for the chosen process: ")) + st_.target_exe;
-            wrapped_colored(col::Muted, "%s", tmsg.c_str());
-        }
-        if (ImGui::Button(T(L, "Escolher processo...##chk_proc", "Choose process...##chk_proc"))) open_proc_picker_ = true;
-        ImGui::Spacing();
+    // Conectado e com carreira: volta a descricao normal da tela. A dica ocupa a mesma linha, entao nada se desloca.
+    if (career_ok && !st_.access_denied) {
+        wrapped_colored(col::Subtext, "%s", T(L, "Controle nativo em tempo real da Master League, Rumo ao Estrelato e Partidas sem Cheat Engine.",
+                                                 "Real-time native control of Master League, Become a Legend, and Matches without Cheat Engine."));
+        return;
     }
-    draw_step_row(T(L, "Entre na Master Liga ou no Rumo ao Estrelato.", "Enter Master League or Become a Legend."),
-                  career_ok ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
-    draw_step_row(st_.access_denied
-                      ? T(L, "O jogo está como administrador: abra este app também como administrador.", "The game is elevated: open this app as Administrator too.")
-                      : T(L, "Se o jogo estiver como administrador, abra este app também como administrador.", "If the game runs elevated, open this app as Administrator too."),
-                  st_.access_denied ? StepState::Warn : (st_.attached ? StepState::Done : StepState::Pending), dpi_scale_, wrap_w);
-    draw_step_row(T(L, "Destaque um jogador no Plano de Jogo. O app o captura em segundo plano.", "Highlight a player in the Game Plan. The app captures them in the background."),
-                  st_.has_player ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
-    end_studio_card();
-    ImGui::Dummy(ImVec2(0, std::round(8.0f * dpi_scale_)));
-}
-
-void WorkbenchApp::render_welcome_guide(const FontBank& fonts) {
-    if (open_welcome_guide_) {
-        ImGui::OpenPopup("##WelcomeGuide");
-        open_welcome_guide_ = false;
+    std::string msg;
+    ImVec4 tone = col::AccentSoft;
+    bool can_pick = !st_.attached;
+    if (st_.access_denied) {
+        msg = T(L, "O jogo está como administrador. Abra este app também como administrador.", "The game is elevated. Open this app as Administrator too.");
+        tone = col::GoldSoft;
+        can_pick = false;
+    } else if (st_.target_unsupported) {
+        msg = T(L, "O processo escolhido não parece ser um jogo compatível. Nada foi gravado nele.", "The chosen process does not look like a compatible game. Nothing was written to it.");
+        tone = col::GoldSoft;
+    } else if (!st_.attached) {
+        msg = st_.target_exe.empty()
+            ? std::string(T(L, "Aguardando o PES 2021 ou o Football Life. A conexão é automática.", "Waiting for PES 2021 or Football Life. The connection is automatic."))
+            : std::string(T(L, "Procurando o processo escolhido: ", "Looking for the chosen process: ")) + st_.target_exe;
+        tone = col::Subtext;
+    } else {
+        msg = T(L, "Jogo conectado. Entre na Master Liga ou no Rumo ao Estrelato para liberar o resto.", "Game connected. Enter Master League or Become a Legend to unlock the rest.");
+        tone = col::GreenSoft;
     }
-    Lang L = settings_.lang;
-    ImFont* bold = fonts.bold[std::clamp(settings_.font_idx, 0, fonts.count - 1)];
-    ImGuiViewport* vp = ImGui::GetMainViewport();
-    const float w = std::min(520.0f * dpi_scale_, vp->Size.x - 48.0f);
-    ImGui::SetNextWindowSize(ImVec2(w, 0.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x * 0.5f, vp->Pos.y + vp->Size.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(std::round(22.0f * dpi_scale_), std::round(18.0f * dpi_scale_)));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, std::round(14.0f * dpi_scale_));
-    ImGui::PushStyleColor(ImGuiCol_PopupBg, col::BgCard);
-    ImGui::PushStyleColor(ImGuiCol_Border, col::BorderLit);
-    if (ImGui::BeginPopupModal("##WelcomeGuide", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
-        const float inner_w = w - 2.0f * std::round(22.0f * dpi_scale_);
-        const float wrap_w = inner_w - 28.0f * dpi_scale_;
-        if (bold) ImGui::PushFont(bold);
-        ImGui::TextColored(col::Text, "%s", T(L, "Bem-vindo ao Lettuce Live Editor", "Welcome to Lettuce Live Editor"));
-        if (bold) ImGui::PopFont();
-        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + inner_w);
-        ImGui::TextColored(col::Muted, "%s", T(L,
-            "Quatro passos para começar. Os marcadores acompanham o jogo ao vivo.",
-            "Four steps to get started. The markers follow your game live."));
-        ImGui::PopTextWrapPos();
-        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
-
-        const bool career_ok = st_.attached && st_.career > 0;
-        draw_step_row(T(L, "Abra o PES 2021 ou o Football Life (v1.7.2.0).", "Start PES 2021 or Football Life (v1.7.2.0)."),
-                      st_.attached ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
-        draw_step_row(T(L, "Entre na Master Liga ou no Rumo ao Estrelato.", "Enter Master League or Become a Legend."),
-                      career_ok ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
-        draw_step_row(T(L, "Se o jogo estiver como administrador, abra este app também como administrador.", "If the game runs elevated, open this app as Administrator too."),
-                      st_.access_denied ? StepState::Warn : (st_.attached ? StepState::Done : StepState::Pending), dpi_scale_, wrap_w);
-        draw_step_row(T(L, "Destaque um jogador no Plano de Jogo. O app o captura em segundo plano.", "Highlight a player in the Game Plan. The app captures them in the background."),
-                      st_.has_player ? StepState::Done : StepState::Pending, dpi_scale_, wrap_w);
-
-        ImGui::Spacing();
-        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + inner_w);
-        ImGui::TextColored(col::Subtext, "%s", T(L,
-            "Faça backup do save antes de sessões longas. Use só em modos offline.",
-            "Back up your save before long sessions. Use it in offline modes only."));
-        ImGui::PopTextWrapPos();
-        ImGui::Spacing();
-        if (btn_primary(T(L, "Entendi##welcome_ok", "Got it##welcome_ok"))) ImGui::CloseCurrentPopup();
-        ImGui::EndPopup();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const float lh = ImGui::GetTextLineHeight();
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    draw_led_dot(dl, ImVec2(p.x + 4.0f * dpi_scale_, p.y + lh * 0.5f), 3.4f * dpi_scale_, tone, !st_.attached);
+    ImGui::Dummy(ImVec2(14.0f * dpi_scale_, lh));
+    ImGui::SameLine(0, 0);
+    ImGui::TextColored(tone, "%s", msg.c_str());
+    if (can_pick) {
+        ImGui::SameLine(0, 12.0f * dpi_scale_);
+        if (ImGui::SmallButton(T(L, "Escolher processo...##hint_proc", "Choose process...##hint_proc"))) open_proc_picker_ = true;
     }
-    ImGui::PopStyleColor(2);
-    ImGui::PopStyleVar(2);
 }
 
 void WorkbenchApp::render_value_lock_card(const FontBank& fonts) {

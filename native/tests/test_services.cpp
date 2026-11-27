@@ -243,7 +243,6 @@ static void test_settings() {
     CHECK(!d.check_updates);
     CHECK(d.backup_keep_idx == 0);
     CHECK(d.action_log);
-    CHECK(!d.first_run_done);
 
     // Ida e volta
     AppSettings s;
@@ -251,7 +250,6 @@ static void test_settings() {
     s.update_dismissed = "v14.2.0";
     s.backup_keep_idx = 3;
     s.action_log = false;
-    s.first_run_done = true;
     s.lang = Lang::EN;
     s.currency_idx = 2;
     std::ostringstream out;
@@ -259,12 +257,11 @@ static void test_settings() {
     std::istringstream in(out.str());
     AppSettings r = parse_settings(in);
     CHECK(r.check_updates && r.update_dismissed == "v14.2.0" && r.backup_keep_idx == 3);
-    CHECK(!r.action_log && r.first_run_done && r.lang == Lang::EN && r.currency_idx == 2);
+    CHECK(!r.action_log && r.lang == Lang::EN && r.currency_idx == 2);
 
-    // Arquivo de versao anterior (sem as chaves novas): usuario antigo nao ve o guia, nada de rede, backups ilimitados
+    // Arquivo de versao anterior (sem as chaves novas): nada de rede, backups ilimitados
     std::istringstream old_file("lang=pt\ncurrency=1\ntheme=0\naccent=5\n");
     AppSettings o = parse_settings(old_file);
-    CHECK(o.first_run_done);
     CHECK(!o.check_updates && o.backup_keep_idx == 0 && o.action_log);
     CHECK(o.currency_idx == 1);
 
@@ -274,8 +271,11 @@ static void test_settings() {
     CHECK(b.backup_keep_idx == pes::backups::kKeepOptionCount - 1);
     CHECK(b.update_dismissed == "v1rm-rf");    // so [0-9A-Za-z.+-]
     CHECK(!b.check_updates);                     // so "1" liga
-    CHECK(!b.first_run_done);                    // chave presente com 0: guia pendente
     CHECK(!b.action_log);
+
+    // Chave que existiu em versoes anteriores (first_run_done) e ignorada sem efeito
+    std::istringstream legacy("first_run_done=1\nlang=es\n");
+    CHECK(parse_settings(legacy).lang == Lang::ES);
 
     std::istringstream neg("backup_keep=-4\nupdate_dismissed=" + std::string(500, 'a') + "\n");
     AppSettings n = parse_settings(neg);
@@ -284,7 +284,7 @@ static void test_settings() {
 
     std::istringstream empty("");
     AppSettings e = parse_settings(empty);
-    CHECK(e.first_run_done);   // arquivo existe mas vazio: trata como usuario antigo
+    CHECK(!e.check_updates && e.action_log && e.game_process.empty());   // vazio: so os padroes
     std::printf("Ajustes: padroes, migracao e valores corrompidos PASS\n");
 }
 
@@ -641,7 +641,11 @@ static void test_process_picker() {
         CHECK(m.attach() && m.pid == GetCurrentProcessId());
         m.detach();
         m.set_target(L"", 0);
-        CHECK(!m.attach());   // automatico: nenhum PES 2021 nem Football Life rodando no teste
+        // automatico: so acha se houver mesmo um PES 2021 ou Football Life rodando na maquina que roda o teste
+        bool game_running = false;
+        for (const auto& p : procs) game_running = game_running || p.recognized;
+        if (!game_running) CHECK(!m.attach());
+        else m.detach();
     }
 
     // Ajustes: o executavel escolhido persiste, e nomes com caminho, aspas ou controles sao limpos

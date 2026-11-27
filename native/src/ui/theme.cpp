@@ -307,7 +307,6 @@ AppSettings parse_settings(std::istream& f) {
     AppSettings s;
     std::string line;
     bool has_theme = false;
-    bool has_first_run = false;
     while (std::getline(f, line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         auto eq = line.find('=');
@@ -333,10 +332,7 @@ AppSettings parse_settings(std::istream& f) {
         else if (k == "backup_keep") s.backup_keep_idx = std::clamp(std::atoi(v.c_str()), 0, backups::kKeepOptionCount - 1);
         else if (k == "action_log") s.action_log = (v != "0");
         else if (k == "game_process") s.game_process = sanitize_exe_name(v);
-        else if (k == "first_run_done") { s.first_run_done = (v == "1"); has_first_run = true; }
     }
-    // Arquivo de uma versao anterior (existe, mas sem a chave): quem ja usava o app nao ve o guia de boas-vindas
-    if (!has_first_run) s.first_run_done = true;
     // Arquivo anterior aos temas: adota tambem a cor de destaque do tema padrao (identidade completa)
     // (so migra quem ainda usava o destaque padrao antigo: uma cor escolhida de proposito e mantida)
     if (!has_theme && s.accent_idx == 0) s.accent_idx = theme_default_accent(s.theme_idx);
@@ -366,7 +362,6 @@ void write_settings(std::ostream& f, const AppSettings& s) {
     f << "update_dismissed=" << sanitize_version_tag(s.update_dismissed) << "\n";
     f << "backup_keep=" << std::clamp(s.backup_keep_idx, 0, backups::kKeepOptionCount - 1) << "\n";
     f << "action_log=" << (s.action_log ? 1 : 0) << "\n";
-    f << "first_run_done=" << (s.first_run_done ? 1 : 0) << "\n";
     f << "game_process=" << sanitize_exe_name(s.game_process) << "\n";
 }
 

@@ -176,7 +176,6 @@ private:
     void apply_process_target(const std::string& exe, uint32_t pid);
     void render_process_picker(const FontBank& fonts);
     bool update_manual_ = false;   // o usuario pediu "Verificar agora": o aviso aparece mesmo com a opcao desligada
-    bool open_welcome_guide_ = false;
 #ifdef PES_QA_DUMP
     bool qa_open_prefs_ = false;
     bool qa_fake_procs_ = false;
@@ -189,8 +188,7 @@ private:
     void refresh_backup_info();
     void render_prefs_services();
     void render_update_banner(const FontBank& fonts);
-    void render_setup_checklist(const FontBank& fonts);
-    void render_welcome_guide(const FontBank& fonts);
+    void render_connection_hint(const FontBank& fonts);
     void render_value_lock_card(const FontBank& fonts);
     ValueLockConfig lock_ui_;
     uint64_t lock_ui_addr_ = 0;   // atleta ao qual os interruptores de lock_ui_ se referem

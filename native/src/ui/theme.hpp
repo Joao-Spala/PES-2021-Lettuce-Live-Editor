@@ -26,7 +26,6 @@ struct AppSettings {
     std::string update_dismissed;    // tag da versao cujo aviso foi dispensado (ex.: "v14.2.0")
     int backup_keep_idx = 0;         // indice em backups::kKeepOptions (0 = guardar todos)
     bool action_log = true;          // log local das acoes (Documentos\Lettuce Live Editor\Logs)
-    bool first_run_done = false;     // guia de boas-vindas ja exibido
     std::string game_process;        // executavel escolhido a mao no seletor de processo (vazio = detectar sozinho)
 };
 

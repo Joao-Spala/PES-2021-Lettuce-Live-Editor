@@ -614,8 +614,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
             {"27_tall_player_bio",     1920, 2300, 3, 0, 0},
             {"28_tall_player_bio_lock",1920, 2300, 3, 0, 8},
             {"29_wide_offline_dash",   1920, 1200, 0, 0, 7},
-            {"30_wide_welcome",        1920, 1200, 0, 0, 4},
-            {"31_narrow_welcome",       980, 1080, 0, 0, 4},
             {"32_wide_update_banner",  1920, 1200, 0, 0, 6},
             {"33_narrow_update_banner", 980, 1080, 0, 0, 6},
         };
