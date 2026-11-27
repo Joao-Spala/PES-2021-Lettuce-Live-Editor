@@ -180,12 +180,10 @@ powershell -ExecutionPolicy Bypass -File native\build.ps1
 
 Saída: `dist/PES 2021 Workbench Native.exe`.
 
-Testes unitários da engine (OVR solver, Lab de Posições, parser monetário, acentos, funções de time, presets de habilidades e modelo econômico):
+Testes unitários (OVR solver, Lab de Posições, parser monetário, acentos, funções de time, presets de habilidades, modelo econômico, dicionário de espanhol, backups, ajustes, seletor de processo e mais). O script compila e roda os dois programas de teste:
 
 ```powershell
-cd native
-clang++ -std=c++20 -O2 -DUNICODE -D_UNICODE -Isrc -Ithird_party/json tests/test_engine.cpp src/engine/ovr_engine.cpp src/engine/pes_engine.cpp src/engine/hooks.cpp src/engine/win32_mem.cpp -lole32 -lshell32 -luser32 -o tests/test_engine.exe
-.\tests\test_engine.exe
+powershell -ExecutionPolicy Bypass -File native\tests\build_tests.ps1
 ```
 
 O logo e o ícone são gerados por `native/assets/make_logo.ps1` (GDI+). As imagens deste README ficam em `docs/assets`.

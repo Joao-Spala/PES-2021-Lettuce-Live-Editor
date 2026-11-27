@@ -15,7 +15,7 @@ $ImGui = @("imgui", "imgui_draw", "imgui_tables", "imgui_widgets") | ForEach-Obj
 foreach ($o in $ImGui) { if (-not (Test-Path $o)) { throw "Objeto do ImGui ausente ($o). Rode native\build.ps1 primeiro." } }
 
 Write-Host "[engine] test_engine"
-& $Clang @Common "$NativeDir\tests\test_engine.cpp" "$Src\engine\ovr_engine.cpp" "$Src\engine\pes_engine.cpp" "$Src\engine\hooks.cpp" "$Src\engine\win32_mem.cpp" "$Src\engine\backup_retention.cpp" -lole32 -lshell32 -luser32 -o "$Out\test_engine.exe"
+& $Clang @Common "$NativeDir\tests\test_engine.cpp" "$Src\engine\ovr_engine.cpp" "$Src\engine\pes_engine.cpp" "$Src\engine\hooks.cpp" "$Src\engine\win32_mem.cpp" "$Src\engine\backup_retention.cpp" "$Src\engine\action_log.cpp" -lole32 -lshell32 -luser32 -o "$Out\test_engine.exe"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & "$Out\test_engine.exe"
 if ($LASTEXITCODE -ne 0) { Write-Host "test_engine FALHOU"; exit $LASTEXITCODE }
