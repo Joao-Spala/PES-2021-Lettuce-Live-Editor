@@ -6,10 +6,13 @@
 #include "../src/engine/backup_retention.hpp"
 #include "../src/engine/update_check.hpp"
 #include "../src/engine/value_lock.hpp"
+#include "../src/engine/form_modifiers.hpp"
+#include "../src/ui/arrow_text.hpp"
 #include "../src/ui/i18n.hpp"
 #include "../src/ui/theme.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -480,6 +483,52 @@ static void test_spanish() {
     std::printf("Espanhol: dicionario, formatos, busca e ajustes PASS\n");
 }
 
+
+// ------------------------------------------------------------------------------------------------
+// Seta de forma: multiplicadores lidos da tabela do jogo e texto do tooltip
+
+static void test_form_arrows() {
+    using namespace pes::form;
+    using pes::ui::Lang;
+
+    // Os 25 atributos do app: 23 em algum grupo (8, 12 e 3) e 2 fora (Posse apertada = 19, Agressividade = 25)
+    int n[3] = {0, 0, 0}, none = 0;
+    for (const auto& sd : pes::data::STAT_DEFS) {
+        const int g = group_of_fid(sd.fid);
+        CHECK(g >= -1 && g <= 2);
+        if (g < 0) { ++none; CHECK(sd.fid == 19 || sd.fid == 25); }
+        else ++n[g];
+    }
+    CHECK(n[0] == 8 && n[1] == 12 && n[2] == 3 && none == 2);
+
+    // Valores da tabela (azul = 4 ... vermelha = 0), neutro em 1.0 e piora monotona
+    CHECK(std::fabs(multiplier(4, 0) - 1.12f) < 1e-6f && std::fabs(multiplier(0, 0) - 0.84f) < 1e-6f);
+    CHECK(std::fabs(multiplier(4, 1) - 1.09f) < 1e-6f && std::fabs(multiplier(0, 1) - 0.88f) < 1e-6f);
+    CHECK(std::fabs(multiplier(4, 2) - 1.06f) < 1e-6f && std::fabs(multiplier(0, 2) - 0.88f) < 1e-6f);
+    for (int g = 0; g < 3; ++g) {
+        CHECK(multiplier(2, g) == 1.0f);
+        for (int a = 0; a < 4; ++a) CHECK(multiplier(a + 1, g) > multiplier(a, g));
+    }
+    CHECK(multiplier(-1, 0) == 1.0f && multiplier(5, 0) == 1.0f && multiplier(3, 7) == 1.0f);
+    CHECK(percent(4, 0) == 12 && percent(3, 0) == 6 && percent(2, 0) == 0 && percent(1, 0) == -8 && percent(0, 0) == -16);
+    CHECK(percent(1, 2) == -6 && percent(0, 1) == -12);
+
+    // Texto do tooltip nos tres idiomas
+    for (Lang L : {Lang::PT, Lang::EN, Lang::ES}) {
+        const std::string blue = pes::ui::arrow_effect_text(L, 4);
+        const std::string red = pes::ui::arrow_effect_text(L, 0);
+        const std::string yellow = pes::ui::arrow_effect_text(L, 2);
+        CHECK(blue.find("+12%") != std::string::npos && blue.find("+9%") != std::string::npos && blue.find("+6%") != std::string::npos);
+        CHECK(red.find("-16%") != std::string::npos && red.find("-12%") != std::string::npos);
+        CHECK(yellow.find('%') == std::string::npos || yellow.find("+") == std::string::npos);
+        CHECK(yellow.find("+12%") == std::string::npos);
+        CHECK(*pes::ui::arrow_title(L, 3) != 0 && *pes::ui::arrow_name(L, 1) != 0);
+    }
+    // os dois atributos sem efeito aparecem como "sem alteracao" (Posse apertada e Agressividade)
+    CHECK(pes::ui::arrow_effect_text(Lang::EN, 4).find("Tight Possession, Aggression") != std::string::npos);
+    std::printf("Seta de forma: tabela do jogo, grupos e tooltips PASS%c", 10);
+}
+
 int main() {
     std::printf("== Servicos v14.1 ==\n");
     test_versions();
@@ -489,6 +538,7 @@ int main() {
     test_settings();
     test_value_lock();
     test_spanish();
+    test_form_arrows();
     std::printf("%d verificacoes, %d falha(s)\n", g_checks, g_fail);
     return g_fail == 0 ? 0 : 1;
 }

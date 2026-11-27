@@ -1,5 +1,6 @@
 #include "widgets.hpp"
 #include "icons.hpp"
+#include "arrow_text.hpp"
 #include "../engine/action_log.hpp"
 
 #include <algorithm>
@@ -676,12 +677,16 @@ void draw_pos_chip(Lang lang, int pos_id, float min_w, float h, ImFont* bold_fon
     if (bold_font) ImGui::PopFont();
 }
 
-void draw_arrow_badge(int arrow, float h, bool blink) {
+void draw_arrow_badge(int arrow, float h, bool blink, Lang lang) {
     int a = std::clamp(arrow, 0, 4);
     ImVec4 fg = arrow_color(a);
     float w = h * 1.18f;
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImGui::Dummy(ImVec2(w, h));
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay)) {
+        const std::string tip = arrow_effect_text(lang, a);
+        show_rich_tooltip(arrow_title(lang, a), tip.c_str());
+    }
     if (blink && !ImGui::IsItemVisible()) blink = false; // fora da tela nao precisa manter 60 fps
     ImDrawList* dl = ImGui::GetWindowDrawList();
     float pulse = 1.0f;
@@ -923,7 +928,10 @@ int draw_arrow_picker(const char* id, int cur_arrow, Lang lang, float avail_w, I
             if (bold_font && act) ImGui::PopFont();
         } else {
             draw_arrow_vector(dl, ImVec2(p.x + tile_w * 0.5f, p.y + tile_h * 0.5f), std::round(7.5f * sc), it.a, to_u32(fg));
-            show_tip_if_hovered(lbl, nullptr);
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay)) {
+            const std::string tip = arrow_effect_text(lang, it.a);
+            show_rich_tooltip(arrow_title(lang, it.a), tip.c_str());
         }
     }
     ImGui::PopID();

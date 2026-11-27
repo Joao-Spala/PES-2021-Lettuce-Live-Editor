@@ -6,12 +6,14 @@
 
 **Editor de carreira em tempo real para o eFootball PES 2021**
 
-![Native C++20](https://img.shields.io/badge/Native-C%2B%2B20_%2B_DX11_%2B_ImGui-84CC16?style=for-the-badge)
-![PES 2021](https://img.shields.io/badge/eFootball_PES_2021-v1.7.2.0_(DP_7.0)-0095D9?style=for-the-badge)
-![Sider](https://img.shields.io/badge/Sider_7.3_%2F_Football_Life-Compatible-F59E0B?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-8B5CF6?style=for-the-badge)
+![Version](docs/assets/badges/version.svg)
+![Native C++20](docs/assets/badges/stack.svg)
+![PES 2021](docs/assets/badges/game.svg)
+![Sider](docs/assets/badges/compat.svg)
+![Languages](docs/assets/badges/languages.svg)
+![License](docs/assets/badges/license.svg)
 
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Pague_um_caf%C3%A9-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/AlfaceJao) [![Pix](https://img.shields.io/badge/Pix-QR_Code-32BCAD?style=for-the-badge&logo=pix&logoColor=white)](#apoie-o-projeto)
+[![Ko-fi](docs/assets/badges/kofi-pt.svg)](https://ko-fi.com/AlfaceJao) [![Pix](docs/assets/badges/pix.svg)](#apoie-o-projeto)
 
 <br>
 
@@ -196,7 +198,7 @@ O logo e o ícone são gerados por `native/assets/make_logo.ps1` (GDI+). As imag
 Este editor é gratuito e de código aberto, e vai continuar assim. Se ele economizou seu tempo e você quiser me pagar um café, vou ficar muito agradecido. Um relato de bug ou um obrigado vale tanto quanto.
 
 **Pix:** escaneie o QR ou use a chave aleatória `925fd607-2011-4ca2-83a4-b3cf145b408b`<br>
-**De fora do Brasil:** [![Ko-fi](https://img.shields.io/badge/Ko--fi-Pague_um_caf%C3%A9-FF5E5B?style=flat&logo=ko-fi&logoColor=white)](https://ko-fi.com/AlfaceJao)
+**De fora do Brasil:** [![Ko-fi](docs/assets/badges/kofi-pt.svg)](https://ko-fi.com/AlfaceJao)
 
 </td>
 </tr>

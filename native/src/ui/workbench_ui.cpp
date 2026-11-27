@@ -1515,7 +1515,7 @@ void WorkbenchApp::render_view_dashboard(const FontBank& fonts) {
             ImGui::SameLine(0, 8.0f * dpi_scale_);
             draw_pos_chip(L, st_.player.pos, std::round(38.0f * dpi_scale_), std::round(22.0f * dpi_scale_), fonts.small_bold ? fonts.small_bold : bold);
             ImGui::SameLine(0, 6.0f * dpi_scale_);
-            draw_arrow_badge(st_.player.arrow, std::round(22.0f * dpi_scale_), st_.player.blink);
+            draw_arrow_badge(st_.player.arrow, std::round(22.0f * dpi_scale_), st_.player.blink, settings_.lang);
             ImGui::TextColored(col::Subtext, "%s  |  %d%s", fmt_club(L, st_.player.club).c_str(), st_.player.age, T(L, "a", "y"));
             draw_stamina_bar(st_.player.stamina, 92.0f);
             ImGui::EndGroup();
@@ -2023,7 +2023,7 @@ void WorkbenchApp::render_view_squad(const FontBank& fonts) {
             if (p->exp_y > 0) ImGui::TextColored(p->is_expiring ? col::GoldSoft : col::Subtext, "%d", p->exp_y);
             else ImGui::TextColored(col::Muted, "-");
             ImGui::TableSetColumnIndex(5); ImGui::Text("%s", fmt_money(p->salary_raw, settings_.currency_idx, L).c_str());
-            ImGui::TableSetColumnIndex(6); draw_arrow_badge(p->arrow, std::round(22.0f * dpi_scale_), p->blink);
+            ImGui::TableSetColumnIndex(6); draw_arrow_badge(p->arrow, std::round(22.0f * dpi_scale_), p->blink, settings_.lang);
             ImGui::TableSetColumnIndex(7); draw_stamina_bar(p->stamina, 62.0f);
             ImGui::TableSetColumnIndex(8);
             if (p->injury > 0) {
@@ -2226,7 +2226,7 @@ void WorkbenchApp::render_view_player(const FontBank& fonts) {
     ImGui::SameLine(0, 9.0f * dpi_scale_);
     page_title(player_.name.c_str(), fonts, bold);
     ImGui::SameLine(0, 9.0f * dpi_scale_);
-    draw_arrow_badge(player_.arrow, std::round(23.0f * dpi_scale_), player_.blink);
+    draw_arrow_badge(player_.arrow, std::round(23.0f * dpi_scale_), player_.blink, settings_.lang);
 
     const char* foot_txt = player_.foot ? T(L, "Canhoto", "Left Foot") : T(L, "Destro", "Right Foot");
     ImGui::PushStyleColor(ImGuiCol_Text, col::Subtext);
@@ -2522,11 +2522,11 @@ void WorkbenchApp::render_ptab_bio(const FontBank& fonts) {
             if (r.ok) { player_ = r; sync_player_form_buffers(); wake_poller(); toasts_.push(blink_v ? T(L, "Seta piscando ativada!", "Blinking arrow on!") : T(L, "Seta piscando desativada.", "Blinking arrow off.")); }
         }
         show_tip_if_hovered(T(L, "Seta piscando", "Blinking arrow"),
-            T(L, "Flag independente da cor da seta (bit 7 do byte 0x146 do registro). Funciona com qualquer cor. No manual da Konami, o ícone piscando indica um atleta influenciado por uma Função no Time: dar mais minutos a ele pode render uma evolução real.",
-                 "Flag independent of the arrow colour (bit 7 of record byte 0x146). Works with any colour. In Konami's manual, the blinking icon marks a player influenced by a Team Role: giving him more minutes can lead to a real breakthrough."));
+            T(L, "Flag separada da cor da seta (bit 7 do byte 0x146 do registro). Funciona com qualquer cor. Segundo o manual da Konami, o ícone piscando marca um atleta influenciado por uma função no time, e dar mais minutos a ele pode gerar uma evolução real (breakthrough).",
+                 "Flag separate from the arrow colour (bit 7 of record byte 0x146). Works with any colour. According to Konami's manual, the blinking icon marks a player influenced by a Team Role, and giving him more minutes can lead to a real breakthrough."));
         ImGui::PushStyleColor(ImGuiCol_Text, col::Muted);
-        ImGui::TextWrapped("%s", T(L, "Faz o ícone de forma do atleta piscar na Master Liga. Só liga a flag, nenhum atributo é alterado.",
-                                      "Makes the player's form icon blink in Master League. It only sets the flag and changes no attributes."));
+        ImGui::TextWrapped("%s", T(L, "Faz o ícone da seta piscar nas listas do jogo. A Master Liga usa esse aviso para marcar um atleta que está sendo influenciado por uma função no time. Aqui você só liga ou desliga o aviso: a cor da seta e os atributos não mudam.",
+                                      "Makes the arrow icon blink in the game's lists. Master League uses this marker for a player being influenced by a Team Role. Here you only turn the marker on or off: the arrow colour and the attributes do not change."));
         ImGui::PopStyleColor();
         end_studio_card();
     }
@@ -4241,7 +4241,7 @@ void WorkbenchApp::render_view_scouts(const FontBank& fonts) {
             else ImGui::TextColored(col::Muted, "-");
             ImGui::TableSetColumnIndex(6); ImGui::Text("%s", fmt_money(e->market_raw, settings_.currency_idx, L).c_str());
             ImGui::TableSetColumnIndex(7); ImGui::Text("%s", fmt_money(e->salary_raw, settings_.currency_idx, L).c_str());
-            ImGui::TableSetColumnIndex(8); draw_arrow_badge(e->arrow, std::round(22.0f * dpi_scale_), e->blink);
+            ImGui::TableSetColumnIndex(8); draw_arrow_badge(e->arrow, std::round(22.0f * dpi_scale_), e->blink, settings_.lang);
             ImGui::TableSetColumnIndex(9);
             {
                 const uint8_t mk = static_cast<uint8_t>(scout_mask_of(e->addr) & ~own_bit);
