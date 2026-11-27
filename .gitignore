@@ -21,3 +21,6 @@ Thumbs.db
 *.tmp
 *.bak
 *.log
+
+# Cheat tables antigas (versoes legadas, fora da release atual)
+dist/*.CT

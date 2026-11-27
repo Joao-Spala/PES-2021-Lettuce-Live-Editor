@@ -21,6 +21,8 @@
 
 [English](README.md) · **Português** · [Apoie](#apoie-o-projeto)
 
+### [Baixar a última versão](https://github.com/Joao-Spala/PES-2021-Lettuce-Live-Editor/releases/latest)
+
 </div>
 
 ---
@@ -56,7 +58,7 @@ O foco é editar com consistência e com volta. Os princípios abaixo orientam o
 
 ### Em 30 segundos
 
-1. Use o executável em `dist/PES 2021 Workbench Native.exe` (ou [compile](#build-e-testes)).
+1. [Baixe a última versão](https://github.com/Joao-Spala/PES-2021-Lettuce-Live-Editor/releases/latest), extraia o zip e execute `Lettuce Live Editor.exe` (ou [compile](#build-e-testes)).
 2. Abra o **PES 2021** ou o **Football Life** e entre na **Master Liga** ou no **Rumo ao Estrelato**.
 3. Abra o Lettuce Live Editor, como Administrador se o jogo estiver elevado.
 4. Destaque um atleta no Plano de Jogo. O app o captura em segundo plano e abre tudo sobre ele.
@@ -163,7 +165,7 @@ O nome e o logo de alface são os mesmos em qualquer tema. O que muda é a palet
 Requer `clang++` (LLVM-MinGW UCRT x86_64) e Python 3 (gera `native/src/data/game_data.hpp`).
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File nativeuild.ps1
+powershell -ExecutionPolicy Bypass -File native\build.ps1
 ```
 
 Saída: `dist/PES 2021 Workbench Native.exe`.
@@ -173,7 +175,7 @@ Testes unitários da engine (OVR solver, Lab de Posições, parser monetário, a
 ```powershell
 cd native
 clang++ -std=c++20 -O2 -DUNICODE -D_UNICODE -Isrc -Ithird_party/json tests/test_engine.cpp src/engine/ovr_engine.cpp src/engine/pes_engine.cpp src/engine/hooks.cpp src/engine/win32_mem.cpp -lole32 -lshell32 -luser32 -o tests/test_engine.exe
-.	ests	est_engine.exe
+.\tests\test_engine.exe
 ```
 
 O logo e o ícone são gerados por `native/assets/make_logo.ps1` (GDI+). As imagens deste README ficam em `docs/assets`.
